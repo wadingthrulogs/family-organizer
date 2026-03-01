@@ -10,6 +10,8 @@ services:
       - APP_BASE_URL=${APP_BASE_URL:-http://localhost:4173}
       - TZ=${TZ:-UTC}
       - SESSION_SECURE=${SESSION_SECURE:-true}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
     volumes:
       - sqlite_data:/data
       - uploads_data:/app/uploads

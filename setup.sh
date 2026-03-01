@@ -197,6 +197,10 @@ if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
   SESSION_SECURE=$(grep -E '^SESSION_SECURE=' .env 2>/dev/null | cut -d= -f2) || true
   SESSION_SECURE="${SESSION_SECURE:-true}"
 
+  # Read secrets from backend/.env so they survive volume recreation
+  SESSION_SECRET=$(grep -E '^SESSION_SECRET=' "$ENV_FILE" 2>/dev/null | cut -d= -f2-) || true
+  ENCRYPTION_KEY=$(grep -E '^ENCRYPTION_KEY=' "$ENV_FILE" 2>/dev/null | cut -d= -f2-) || true
+
   # Preserve APP_BASE_URL if already set (e.g. a Tailscale hostname)
   APP_BASE_URL=$(grep -E '^APP_BASE_URL=' .env 2>/dev/null | cut -d= -f2-) || true
 
@@ -214,9 +218,9 @@ if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
   # Keep backend/.env in sync (in-place, preserves secrets)
   set_env_var "APP_BASE_URL" "$APP_BASE_URL"
 
-  # Rewrite root .env
-  printf 'APP_PORT=%s\nAPP_BASE_URL=%s\nTZ=%s\nSESSION_SECURE=%s\n' \
-    "$APP_PORT" "$APP_BASE_URL" "$APP_TZ" "$SESSION_SECURE" > .env
+  # Rewrite root .env (secrets included so docker-compose can substitute them)
+  printf 'APP_PORT=%s\nAPP_BASE_URL=%s\nTZ=%s\nSESSION_SECURE=%s\nSESSION_SECRET=%s\nENCRYPTION_KEY=%s\n' \
+    "$APP_PORT" "$APP_BASE_URL" "$APP_TZ" "$SESSION_SECURE" "$SESSION_SECRET" "$ENCRYPTION_KEY" > .env
 
   info "Restarting with APP_BASE_URL=${APP_BASE_URL}"
   printf "\n"
@@ -338,8 +342,9 @@ APP_BASE_URL="${APP_BASE_URL%/}"
 set_env_var "APP_BASE_URL" "$APP_BASE_URL"
 success "APP_BASE_URL = ${APP_BASE_URL}"
 
-# Write APP_PORT to root .env (for docker-compose.yml substitution)
-printf 'APP_PORT=%s\n' "$APP_PORT" > .env
+# Write APP_PORT and secrets to root .env (for docker-compose.yml substitution)
+printf 'APP_PORT=%s\nSESSION_SECRET=%s\nENCRYPTION_KEY=%s\n' \
+  "$APP_PORT" "$SESSION_SECRET" "$ENCRYPTION_KEY" > .env
 success "APP_PORT=${APP_PORT} written to .env (root)"
 
 # ── [5/6] Timezone ─────────────────────────────────────────────────────────────

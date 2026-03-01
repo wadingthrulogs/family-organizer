@@ -32,9 +32,42 @@ writes `backend/.env`, and optionally builds and starts the app.
 **Windows users:** Run in WSL2.
 **Default URL:** `https://<your-lan-ip>:443` (Docker, nginx, HTTPS). The setup wizard will show the exact URL.
 **After setup:** Open the URL shown in the terminal and go to `/register` to create your admin account.
-**Reconfigure:** Edit `backend/.env` then `make restart`.
+**Reconfigure:** Most settings (API keys, SMTP, push notifications, weather) can be changed via **Settings → Server Configuration** in the app (admin only). For core server config (`SESSION_SECRET`, `DATABASE_URL`, ports), edit `backend/.env` then `make restart`.
 
 Full guide: [docs/deployment.md](docs/deployment.md)
+
+---
+
+## Post-Setup Configuration
+
+After the initial setup, most optional settings can be changed **directly in the app** without
+editing files or restarting the server. Log in as an admin and go to **Settings**.
+
+### Configurable via Settings UI (Admin → Server Configuration)
+
+| Setting | UI Label |
+|---------|----------|
+| OpenWeatherMap API key | Weather → API Key |
+| SMTP host, port, user, password, from address | Email → SMTP |
+| Web push VAPID keys | Push Notifications → VAPID Keys |
+| Google OAuth client ID & secret | Google Calendar → Credentials |
+| App base URL | Server → App Base URL *(restart required)* |
+
+Sensitive values (secrets, passwords, VAPID keys) are encrypted at rest in the database.
+The UI shows a "configured" badge instead of revealing stored values.
+
+### Still requires `backend/.env` + `make restart`
+
+These are foundational settings that must be present at startup:
+
+| Variable | Purpose |
+|----------|---------|
+| `SESSION_SECRET` | Cookie signing key (≥16 chars) |
+| `ENCRYPTION_KEY` | Secret encryption key (≥32 chars) |
+| `DATABASE_URL` / `SQLITE_PATH` | Database file location |
+| `PORT` | Server port |
+| `NODE_ENV` | Runtime environment |
+| `GOOGLE_REDIRECT_URL` | OAuth callback (must match Google Console) |
 
 ---
 

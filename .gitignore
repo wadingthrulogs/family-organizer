@@ -1,3 +1,6 @@
+# Claude Code
+.claude/
+
 # Node / TypeScript artifacts
 node_modules/
 dist/

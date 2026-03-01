@@ -1,0 +1,657 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════
+   THEME SYSTEM — CSS Custom Properties
+   ═══════════════════════════════════════════════════ */
+
+/* ─── Default (Parchment) ─── */
+:root,
+[data-theme="default"] {
+  --color-bg-page: #F5F1EA;
+  --color-bg-card: #FFFFFF;
+  --color-bg-card-alt: #F8FAFC;
+  --color-bg-input: #FFFFFF;
+  --color-bg-hover: #F1F5F9;
+  --color-bg-skeleton: #F1F5F9;
+  --color-bg-skeleton-bright: #E2E8F0;
+  --color-bg-btn-primary: #0F172A;
+  --color-bg-btn-primary-hover: #1E293B;
+  --color-text-btn-primary: #FFFFFF;
+  --color-bg-nav-active: #0F172A;
+  --color-text-nav-active: #FFFFFF;
+  --color-bg-nav-pill: #FFFFFF;
+  --color-text-nav-pill: #475569;
+  --color-text-heading: #0F172A;
+  --color-text-primary: #1E293B;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748B;
+  --color-text-faint: #94A3B8;
+  --color-text-link: #2F80ED;
+  --color-border: #E2E8F0;
+  --color-border-light: #F1F5F9;
+  --color-border-input: #E2E8F0;
+  --color-accent: #2F80ED;
+  --color-accent-alt: #F2994A;
+  --color-shadow: rgba(15, 23, 42, 0.08);
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-form-label: #334155;
+  --color-shopping-bg: #0F172A;
+  --color-shopping-text: #FFFFFF;
+  --color-shopping-muted: #CBD5E1;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+/* ─── Dark+ (Default Dark) ─── */
+[data-theme="dark-plus"] {
+  --color-bg-page: #1E1E1E;
+  --color-bg-card: #252526;
+  --color-bg-card-alt: #2D2D2D;
+  --color-bg-input: #3C3C3C;
+  --color-bg-hover: #2A2D2E;
+  --color-bg-skeleton: #2D2D2D;
+  --color-bg-skeleton-bright: #3C3C3C;
+  --color-bg-btn-primary: #0E639C;
+  --color-bg-btn-primary-hover: #1177BB;
+  --color-text-btn-primary: #FFFFFF;
+  --color-bg-nav-active: #0E639C;
+  --color-text-nav-active: #FFFFFF;
+  --color-bg-nav-pill: #2D2D2D;
+  --color-text-nav-pill: #CCCCCC;
+  --color-text-heading: #FFFFFF;
+  --color-text-primary: #D4D4D4;
+  --color-text-secondary: #CCCCCC;
+  --color-text-muted: #858585;
+  --color-text-faint: #5A5A5A;
+  --color-text-link: #3794FF;
+  --color-border: #3C3C3C;
+  --color-border-light: #2D2D2D;
+  --color-border-input: #3C3C3C;
+  --color-accent: #0E639C;
+  --color-accent-alt: #CE9178;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #CCCCCC;
+  --color-shopping-bg: #1A1A2E;
+  --color-shopping-text: #E0E0E0;
+  --color-shopping-muted: #858585;
+  --color-shopping-card: rgba(255,255,255,0.06);
+}
+
+/* ─── Light+ (Default Light) ─── */
+[data-theme="light-plus"] {
+  --color-bg-page: #FFFFFF;
+  --color-bg-card: #FFFFFF;
+  --color-bg-card-alt: #F3F3F3;
+  --color-bg-input: #FFFFFF;
+  --color-bg-hover: #E8E8E8;
+  --color-bg-skeleton: #F3F3F3;
+  --color-bg-skeleton-bright: #E0E0E0;
+  --color-bg-btn-primary: #007ACC;
+  --color-bg-btn-primary-hover: #0062A3;
+  --color-text-btn-primary: #FFFFFF;
+  --color-bg-nav-active: #007ACC;
+  --color-text-nav-active: #FFFFFF;
+  --color-bg-nav-pill: #F3F3F3;
+  --color-text-nav-pill: #616161;
+  --color-text-heading: #1E1E1E;
+  --color-text-primary: #333333;
+  --color-text-secondary: #616161;
+  --color-text-muted: #767676;
+  --color-text-faint: #A0A0A0;
+  --color-text-link: #006AB1;
+  --color-border: #E0E0E0;
+  --color-border-light: #F0F0F0;
+  --color-border-input: #CECECE;
+  --color-accent: #007ACC;
+  --color-accent-alt: #E07400;
+  --color-shadow: rgba(0, 0, 0, 0.08);
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-form-label: #333333;
+  --color-shopping-bg: #1E1E1E;
+  --color-shopping-text: #FFFFFF;
+  --color-shopping-muted: #A0A0A0;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+/* ─── Monokai ─── */
+[data-theme="monokai"] {
+  --color-bg-page: #272822;
+  --color-bg-card: #2E2E28;
+  --color-bg-card-alt: #383830;
+  --color-bg-input: #3E3D32;
+  --color-bg-hover: #3E3D32;
+  --color-bg-skeleton: #383830;
+  --color-bg-skeleton-bright: #49483E;
+  --color-bg-btn-primary: #A6E22E;
+  --color-bg-btn-primary-hover: #B8F040;
+  --color-text-btn-primary: #272822;
+  --color-bg-nav-active: #A6E22E;
+  --color-text-nav-active: #272822;
+  --color-bg-nav-pill: #3E3D32;
+  --color-text-nav-pill: #F8F8F2;
+  --color-text-heading: #F8F8F2;
+  --color-text-primary: #F8F8F2;
+  --color-text-secondary: #E6DB74;
+  --color-text-muted: #90908A;
+  --color-text-faint: #75715E;
+  --color-text-link: #66D9EF;
+  --color-border: #49483E;
+  --color-border-light: #3E3D32;
+  --color-border-input: #49483E;
+  --color-accent: #F92672;
+  --color-accent-alt: #FD971F;
+  --color-shadow: rgba(0, 0, 0, 0.35);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #F8F8F2;
+  --color-shopping-bg: #1E1E18;
+  --color-shopping-text: #F8F8F2;
+  --color-shopping-muted: #90908A;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+/* ─── Dracula ─── */
+[data-theme="dracula"] {
+  --color-bg-page: #282A36;
+  --color-bg-card: #2C2F3E;
+  --color-bg-card-alt: #343746;
+  --color-bg-input: #44475A;
+  --color-bg-hover: #44475A;
+  --color-bg-skeleton: #343746;
+  --color-bg-skeleton-bright: #44475A;
+  --color-bg-btn-primary: #BD93F9;
+  --color-bg-btn-primary-hover: #CCA4FF;
+  --color-text-btn-primary: #282A36;
+  --color-bg-nav-active: #BD93F9;
+  --color-text-nav-active: #282A36;
+  --color-bg-nav-pill: #44475A;
+  --color-text-nav-pill: #F8F8F2;
+  --color-text-heading: #F8F8F2;
+  --color-text-primary: #F8F8F2;
+  --color-text-secondary: #E2E0F0;
+  --color-text-muted: #6272A4;
+  --color-text-faint: #545878;
+  --color-text-link: #8BE9FD;
+  --color-border: #44475A;
+  --color-border-light: #343746;
+  --color-border-input: #6272A4;
+  --color-accent: #FF79C6;
+  --color-accent-alt: #FFB86C;
+  --color-shadow: rgba(0, 0, 0, 0.4);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #F8F8F2;
+  --color-shopping-bg: #1E1F29;
+  --color-shopping-text: #F8F8F2;
+  --color-shopping-muted: #6272A4;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+/* ─── Solarized Dark ─── */
+[data-theme="solarized-dark"] {
+  --color-bg-page: #002B36;
+  --color-bg-card: #073642;
+  --color-bg-card-alt: #0A3E4C;
+  --color-bg-input: #073642;
+  --color-bg-hover: #0A3E4C;
+  --color-bg-skeleton: #073642;
+  --color-bg-skeleton-bright: #0A3E4C;
+  --color-bg-btn-primary: #268BD2;
+  --color-bg-btn-primary-hover: #2E9EEA;
+  --color-text-btn-primary: #FDF6E3;
+  --color-bg-nav-active: #268BD2;
+  --color-text-nav-active: #FDF6E3;
+  --color-bg-nav-pill: #073642;
+  --color-text-nav-pill: #93A1A1;
+  --color-text-heading: #FDF6E3;
+  --color-text-primary: #EEE8D5;
+  --color-text-secondary: #93A1A1;
+  --color-text-muted: #839496;
+  --color-text-faint: #586E75;
+  --color-text-link: #2AA198;
+  --color-border: #0A3E4C;
+  --color-border-light: #073642;
+  --color-border-input: #586E75;
+  --color-accent: #268BD2;
+  --color-accent-alt: #CB4B16;
+  --color-shadow: rgba(0, 0, 0, 0.4);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #93A1A1;
+  --color-shopping-bg: #001F29;
+  --color-shopping-text: #FDF6E3;
+  --color-shopping-muted: #839496;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+/* ─── Solarized Light ─── */
+[data-theme="solarized-light"] {
+  --color-bg-page: #FDF6E3;
+  --color-bg-card: #EEE8D5;
+  --color-bg-card-alt: #E8E1CE;
+  --color-bg-input: #FDF6E3;
+  --color-bg-hover: #E8E1CE;
+  --color-bg-skeleton: #EEE8D5;
+  --color-bg-skeleton-bright: #DDD6C1;
+  --color-bg-btn-primary: #268BD2;
+  --color-bg-btn-primary-hover: #2E9EEA;
+  --color-text-btn-primary: #FDF6E3;
+  --color-bg-nav-active: #268BD2;
+  --color-text-nav-active: #FDF6E3;
+  --color-bg-nav-pill: #EEE8D5;
+  --color-text-nav-pill: #657B83;
+  --color-text-heading: #002B36;
+  --color-text-primary: #073642;
+  --color-text-secondary: #586E75;
+  --color-text-muted: #657B83;
+  --color-text-faint: #93A1A1;
+  --color-text-link: #268BD2;
+  --color-border: #DDD6C1;
+  --color-border-light: #EEE8D5;
+  --color-border-input: #93A1A1;
+  --color-accent: #268BD2;
+  --color-accent-alt: #CB4B16;
+  --color-shadow: rgba(0, 43, 54, 0.08);
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-form-label: #586E75;
+  --color-shopping-bg: #073642;
+  --color-shopping-text: #FDF6E3;
+  --color-shopping-muted: #93A1A1;
+  --color-shopping-card: rgba(255,255,255,0.06);
+}
+
+/* ─── One Dark Pro ─── */
+[data-theme="one-dark-pro"] {
+  --color-bg-page: #282C34;
+  --color-bg-card: #2C313A;
+  --color-bg-card-alt: #333842;
+  --color-bg-input: #3A3F4B;
+  --color-bg-hover: #333842;
+  --color-bg-skeleton: #333842;
+  --color-bg-skeleton-bright: #3A3F4B;
+  --color-bg-btn-primary: #61AFEF;
+  --color-bg-btn-primary-hover: #79BFEF;
+  --color-text-btn-primary: #282C34;
+  --color-bg-nav-active: #61AFEF;
+  --color-text-nav-active: #282C34;
+  --color-bg-nav-pill: #3A3F4B;
+  --color-text-nav-pill: #ABB2BF;
+  --color-text-heading: #E5C07B;
+  --color-text-primary: #ABB2BF;
+  --color-text-secondary: #ABB2BF;
+  --color-text-muted: #7F848E;
+  --color-text-faint: #5C6370;
+  --color-text-link: #61AFEF;
+  --color-border: #3A3F4B;
+  --color-border-light: #333842;
+  --color-border-input: #4B5263;
+  --color-accent: #C678DD;
+  --color-accent-alt: #D19A66;
+  --color-shadow: rgba(0, 0, 0, 0.35);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #ABB2BF;
+  --color-shopping-bg: #21252B;
+  --color-shopping-text: #ABB2BF;
+  --color-shopping-muted: #5C6370;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+/* ─── Nord ─── */
+[data-theme="nord"] {
+  --color-bg-page: #2E3440;
+  --color-bg-card: #3B4252;
+  --color-bg-card-alt: #434C5E;
+  --color-bg-input: #3B4252;
+  --color-bg-hover: #434C5E;
+  --color-bg-skeleton: #3B4252;
+  --color-bg-skeleton-bright: #434C5E;
+  --color-bg-btn-primary: #88C0D0;
+  --color-bg-btn-primary-hover: #8FBCBB;
+  --color-text-btn-primary: #2E3440;
+  --color-bg-nav-active: #88C0D0;
+  --color-text-nav-active: #2E3440;
+  --color-bg-nav-pill: #434C5E;
+  --color-text-nav-pill: #D8DEE9;
+  --color-text-heading: #ECEFF4;
+  --color-text-primary: #D8DEE9;
+  --color-text-secondary: #D8DEE9;
+  --color-text-muted: #81A1C1;
+  --color-text-faint: #4C566A;
+  --color-text-link: #88C0D0;
+  --color-border: #434C5E;
+  --color-border-light: #3B4252;
+  --color-border-input: #4C566A;
+  --color-accent: #5E81AC;
+  --color-accent-alt: #EBCB8B;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #D8DEE9;
+  --color-shopping-bg: #242933;
+  --color-shopping-text: #D8DEE9;
+  --color-shopping-muted: #4C566A;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+/* ─── GitHub Dark ─── */
+[data-theme="github-dark"] {
+  --color-bg-page: #0D1117;
+  --color-bg-card: #161B22;
+  --color-bg-card-alt: #1C2128;
+  --color-bg-input: #21262D;
+  --color-bg-hover: #1C2128;
+  --color-bg-skeleton: #161B22;
+  --color-bg-skeleton-bright: #21262D;
+  --color-bg-btn-primary: #238636;
+  --color-bg-btn-primary-hover: #2EA043;
+  --color-text-btn-primary: #FFFFFF;
+  --color-bg-nav-active: #238636;
+  --color-text-nav-active: #FFFFFF;
+  --color-bg-nav-pill: #21262D;
+  --color-text-nav-pill: #C9D1D9;
+  --color-text-heading: #F0F6FC;
+  --color-text-primary: #C9D1D9;
+  --color-text-secondary: #8B949E;
+  --color-text-muted: #8B949E;
+  --color-text-faint: #484F58;
+  --color-text-link: #58A6FF;
+  --color-border: #30363D;
+  --color-border-light: #21262D;
+  --color-border-input: #30363D;
+  --color-accent: #1F6FEB;
+  --color-accent-alt: #D29922;
+  --color-shadow: rgba(0, 0, 0, 0.5);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #C9D1D9;
+  --color-shopping-bg: #010409;
+  --color-shopping-text: #C9D1D9;
+  --color-shopping-muted: #484F58;
+  --color-shopping-card: rgba(255,255,255,0.04);
+}
+
+/* ─── GitHub Light ─── */
+[data-theme="github-light"] {
+  --color-bg-page: #FFFFFF;
+  --color-bg-card: #FFFFFF;
+  --color-bg-card-alt: #F6F8FA;
+  --color-bg-input: #FFFFFF;
+  --color-bg-hover: #F3F4F6;
+  --color-bg-skeleton: #F6F8FA;
+  --color-bg-skeleton-bright: #EAECEF;
+  --color-bg-btn-primary: #2DA44E;
+  --color-bg-btn-primary-hover: #218838;
+  --color-text-btn-primary: #FFFFFF;
+  --color-bg-nav-active: #2DA44E;
+  --color-text-nav-active: #FFFFFF;
+  --color-bg-nav-pill: #F6F8FA;
+  --color-text-nav-pill: #57606A;
+  --color-text-heading: #1F2328;
+  --color-text-primary: #1F2328;
+  --color-text-secondary: #57606A;
+  --color-text-muted: #656D76;
+  --color-text-faint: #8C959F;
+  --color-text-link: #0969DA;
+  --color-border: #D0D7DE;
+  --color-border-light: #EAECEF;
+  --color-border-input: #D0D7DE;
+  --color-accent: #0969DA;
+  --color-accent-alt: #BF8700;
+  --color-shadow: rgba(31, 35, 40, 0.06);
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-form-label: #1F2328;
+  --color-shopping-bg: #24292F;
+  --color-shopping-text: #FFFFFF;
+  --color-shopping-muted: #8C959F;
+  --color-shopping-card: rgba(255,255,255,0.06);
+}
+
+/* ─── Catppuccin Mocha ─── */
+[data-theme="catppuccin-mocha"] {
+  --color-bg-page: #1E1E2E;
+  --color-bg-card: #242435;
+  --color-bg-card-alt: #2A2A3C;
+  --color-bg-input: #313244;
+  --color-bg-hover: #2A2A3C;
+  --color-bg-skeleton: #242435;
+  --color-bg-skeleton-bright: #313244;
+  --color-bg-btn-primary: #CBA6F7;
+  --color-bg-btn-primary-hover: #D4B4FF;
+  --color-text-btn-primary: #1E1E2E;
+  --color-bg-nav-active: #CBA6F7;
+  --color-text-nav-active: #1E1E2E;
+  --color-bg-nav-pill: #313244;
+  --color-text-nav-pill: #CDD6F4;
+  --color-text-heading: #CDD6F4;
+  --color-text-primary: #CDD6F4;
+  --color-text-secondary: #BAC2DE;
+  --color-text-muted: #6C7086;
+  --color-text-faint: #585B70;
+  --color-text-link: #89B4FA;
+  --color-border: #313244;
+  --color-border-light: #242435;
+  --color-border-input: #45475A;
+  --color-accent: #F38BA8;
+  --color-accent-alt: #FAB387;
+  --color-shadow: rgba(0, 0, 0, 0.4);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #BAC2DE;
+  --color-shopping-bg: #181825;
+  --color-shopping-text: #CDD6F4;
+  --color-shopping-muted: #585B70;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+/* ─── Catppuccin Latte ─── */
+[data-theme="catppuccin-latte"] {
+  --color-bg-page: #EFF1F5;
+  --color-bg-card: #E6E9EF;
+  --color-bg-card-alt: #DCE0E8;
+  --color-bg-input: #EFF1F5;
+  --color-bg-hover: #DCE0E8;
+  --color-bg-skeleton: #E6E9EF;
+  --color-bg-skeleton-bright: #CCD0DA;
+  --color-bg-btn-primary: #8839EF;
+  --color-bg-btn-primary-hover: #9A4DFF;
+  --color-text-btn-primary: #EFF1F5;
+  --color-bg-nav-active: #8839EF;
+  --color-text-nav-active: #EFF1F5;
+  --color-bg-nav-pill: #DCE0E8;
+  --color-text-nav-pill: #4C4F69;
+  --color-text-heading: #4C4F69;
+  --color-text-primary: #4C4F69;
+  --color-text-secondary: #5C5F77;
+  --color-text-muted: #7C7F93;
+  --color-text-faint: #9CA0B0;
+  --color-text-link: #1E66F5;
+  --color-border: #CCD0DA;
+  --color-border-light: #E6E9EF;
+  --color-border-input: #ACB0BE;
+  --color-accent: #EA76CB;
+  --color-accent-alt: #FE640B;
+  --color-shadow: rgba(76, 79, 105, 0.06);
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-form-label: #5C5F77;
+  --color-shopping-bg: #4C4F69;
+  --color-shopping-text: #EFF1F5;
+  --color-shopping-muted: #9CA0B0;
+  --color-shopping-card: rgba(255,255,255,0.06);
+}
+
+/* ─── Gruvbox Dark ─── */
+[data-theme="gruvbox-dark"] {
+  --color-bg-page: #282828;
+  --color-bg-card: #3C3836;
+  --color-bg-card-alt: #504945;
+  --color-bg-input: #3C3836;
+  --color-bg-hover: #504945;
+  --color-bg-skeleton: #3C3836;
+  --color-bg-skeleton-bright: #504945;
+  --color-bg-btn-primary: #B8BB26;
+  --color-bg-btn-primary-hover: #C8CC36;
+  --color-text-btn-primary: #282828;
+  --color-bg-nav-active: #FABD2F;
+  --color-text-nav-active: #282828;
+  --color-bg-nav-pill: #504945;
+  --color-text-nav-pill: #EBDBB2;
+  --color-text-heading: #FBF1C7;
+  --color-text-primary: #EBDBB2;
+  --color-text-secondary: #D5C4A1;
+  --color-text-muted: #928374;
+  --color-text-faint: #665C54;
+  --color-text-link: #83A598;
+  --color-border: #504945;
+  --color-border-light: #3C3836;
+  --color-border-input: #665C54;
+  --color-accent: #FB4934;
+  --color-accent-alt: #FE8019;
+  --color-shadow: rgba(0, 0, 0, 0.35);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #EBDBB2;
+  --color-shopping-bg: #1D2021;
+  --color-shopping-text: #EBDBB2;
+  --color-shopping-muted: #928374;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+/* ─── Tokyo Night ─── */
+[data-theme="tokyo-night"] {
+  --color-bg-page: #1A1B26;
+  --color-bg-card: #1F2335;
+  --color-bg-card-alt: #24283B;
+  --color-bg-input: #24283B;
+  --color-bg-hover: #292E42;
+  --color-bg-skeleton: #1F2335;
+  --color-bg-skeleton-bright: #24283B;
+  --color-bg-btn-primary: #7AA2F7;
+  --color-bg-btn-primary-hover: #89B4FA;
+  --color-text-btn-primary: #1A1B26;
+  --color-bg-nav-active: #7AA2F7;
+  --color-text-nav-active: #1A1B26;
+  --color-bg-nav-pill: #24283B;
+  --color-text-nav-pill: #A9B1D6;
+  --color-text-heading: #C0CAF5;
+  --color-text-primary: #A9B1D6;
+  --color-text-secondary: #9AA5CE;
+  --color-text-muted: #565F89;
+  --color-text-faint: #3B4261;
+  --color-text-link: #7DCFFF;
+  --color-border: #292E42;
+  --color-border-light: #1F2335;
+  --color-border-input: #3B4261;
+  --color-accent: #BB9AF7;
+  --color-accent-alt: #FF9E64;
+  --color-shadow: rgba(0, 0, 0, 0.4);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #9AA5CE;
+  --color-shopping-bg: #13131E;
+  --color-shopping-text: #A9B1D6;
+  --color-shopping-muted: #3B4261;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+/* ─── Rosé Pine ─── */
+[data-theme="rose-pine"] {
+  --color-bg-page: #191724;
+  --color-bg-card: #1F1D2E;
+  --color-bg-card-alt: #26233A;
+  --color-bg-input: #26233A;
+  --color-bg-hover: #26233A;
+  --color-bg-skeleton: #1F1D2E;
+  --color-bg-skeleton-bright: #26233A;
+  --color-bg-btn-primary: #C4A7E7;
+  --color-bg-btn-primary-hover: #D0B8F0;
+  --color-text-btn-primary: #191724;
+  --color-bg-nav-active: #C4A7E7;
+  --color-text-nav-active: #191724;
+  --color-bg-nav-pill: #26233A;
+  --color-text-nav-pill: #E0DEF4;
+  --color-text-heading: #E0DEF4;
+  --color-text-primary: #E0DEF4;
+  --color-text-secondary: #908CAA;
+  --color-text-muted: #6E6A86;
+  --color-text-faint: #524F67;
+  --color-text-link: #9CCFD8;
+  --color-border: #26233A;
+  --color-border-light: #1F1D2E;
+  --color-border-input: #524F67;
+  --color-accent: #EB6F92;
+  --color-accent-alt: #F6C177;
+  --color-shadow: rgba(0, 0, 0, 0.4);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-form-label: #E0DEF4;
+  --color-shopping-bg: #13111E;
+  --color-shopping-text: #E0DEF4;
+  --color-shopping-muted: #524F67;
+  --color-shopping-card: rgba(255,255,255,0.05);
+}
+
+:root {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-page);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Keep input text always black regardless of theme */
+input, select, textarea {
+  color: #000 !important;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.scroll-area {
+  @apply overflow-y-auto;
+}
+
+/* ─── Dashboard grid (react-grid-layout) ─── */
+.dashboard-grid .react-grid-item {
+  transition: all 200ms ease;
+}
+
+.dashboard-grid .react-grid-item.react-draggable-dragging {
+  z-index: 50;
+  opacity: 0.9;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+.dashboard-grid .react-grid-placeholder {
+  background: var(--color-accent, #6366f1) !important;
+  opacity: 0.15 !important;
+  border-radius: 10px;
+}
+
+.dashboard-grid .react-resizable-handle::after {
+  border-color: var(--color-text-muted, #999) !important;
+}
+
+.widget-drag-handle {
+  cursor: grab;
+}
+
+.widget-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* ─── Borderless widget mode ─── */
+.dashboard-no-borders .react-grid-item > [class*="rounded-2xl"],
+.dashboard-no-borders .react-grid-item > .animate-pulse {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+/* ─── Kiosk / Dashboard Mode ─── */
+.kiosk-mode {
+  font-size: 1.15rem;
+}
+
+.kiosk-mode .react-grid-item {
+  border: none !important;
+}
+
+.cursor-hidden {
+  cursor: none;
+}

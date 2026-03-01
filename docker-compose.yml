@@ -1,0 +1,39 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/data/app.db
+      - SQLITE_PATH=/data/app.db
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost:4173}
+      - TZ=${TZ:-UTC}
+      - SESSION_SECURE=${SESSION_SECURE:-true}
+    volumes:
+      - sqlite_data:/data
+      - uploads_data:/app/uploads
+    expose:
+      - '3000'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/v1/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    volumes:
+      - /etc/tailscale/certs:/etc/ssl/tailscale:ro
+    ports:
+      - '${APP_PORT:-443}:443'
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  sqlite_data:
+  uploads_data:

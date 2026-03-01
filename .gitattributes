@@ -1,0 +1,5 @@
+# Normalize line endings to LF in the repository
+* text=auto
+
+# Shell scripts must always use LF or they break in Linux containers
+*.sh text eol=lf

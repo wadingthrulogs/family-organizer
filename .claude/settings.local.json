@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(cd /c/Users/Wade/code/Organizer/backend && npm test -- --reporter=verbose 2>&1)",
+      "Bash(cd /c/Users/Wade/code/Organizer/backend && npx prisma migrate dev --name add-household-settings 2>&1)",
+      "Bash(cd /c/Users/Wade/code/Organizer/backend && DATABASE_URL=\"file:./tests/test.db\" npx prisma migrate deploy 2>&1)",
+      "Bash(cd /c/Users/Wade/code/Organizer/backend && npm test 2>&1)",
+      "Bash(grep:*)",
+      "Bash(curl:*)",
+      "Bash(netstat -ano)",
+      "Bash(xargs -I{} taskkill //PID {} //F)",
+      "Bash(cd:*)",
+      "Bash(cd /c/Users/Wade/code/Organizer/frontend && npm install @dnd-kit/core @dnd-kit/utilities 2>&1)",
+      "Bash(cd /c/Users/Wade/code/Organizer/frontend && npx tsc --noEmit 2>&1)",
+      "Bash(bash:*)",
+      "Bash(node:*)"
+    ]
+  }
+}

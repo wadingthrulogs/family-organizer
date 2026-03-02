@@ -173,7 +173,7 @@ fi
 success "Tailscale hostname: ${BOLD}${TS_HOSTNAME}${RESET}"
 
 # ── Cert paths ─────────────────────────────────────────────────────────────────
-CERT_DIR="/etc/ssl/tailscale"
+CERT_DIR="/etc/tailscale/certs"
 CERT_FILE="${CERT_DIR}/${TS_HOSTNAME}.crt"
 KEY_FILE="${CERT_DIR}/${TS_HOSTNAME}.key"
 
@@ -225,32 +225,50 @@ fi
 # ── Patch frontend/nginx.conf ──────────────────────────────────────────────────
 printf "\n  ${BOLD}Patching ${NGINX_CONF}…${RESET}\n"
 
-# Read the current server_name from nginx.conf (first match, strip leading/trailing whitespace and semicolon)
-CURRENT_HOST=$(grep -m1 'server_name' "$NGINX_CONF" | sed 's/.*server_name[[:space:]]*//;s/[[:space:]]*;//')
-
-if [[ -z "$CURRENT_HOST" ]]; then
-  error "Could not read server_name from ${NGINX_CONF}."
-  exit 1
-fi
-
-if [[ "$CURRENT_HOST" == "$TS_HOSTNAME" ]]; then
-  info "nginx.conf already configured for ${TS_HOSTNAME} — no changes needed."
-else
-  info "Replacing ${CURRENT_HOST} → ${TS_HOSTNAME}"
-
-  # BSD sed (macOS) requires -i '' whereas GNU sed uses -i
-  if [[ "${OSTYPE:-}" == darwin* ]]; then
-    SED_I=(-i '')
-  else
-    SED_I=(-i)
-  fi
-
-  sed "${SED_I[@]}" \
-    -e "s|server_name ${CURRENT_HOST};|server_name ${TS_HOSTNAME};|g" \
-    -e "s|/etc/ssl/tailscale/${CURRENT_HOST}|/etc/ssl/tailscale/${TS_HOSTNAME}|g" \
-    "$NGINX_CONF"
-
+if grep -q 'listen 80' "$NGINX_CONF"; then
+  # HTTP mode → upgrade to HTTPS
+  info "Upgrading nginx from HTTP → HTTPS for ${TS_HOSTNAME}"
+  _tmp=$(mktemp)
+  awk -v hn="$TS_HOSTNAME" '
+    /^    listen 80;/ {
+      print "    listen 443 ssl;"
+      next
+    }
+    /^    server_name _;/ {
+      print "    server_name " hn ";"
+      print ""
+      print "    ssl_certificate     /etc/ssl/tailscale/" hn ".crt;"
+      print "    ssl_certificate_key /etc/ssl/tailscale/" hn ".key;"
+      print "    ssl_protocols       TLSv1.2 TLSv1.3;"
+      print "    ssl_prefer_server_ciphers on;"
+      next
+    }
+    { print }
+  ' "$NGINX_CONF" > "$_tmp" && mv "$_tmp" "$NGINX_CONF"
   success "nginx.conf updated."
+else
+  # Already HTTPS — check if hostname needs updating
+  CURRENT_HOST=$(grep -m1 'server_name' "$NGINX_CONF" | sed 's/.*server_name[[:space:]]*//;s/[[:space:]]*;//')
+
+  if [[ "$CURRENT_HOST" == "$TS_HOSTNAME" ]]; then
+    info "nginx.conf already configured for ${TS_HOSTNAME} — no changes needed."
+  else
+    info "Replacing hostname ${CURRENT_HOST} → ${TS_HOSTNAME}"
+
+    # BSD sed (macOS) requires -i '' whereas GNU sed uses -i
+    if [[ "${OSTYPE:-}" == darwin* ]]; then
+      SED_I=(-i '')
+    else
+      SED_I=(-i)
+    fi
+
+    sed "${SED_I[@]}" \
+      -e "s|server_name ${CURRENT_HOST};|server_name ${TS_HOSTNAME};|g" \
+      -e "s|/etc/ssl/tailscale/${CURRENT_HOST}|/etc/ssl/tailscale/${TS_HOSTNAME}|g" \
+      "$NGINX_CONF"
+
+    success "nginx.conf updated."
+  fi
 fi
 
 # ── Update root .env ───────────────────────────────────────────────────────────

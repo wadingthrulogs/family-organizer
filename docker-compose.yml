@@ -9,7 +9,7 @@ services:
       - SQLITE_PATH=/data/app.db
       - APP_BASE_URL=${APP_BASE_URL:-http://localhost:4173}
       - TZ=${TZ:-UTC}
-      - SESSION_SECURE=${SESSION_SECURE:-true}
+      - SESSION_SECURE=${SESSION_SECURE:-false}
       - SESSION_SECRET=${SESSION_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
     volumes:
@@ -31,7 +31,7 @@ services:
     volumes:
       - /etc/tailscale/certs:/etc/ssl/tailscale:ro
     ports:
-      - '${APP_PORT:-443}:443'
+      - '${APP_PORT:-80}:${APP_PORT:-80}'
     depends_on:
       backend:
         condition: service_healthy

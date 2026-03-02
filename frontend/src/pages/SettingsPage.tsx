@@ -89,7 +89,6 @@ function SettingsPage() {
 
   useEffect(() => {
     if (!data) return;
-    if (data.googleClientId != null) setSrvGclientId(data.googleClientId);
     if (data.appBaseUrl != null) setSrvAppBaseUrl(data.appBaseUrl);
     if (data.smtpHost != null) setSrvSmtpHost(data.smtpHost);
     if (data.smtpPort != null) setSrvSmtpPort(String(data.smtpPort));
@@ -506,7 +505,7 @@ function SettingsPage() {
               <div className="rounded-card border border-th-border-light p-4 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-heading">Google OAuth</p>
-                  {data?.googleClientSecretSet ? (
+                  {(data?.googleClientId != null || data?.googleClientSecretSet) ? (
                     <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                       Credentials configured
                     </span>
@@ -519,7 +518,7 @@ function SettingsPage() {
                     className="rounded-lg border border-th-border bg-th-input px-3 py-2 text-sm text-primary placeholder:text-faint font-mono"
                     value={srvGclientId}
                     onChange={(e) => setSrvGclientId(e.target.value)}
-                    placeholder="Paste your OAuth client ID"
+                    placeholder={data?.googleClientId != null ? 'Leave blank to keep current' : 'Paste your OAuth client ID'}
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs font-semibold text-form-label">
@@ -667,18 +666,19 @@ function SettingsPage() {
                     try {
                       await updateSettings.mutateAsync({
                         appBaseUrl:        srvAppBaseUrl || null,
-                        googleClientId:    srvGclientId || null,
-                        googleClientSecret: srvGclientSecret || null,
-                        openweatherApiKey: srvOwApiKey || null,
+                        googleClientId:    srvGclientId || undefined,
+                        googleClientSecret: srvGclientSecret || undefined,
+                        openweatherApiKey: srvOwApiKey || undefined,
                         smtpHost:          srvSmtpHost || null,
                         smtpPort:          srvSmtpPort ? parseInt(srvSmtpPort, 10) : null,
                         smtpUser:          srvSmtpUser || null,
-                        smtpPass:          srvSmtpPass || null,
+                        smtpPass:          srvSmtpPass || undefined,
                         smtpFrom:          srvSmtpFrom || null,
-                        pushVapidPublicKey:  srvVapidPub || null,
-                        pushVapidPrivateKey: srvVapidPriv || null,
+                        pushVapidPublicKey:  srvVapidPub || undefined,
+                        pushVapidPrivateKey: srvVapidPriv || undefined,
                       });
                       // Clear write-only secret fields after save
+                      setSrvGclientId('');
                       setSrvGclientSecret('');
                       setSrvOwApiKey('');
                       setSrvSmtpPass('');

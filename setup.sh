@@ -189,13 +189,13 @@ if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
 
   # Read current APP_PORT, TZ, SESSION_SECURE from root .env
   APP_PORT=$(grep -E '^APP_PORT=' .env 2>/dev/null | cut -d= -f2) || true
-  APP_PORT="${APP_PORT:-443}"
+  APP_PORT="${APP_PORT:-80}"
 
   APP_TZ=$(grep -E '^TZ=' .env 2>/dev/null | cut -d= -f2) || true
   APP_TZ="${APP_TZ:-UTC}"
 
   SESSION_SECURE=$(grep -E '^SESSION_SECURE=' .env 2>/dev/null | cut -d= -f2) || true
-  SESSION_SECURE="${SESSION_SECURE:-true}"
+  SESSION_SECURE="${SESSION_SECURE:-false}"
 
   # Read secrets from backend/.env so they survive volume recreation
   SESSION_SECRET=$(grep -E '^SESSION_SECRET=' "$ENV_FILE" 2>/dev/null | cut -d= -f2-) || true
@@ -212,7 +212,7 @@ if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
       printf "  Set APP_BASE_URL in .env, then run: ${COMPOSE_CMD} up -d\n\n"
       exit 1
     fi
-    APP_BASE_URL="https://${DETECTED_IP}:${APP_PORT}"
+    APP_BASE_URL="http://${DETECTED_IP}:${APP_PORT}"
   fi
 
   # Keep backend/.env in sync (in-place, preserves secrets)
@@ -258,18 +258,9 @@ if [[ ! -f "$EXAMPLE_FILE" ]]; then
   exit 1
 fi
 
-# ── Handle existing .env (overwrite prompt) ────────────────────────────────────
+# ── Handle existing .env ───────────────────────────────────────────────────────
 if [[ -f "$ENV_FILE" ]]; then
-  printf "\n"
-  warn "${ENV_FILE} already exists."
-  ask "Overwrite it and start fresh? [y/N]:"
-  read -r OVERWRITE_ANSWER
-  OVERWRITE_ANSWER="${OVERWRITE_ANSWER:-N}"
-  if [[ ! "$OVERWRITE_ANSWER" =~ ^[Yy]$ ]]; then
-    info "Keeping existing ${ENV_FILE}. Exiting."
-    printf "\n"
-    exit 0
-  fi
+  info "Overwriting existing ${ENV_FILE}…"
   IS_FIRST_RUN=false
 fi
 
@@ -307,37 +298,22 @@ detect_ip
 
 # ── [3/6] Frontend port ────────────────────────────────────────────────────────
 printf "\n  ${BOLD}[3/6] Frontend port${RESET}\n"
-ask "Port to expose the app on [443]:"
-read -r PORT_ANSWER
-APP_PORT="${PORT_ANSWER:-443}"
 
-if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]]; then
-  warn "Invalid port '${APP_PORT}', using 443."
-  APP_PORT="443"
-fi
+APP_PORT=80
+info "Using port ${APP_PORT}  ${DIM}(run tailscale-setup.sh to enable HTTPS on 443)${RESET}"
 
 if [[ -n "$DETECTED_IP" ]]; then
   SUGGESTED_URL="http://${DETECTED_IP}:${APP_PORT}"
   info "Detected LAN IP: ${BOLD}${DETECTED_IP}${RESET}"
 else
   SUGGESTED_URL="http://localhost:${APP_PORT}"
-  warn "Could not detect LAN IP — using localhost as suggestion."
+  warn "Could not detect LAN IP — using localhost"
 fi
 
 # ── [4/6] APP_BASE_URL ─────────────────────────────────────────────────────────
 printf "\n  ${BOLD}[4/6] APP_BASE_URL${RESET}\n"
-printf "  ${DIM}This is the URL family members use to access the app.${RESET}\n"
-printf "  ${DIM}Examples:${RESET}\n"
-printf "    ${DIM}http://192.168.1.50:4173     ← LAN IP (most common)${RESET}\n"
-printf "    ${DIM}http://organizer.local:4173  ← local hostname${RESET}\n"
-printf "    ${DIM}https://family.example.com   ← public domain (no port needed)${RESET}\n"
-printf "\n"
-ask "APP_BASE_URL [${SUGGESTED_URL}]:"
-read -r BASE_URL_ANSWER
-APP_BASE_URL="${BASE_URL_ANSWER:-$SUGGESTED_URL}"
 
-# Strip trailing slash
-APP_BASE_URL="${APP_BASE_URL%/}"
+APP_BASE_URL="${SUGGESTED_URL%/}"
 
 set_env_var "APP_BASE_URL" "$APP_BASE_URL"
 success "APP_BASE_URL = ${APP_BASE_URL}"
@@ -362,48 +338,16 @@ elif [[ -L /etc/localtime ]]; then
 fi
 DETECTED_TZ="${DETECTED_TZ:-UTC}"
 
-ask "Timezone [${DETECTED_TZ}]:"
-read -r TZ_ANSWER
-APP_TZ="${TZ_ANSWER:-$DETECTED_TZ}"
+APP_TZ="${DETECTED_TZ:-UTC}"
 
 set_env_var "TZ" "$APP_TZ"
 success "TZ = ${APP_TZ}"
 
 # ── [6/6] VAPID (push notifications) ──────────────────────────────────────────
 printf "\n  ${BOLD}[6/6] Push notifications (optional)${RESET}\n"
-printf "  ${DIM}VAPID keys enable browser push notifications for reminders.${RESET}\n"
-ask "Set up push notifications now? [y/N]:"
-read -r VAPID_ANSWER
-VAPID_ANSWER="${VAPID_ANSWER:-N}"
+printf "  ${DIM}VAPID keys can be generated after startup — see instructions below.${RESET}\n"
 
-VAPID_DEFERRED=false
-if [[ "$VAPID_ANSWER" =~ ^[Yy]$ ]]; then
-  VAPID_SUCCESS=false
-
-  # Try: node with web-push installed locally
-  if command -v node &>/dev/null && node -e "require('web-push')" &>/dev/null 2>&1; then
-    VAPID_JSON=$(node -e "
-      const wp = require('web-push');
-      const keys = wp.generateVAPIDKeys();
-      console.log(JSON.stringify(keys));
-    " 2>/dev/null)
-    if [[ -n "$VAPID_JSON" ]]; then
-      VAPID_PUB=$(printf '%s' "$VAPID_JSON" | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).publicKey))")
-      VAPID_PRIV=$(printf '%s' "$VAPID_JSON" | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).privateKey))")
-      if [[ -n "$VAPID_PUB" && -n "$VAPID_PRIV" ]]; then
-        set_env_var "PUSH_VAPID_PUBLIC_KEY" "$VAPID_PUB"
-        set_env_var "PUSH_VAPID_PRIVATE_KEY" "$VAPID_PRIV"
-        success "VAPID keys generated and written to backend/.env"
-        VAPID_SUCCESS=true
-      fi
-    fi
-  fi
-
-  if [[ "$VAPID_SUCCESS" == false ]]; then
-    warn "web-push not available locally. Generate VAPID keys after startup:"
-    VAPID_DEFERRED=true
-  fi
-fi
+VAPID_DEFERRED=true
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 printf "\n"
@@ -430,18 +374,6 @@ fi
 
 printf "  ${DIM}Optional integrations (Google Calendar, SMTP, Weather):${RESET}\n"
 printf "  ${DIM}Edit backend/.env — every variable is documented inline.${RESET}\n\n"
-
-# ── Offer to start ─────────────────────────────────────────────────────────────
-ask "Build and start Family Organizer now? [Y/n]:"
-read -r START_ANSWER
-START_ANSWER="${START_ANSWER:-Y}"
-
-if [[ ! "$START_ANSWER" =~ ^[Yy]$ ]]; then
-  printf "\n"
-  info "Setup complete. To start later:"
-  printf "    ${BOLD}${COMPOSE_CMD} up -d --build${RESET}\n\n"
-  exit 0
-fi
 
 printf "\n  ${BOLD}Building and starting containers…${RESET}\n"
 printf "  ${DIM}(This may take several minutes on first run)${RESET}\n\n"

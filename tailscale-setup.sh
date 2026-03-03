@@ -73,11 +73,51 @@ printf "  ${BOLD}${CYAN}│   Family Organizer — Tailscale HTTPS Setup  │${R
 printf "  ${BOLD}${CYAN}└─────────────────────────────────────────────┘${RESET}\n"
 printf "\n"
 
+# ── Tailscale install helper ───────────────────────────────────────────────────
+install_tailscale() {
+  printf "\n  ${BOLD}Installing Tailscale…${RESET}\n"
+
+  if [[ "${OSTYPE:-}" == darwin* ]]; then
+    if command -v brew &>/dev/null; then
+      brew install tailscale
+    else
+      error "Homebrew is not installed. Install Tailscale manually and re-run:"
+      printf "    https://tailscale.com/download\n\n"
+      exit 1
+    fi
+  else
+    # Linux / WSL2 — official one-line installer
+    if command -v curl &>/dev/null; then
+      curl -fsSL https://tailscale.com/install.sh | sh
+    elif command -v wget &>/dev/null; then
+      wget -qO- https://tailscale.com/install.sh | sh
+    else
+      error "Neither curl nor wget found. Install Tailscale manually and re-run:"
+      printf "    https://tailscale.com/download\n\n"
+      exit 1
+    fi
+    # Start the daemon
+    if command -v systemctl &>/dev/null; then
+      sudo systemctl enable --now tailscaled 2>/dev/null || true
+    fi
+  fi
+
+  success "Tailscale installed."
+}
+
+# ── Tailscale registration helper ─────────────────────────────────────────────
+register_tailscale() {
+  printf "\n  ${BOLD}Registering with Tailscale…${RESET}\n"
+  printf "  ${DIM}A URL will appear below — open it in your browser to complete sign-in.${RESET}\n\n"
+  sudo tailscale up
+  printf "\n"
+  success "Tailscale authenticated."
+}
+
 # ── Pre-flight checks ──────────────────────────────────────────────────────────
 if ! command -v tailscale &>/dev/null; then
-  error "Tailscale is not installed or not in PATH."
-  printf "  Install from: https://tailscale.com/download\n\n"
-  exit 1
+  install_tailscale
+  register_tailscale
 fi
 success "Tailscale found: $(tailscale version 2>/dev/null | head -1)"
 

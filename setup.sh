@@ -318,11 +318,6 @@ APP_BASE_URL="${SUGGESTED_URL%/}"
 set_env_var "APP_BASE_URL" "$APP_BASE_URL"
 success "APP_BASE_URL = ${APP_BASE_URL}"
 
-# Write APP_PORT and secrets to root .env (for docker-compose.yml substitution)
-printf 'APP_PORT=%s\nSESSION_SECRET=%s\nENCRYPTION_KEY=%s\n' \
-  "$APP_PORT" "$SESSION_SECRET" "$ENCRYPTION_KEY" > .env
-success "APP_PORT=${APP_PORT} written to .env (root)"
-
 # ── [5/6] Timezone ─────────────────────────────────────────────────────────────
 printf "\n  ${BOLD}[5/6] Timezone${RESET}\n"
 
@@ -342,6 +337,11 @@ APP_TZ="${DETECTED_TZ:-UTC}"
 
 set_env_var "TZ" "$APP_TZ"
 success "TZ = ${APP_TZ}"
+
+# Write root .env — docker-compose reads this for variable substitution
+printf 'APP_PORT=%s\nAPP_BASE_URL=%s\nTZ=%s\nSESSION_SECURE=false\nSESSION_SECRET=%s\nENCRYPTION_KEY=%s\n' \
+  "$APP_PORT" "$APP_BASE_URL" "$APP_TZ" "$SESSION_SECRET" "$ENCRYPTION_KEY" > .env
+success "Root .env written"
 
 # ── [6/6] VAPID (push notifications) ──────────────────────────────────────────
 printf "\n  ${BOLD}[6/6] Push notifications (optional)${RESET}\n"

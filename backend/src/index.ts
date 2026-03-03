@@ -11,13 +11,35 @@ import { setOpenWeatherApiKey } from './routes/weather.js';
 
 async function bootstrap() {
   const env = loadEnv();
+
+  // DB values override env vars — must happen before createApp() so CORS and
+  // Google OAuth redirect URL are configured with the correct APP_BASE_URL.
+  try {
+    const dbCfg = await loadServerConfig();
+    if (dbCfg.appBaseUrl) {
+      env.APP_BASE_URL = dbCfg.appBaseUrl;
+      // Re-derive the Google redirect URL from the updated base URL
+      env.GOOGLE_REDIRECT_URL = env.GOOGLE_REDIRECT_URL ?? `${dbCfg.appBaseUrl}/api/v1/integrations/google/callback`;
+    }
+    if (dbCfg.smtpHost)            { env.SMTP_HOST = dbCfg.smtpHost; }
+    if (dbCfg.smtpPort)            { env.SMTP_PORT = dbCfg.smtpPort; }
+    if (dbCfg.smtpUser)            { env.SMTP_USER = dbCfg.smtpUser; }
+    if (dbCfg.smtpPass)            { env.SMTP_PASS = dbCfg.smtpPass; }
+    if (dbCfg.smtpFrom)            { env.SMTP_FROM = dbCfg.smtpFrom; }
+    if (dbCfg.pushVapidPublicKey)  { env.PUSH_VAPID_PUBLIC_KEY  = dbCfg.pushVapidPublicKey; }
+    if (dbCfg.pushVapidPrivateKey) { env.PUSH_VAPID_PRIVATE_KEY = dbCfg.pushVapidPrivateKey; }
+    if (dbCfg.openweatherApiKey)   { env.OPENWEATHER_API_KEY    = dbCfg.openweatherApiKey; }
+  } catch (err) {
+    logger.warn('Could not load server config from DB at startup', { err });
+  }
+
   const app = createApp(env);
   const server = createServer(app);
 
-  // Initialize push notification support (env vars — DB may override below)
+  // Initialize push notification support
   initVapid(env.PUSH_VAPID_PUBLIC_KEY, env.PUSH_VAPID_PRIVATE_KEY);
 
-  // Initialize email (SMTP) support (env vars — DB may override below)
+  // Initialize email (SMTP) support
   initMailer({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
@@ -32,20 +54,9 @@ async function bootstrap() {
   // Initialize background calendar sync
   initBackgroundSync(env);
 
-  // DB values override env vars — ensures UI-saved settings survive restarts
-  try {
-    const dbCfg = await loadServerConfig();
-    if (dbCfg.smtpHost) {
-      initMailer({ host: dbCfg.smtpHost, port: dbCfg.smtpPort, user: dbCfg.smtpUser, pass: dbCfg.smtpPass, from: dbCfg.smtpFrom });
-    }
-    if (dbCfg.pushVapidPublicKey) {
-      initVapid(dbCfg.pushVapidPublicKey, dbCfg.pushVapidPrivateKey);
-    }
-    if (dbCfg.openweatherApiKey) {
-      setOpenWeatherApiKey(dbCfg.openweatherApiKey);
-    }
-  } catch (err) {
-    logger.warn('Could not load server config from DB at startup', { err });
+  // Initialize OpenWeather if set
+  if (env.OPENWEATHER_API_KEY) {
+    setOpenWeatherApiKey(env.OPENWEATHER_API_KEY);
   }
 
   // Start notification processing loop (every 60 seconds)

@@ -1,21 +1,30 @@
 # Family Organizer
 
-Self-hosted household management — tasks, chores, grocery lists, inventory, calendar, and reminders for the whole family.
+I created this app after seeing some freinds get magic mirror and dakboard. I didn't want to pay a subscription, wanted something self hosted with all the features and thought it would also make a fun AI coding project. This is supposed to be run a raspberry pi or linux host, but since its run in containters it can run on a windows host. 
+
+Requriments - 
+* [Open Weather Map API Key](https://openweathermap.org/api)
+* [Gmail Oauth app for your google calander ](https://developers.google.com/identity/protocols/oauth2)
+Optional 
+* [Tailscale account](https://tailscale.com/)
+
+I am still working on the reminders and notifications tabs. 
 
 ---
 
 ## Features
-
+- **Dashboard** — Drag-and-resize widget grid, 16 themes
+- **Calendar** — Google Calendar sync, day/week/month views, manual events
 - **Tasks** — Kanban board with assignments, priorities, due dates, recurrence, and history
 - **Chores** — Rotation scheduling (round-robin / weighted / manual), streaks, reward points
 - **Grocery Lists** — Shopping mode, bulk add, low-stock auto-populate
 - **Inventory** — Pantry tracker with low-stock thresholds and export
-- **Calendar** — Google Calendar sync, day/week/month views, manual events
 - **Reminders** — Web push and email notifications with configurable lead times
-- **Dashboard** — Drag-and-resize widget grid, 16 themes
 - **Multi-user** — Role-based access (Admin / Member / Viewer), per-user colors
 
----
+
+![alt text](family_organizer-1.gif)
+
 
 ## Quick Start
 

@@ -1,75 +1,79 @@
 # Architecture Overview
 
 ## High-Level Diagram (Textual)
-- **Client Layer**: React single-page app served over HTTPS; uses Service Worker for offline cache and push notifications.
-- **API Gateway**: Express server handling REST + WebSocket traffic, session auth, RBAC, validation, and rate limiting.
-- **Domain Services**:
-  - Calendar Sync Worker: pulls Google events via OAuth, normalizes data, populates cache tables.
-  - Task/Chore/Grocery Service: business logic for assignments, rotation, inventory states.
-  - Reminder Scheduler: cron-based job queue triggering notifications (push/email/webhook).
-- **Data Layer**: SQLite database accessed via Prisma ORM; encrypted secrets vault; file storage for attachments.
-- **Integrations**: Google Calendar API, SMTP (local), optional Gotify/webhook endpoints.
-- **Deployment**: Docker Compose orchestrating frontend, backend, worker, scheduler, SQLite volume, reverse proxy.
+- **Client Layer**: React single-page app served over HTTPS via nginx container; push notifications via Web Push API (browser-native).
+- **API Server**: Express server handling REST traffic, session auth, RBAC, validation, and rate limiting. Runs as a single Node process — no separate worker or scheduler containers.
+- **Domain Services** (within the same Express process):
+  - Calendar Sync: pulls Google events via OAuth, normalizes data, populates `FamilyEvent` table. Triggered manually or via admin endpoint.
+  - Chore Rotation Service: business logic for assignment generation, round-robin/weighted rotation.
+  - Reminder Processor: evaluates pending `ReminderTrigger` rows and dispatches push/email notifications. Called via `POST /notifications/process` (run on a schedule externally, e.g. cron or Ofelia).
+- **Data Layer**: SQLite database accessed via Prisma ORM; Node.js `crypto` module for encrypting secrets (OAuth tokens, VAPID keys); file storage for attachments.
+- **Integrations**: Google Calendar API (OAuth2), SMTP (Nodemailer), Web Push (web-push library).
+- **Deployment**: Docker Compose with two services — `frontend` (nginx) and `backend` (Express + Prisma + SQLite).
 
 ## Component Responsibilities
+
 ### Frontend (React + Vite + Tailwind)
-- Authentication views (login, PIN unlock, OAuth linking prompts).
-- Calendar (FullCalendar) with combined events/tasks/chores overlay.
-- Task board, grocery list UI, chore planner, reminder settings.
-- Dashboard widgets plus notification center.
-- WebSocket client for live updates (task changes, grocery edits, chore rotations).
-- Service Worker for caching API responses (stale-while-revalidate) and push subscription handling.
+- Authentication views (login, OAuth linking prompts).
+- Calendar with day/week/month view and combined events/tasks/chores overlay.
+- Task Kanban board, grocery list UI with shopping mode, chore planner, reminder settings.
+- Dashboard widget grid (drag/resize via react-grid-layout).
+- Data freshness via React Query polling (stale-while-revalidate); no WebSocket.
+- Push notification subscription handled via browser Push API + `POST /notifications/subscribe`.
 
 ### Backend API (Express)
-- REST endpoints (JSON) organized by feature modules.
-- Session auth via Passport (local strategy) + JWT for WebSocket upgrade validation.
-- RBAC middleware enforcing Admin/Member/Viewer permissions.
+- REST endpoints (JSON) organized by feature modules in `src/routes/`.
+- Session auth via `express-session` with `connect-sqlite3` store; no Passport, no JWT.
+- RBAC middleware (`requireRole`) enforcing Admin/Member/Viewer permissions.
 - Data validation using Zod schemas; consistent error envelope.
-- File upload handling (grocery photos, task attachments) with antivirus scan hook.
+- File upload handling (task attachments) with magic-byte content-type validation (max 10 MB).
+- HTTP logging via `morgan`; no structured logger in production.
 
-### Calendar Sync Worker
-- Runs as separate Node process/container sharing codebase.
-- Uses Google APIs with per-user tokens; refresh tokens encrypted at rest.
-- Incremental sync storing sync tokens to minimize calls.
-- Conflict detection for overlapping events and duplicate tasks created from events.
+### Calendar Sync
+- Runs within the backend process on demand (manual sync via API or cron-triggered HTTP call).
+- Uses Google APIs with per-user encrypted refresh tokens stored in `GoogleAccount.encryptedRefreshToken`.
+- Incremental sync using `LinkedCalendar.syncToken` to minimize API calls.
 
 ### Reminder Scheduler
-- node-cron triggers evaluation of pending reminders every minute.
-- Builds notification payloads; sends via push (Web Push protocol) or SMTP adapter.
-- Respects quiet hours, retries failed deliveries, logs history.
+- `ReminderTrigger` rows record `nextFireAt` per channel.
+- `POST /notifications/process` (admin-only) evaluates due triggers and sends via push or SMTP.
+- Designed to be called on an external schedule (host cron, Ofelia container, etc.).
+- Respects quiet hours; logs history to `NotificationLog`.
 
 ### Data Layer
-- SQLite with WAL; Prisma migrations.
-- libsodium for transparent encryption of sensitive columns (tokens, secrets).
-- Backup script dumps DB + attachments to timestamped archive.
+- SQLite with WAL mode; Prisma migrations.
+- Node.js `crypto` module for AES-based encryption of sensitive columns (OAuth tokens). Key provided via `ENCRYPTION_KEY` env var (base64-encoded 32 bytes).
+- Backup script dumps DB via SQLite `.backup` command; attachments stored on a separate Docker volume.
 
 ## Data Flows
-1. **User Auth**: Browser posts credentials → Express verifies → session cookie issued → React stores minimal profile in memory.
-2. **Calendar Sync**: Worker fetches events → normalizes to family_events table → API exposes aggregated feed → frontend queries/streams updates.
-3. **Task Update**: Member edits task → API persists via Prisma → Notifies WebSocket channel → Other clients update UI.
-4. **Chore Rotation**: Scheduler job runs nightly → assigns chores per rotation rules → writes assignments and emits notifications.
-5. **Grocery Mode**: Shopping device toggles item states → API updates list → WebSocket pushes changes to other viewers.
-6. **Reminder Dispatch**: Cron finds due reminders → sends push/email → logs status and updates next trigger time.
+1. **User Auth**: Browser posts credentials → Express verifies password hash (bcrypt) → session cookie issued → React stores minimal profile in memory via `AuthContext`.
+2. **Calendar Sync**: API handler fetches Google events → normalizes to `FamilyEvent` table → frontend queries updated feed.
+3. **Task Update**: Member edits task → API persists via Prisma → React Query cache invalidated → other clients refetch on next poll.
+4. **Chore Rotation**: Admin triggers `POST /chores/generate-all` (or per-chore) → assigns chores per rotation rules → writes `ChoreAssignment` rows.
+5. **Grocery Mode**: Shopping device toggles item states → API updates list → other devices see changes on next React Query poll.
+6. **Reminder Dispatch**: External cron calls `POST /notifications/process` → finds due `ReminderTrigger` rows → sends push/email → logs to `NotificationLog` and updates `nextFireAt`.
 
 ## Deployment Topology
-- **Docker Services**:
-  - `frontend`: Static assets served by Caddy or Nginx.
-  - `backend`: Express API + WebSocket server.
-  - `sync-worker`: Calendar sync process sharing code volume.
-  - `scheduler`: Reminder cron worker (can be same image with different command).
-  - `db`: SQLite volume mounted; backups via sidecar script or host cron.
-  - `proxy`: Caddy/Traefik terminating TLS, enforcing HTTPS, providing basic auth for admin endpoints if desired.
-- Single docker network restricted to LAN access via firewall rules.
-- Env files injected via Docker secrets/configs; master encryption key provided through .env or host secret store.
-
-## Observability & Maintenance
-- Winston logging with log rotation; optional Loki endpoint if present on LAN.
-- Health checks (`/healthz`, `/readyz`) for API and workers.
-- Metrics endpoint exposing sync latency, reminder queue depth, WebSocket fan-out counts.
-- Admin UI includes status cards (last sync, upcoming reminders, DB size).
+- **Docker Services** (2 total):
+  - `frontend`: nginx serving the React SPA; proxies `/api/*` to `backend:3000`.
+  - `backend`: Express API + Prisma + SQLite; runs `prisma migrate deploy` on startup.
+- **Volumes**:
+  - `sqlite_data`: SQLite DB (`app.db`) + session store (`sessions.db`).
+  - `uploads_data`: File attachments.
+- Default exposed port: **80** (configurable via `APP_PORT` env var).
+- Single Docker network; backend not exposed to host directly.
+- Env vars injected via `backend/.env` or Docker Compose environment block; secrets (`SESSION_SECRET`, `ENCRYPTION_KEY`) must be provided at deploy time.
 
 ## Security Considerations
 - All external communication uses HTTPS (Google APIs, SMTP if TLS available).
-- CSRF protection via same-site cookies and CSRF tokens for state-changing requests.
-- Rate limiting and IP allow-list (optional) to prevent brute force from LAN guests.
-- Token scopes limited to read-only calendar unless explicitly elevated.
+- Session cookies are `HttpOnly`, `sameSite: 'lax'`; `secure` flag controlled by `SESSION_SECURE` env var.
+- Rate limiting: 200 req/min global per IP; 15 attempts per 15 min on auth endpoints.
+- Token scopes limited to read-only Google Calendar unless explicitly elevated.
+- No CSRF token implementation — relies on `sameSite: 'lax'` cookie policy.
+
+## Observability & Maintenance
+- HTTP request logging via `morgan` (`combined` format in production).
+- Health check endpoint: `GET /api/v1/health` → `{ status: 'ok', timestamp }`.
+- Docker health check polls `/api/v1/health` every 30s; frontend container waits for backend to be healthy before starting.
+- Admin UI includes status cards (last sync, upcoming reminders, DB size).
+- Manual backup: `POST /api/v1/backup/export` (admin-only) or direct SQLite `.backup` command.

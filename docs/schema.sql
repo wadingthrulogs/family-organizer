@@ -1,4 +1,5 @@
 -- SQLite schema for Family Organizer
+-- This file documents the logical schema. Authoritative source is backend/prisma/schema.prisma.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE users (
@@ -7,7 +8,7 @@ CREATE TABLE users (
     email TEXT UNIQUE,
     password_hash TEXT NOT NULL,
     pin_hash TEXT,
-    role TEXT NOT NULL CHECK (role IN ('ADMIN','MEMBER','VIEWER')),
+    role TEXT NOT NULL DEFAULT 'MEMBER',
     auth_provider TEXT NOT NULL DEFAULT 'local',
     timezone TEXT NOT NULL DEFAULT 'UTC',
     color_hex TEXT,
@@ -15,6 +16,16 @@ CREATE TABLE users (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at DATETIME
+);
+
+CREATE TABLE user_preferences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    theme TEXT NOT NULL DEFAULT 'default',
+    dashboard_config TEXT,
+    hidden_tabs TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE user_secrets (
@@ -27,10 +38,23 @@ CREATE TABLE user_secrets (
     UNIQUE(user_id, secret_type)
 );
 
+CREATE TABLE google_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    display_name TEXT,
+    encrypted_refresh_token BLOB NOT NULL,
+    last_synced_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, email)
+);
+
 CREATE TABLE linked_calendars (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    google_calendar_id TEXT NOT NULL,
+    google_account_id INTEGER REFERENCES google_accounts(id) ON DELETE SET NULL,
+    google_id TEXT NOT NULL,
     display_name TEXT NOT NULL,
     color_hex TEXT,
     access_role TEXT NOT NULL,
@@ -38,7 +62,7 @@ CREATE TABLE linked_calendars (
     last_synced_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, google_calendar_id)
+    UNIQUE(user_id, google_id)
 );
 
 CREATE TABLE family_events (
@@ -54,7 +78,7 @@ CREATE TABLE family_events (
     timezone TEXT NOT NULL,
     color_hex TEXT,
     location TEXT,
-    attendees_json TEXT,
+    attendees TEXT,
     etag TEXT,
     visibility TEXT,
     deleted INTEGER NOT NULL DEFAULT 0,
@@ -62,22 +86,6 @@ CREATE TABLE family_events (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_family_events_range ON family_events(start_at, end_at);
-
-CREATE TABLE tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    author_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    due_at DATETIME,
-    priority INTEGER DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'OPEN',
-    recurrence_id INTEGER REFERENCES task_recurrences(id) ON DELETE SET NULL,
-    labels TEXT,
-    attachment_id INTEGER REFERENCES attachments(id) ON DELETE SET NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at DATETIME
-);
 
 CREATE TABLE task_recurrences (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,6 +98,21 @@ CREATE TABLE task_recurrences (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    author_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    due_at DATETIME,
+    priority INTEGER DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'OPEN',
+    recurrence_id INTEGER REFERENCES task_recurrences(id) ON DELETE SET NULL,
+    labels TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME
+);
+
 CREATE TABLE task_assignments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -100,6 +123,17 @@ CREATE TABLE task_assignments (
     UNIQUE(task_id, user_id)
 );
 CREATE INDEX idx_task_assignments_user ON task_assignments(user_id, status);
+
+CREATE TABLE task_status_changes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    from_status TEXT NOT NULL,
+    to_status TEXT NOT NULL,
+    changed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    note TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_task_status_changes ON task_status_changes(task_id, created_at);
 
 CREATE TABLE chores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,16 +153,15 @@ CREATE TABLE chores (
 CREATE TABLE chore_assignments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     chore_id INTEGER NOT NULL REFERENCES chores(id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     window_start DATETIME NOT NULL,
     window_end DATETIME NOT NULL,
-    state TEXT NOT NULL DEFAULT 'PENDING',
+    state TEXT NOT NULL DEFAULT 'PENDING',  -- PENDING | IN_PROGRESS | COMPLETED | SNOOZED | SKIPPED
     rotation_order INTEGER,
     notes TEXT,
     completed_at DATETIME,
-    verified_by INTEGER REFERENCES users(id),
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(chore_id, window_start, user_id)
+    verified_by_id INTEGER REFERENCES users(id),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_chore_assignments_state ON chore_assignments(state);
 
@@ -150,16 +183,32 @@ CREATE TABLE grocery_items (
     category TEXT,
     quantity REAL DEFAULT 1,
     unit TEXT,
-    state TEXT NOT NULL DEFAULT 'NEEDED',
+    state TEXT NOT NULL DEFAULT 'NEEDED',  -- NEEDED | CLAIMED | IN_CART | PURCHASED
     assignee_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     claimed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     pantry_item_key TEXT,
     sort_order INTEGER,
     notes TEXT,
+    moved_to_inventory_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_grocery_items_state ON grocery_items(state);
+
+CREATE TABLE inventory_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    category TEXT,
+    quantity REAL NOT NULL DEFAULT 1,
+    unit TEXT,
+    pantry_item_key TEXT UNIQUE,
+    low_stock_threshold REAL,
+    notes TEXT,
+    date_added DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_inventory_items_name ON inventory_items(name);
 
 CREATE TABLE reminders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -204,21 +253,55 @@ CREATE TABLE attachments (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_push_subscriptions_user ON push_subscriptions(user_id);
+
+CREATE TABLE notification_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reminder_id INTEGER REFERENCES reminders(id) ON DELETE SET NULL,
+    channel TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    error_detail TEXT,
+    sent_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_notification_logs_user ON notification_logs(user_id, created_at);
+CREATE INDEX idx_notification_logs_status ON notification_logs(status);
+
+CREATE TABLE household_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,  -- JSON-serialized value
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     actor_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     action_type TEXT NOT NULL,
     entity_type TEXT,
     entity_id INTEGER,
-    payload_json TEXT,
+    payload TEXT,
     ip_address TEXT,
     user_agent TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Optional FTS for tasks/grocery search
-CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
-    entity_type,
-    entity_id,
-    content
+CREATE TABLE search_index (
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    PRIMARY KEY (entity_type, entity_id)
 );
+CREATE INDEX idx_search_index_content ON search_index(content);

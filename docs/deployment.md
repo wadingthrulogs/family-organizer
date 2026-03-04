@@ -6,10 +6,10 @@ Family Organizer runs as two Docker containers managed by Docker Compose:
 
 ```
 ┌─────────────────────────────────────────┐
-│  Host machine (port 4173)               │
+│  Host machine (port 80)               │
 │                                         │
 │  ┌──────────────────────────────────┐   │
-│  │  frontend  (nginx :4173)         │   │
+│  │  frontend  (nginx :80)         │   │
 │  │  • serves React SPA              │   │
 │  │  • proxies /api/* → backend:3000 │   │
 │  └───────────────┬──────────────────┘   │
@@ -33,7 +33,7 @@ The frontend nginx container handles SPA routing, static asset caching, gzip com
 
 - **Docker Engine 24+** and **Docker Compose Plugin** (`docker compose` — not `docker-compose`)
 - A machine with at least 512 MB free RAM (1 GB recommended)
-- Ports: `4173` available on the host (configurable via `APP_PORT`)
+- Ports: `80` available on the host (configurable via `APP_PORT`)
 - Optional: a domain name or local hostname for reverse proxy / TLS setup
 
 ---
@@ -60,7 +60,7 @@ Open `backend/.env` and fill in the required values (see [Environment Variable R
 ```bash
 SESSION_SECRET=   # generate below
 ENCRYPTION_KEY=   # generate below
-APP_BASE_URL=http://localhost:4173
+APP_BASE_URL=http://localhost:80
 ```
 
 ### 3. Generate secrets
@@ -85,7 +85,7 @@ The first run builds both images and may take 2–3 minutes. Subsequent starts a
 
 ### 5. Create your admin account
 
-Open **http://localhost:4173/register** and create the first account. The first registered user should be given the `ADMIN` role (or update the role directly via `PATCH /api/v1/users/:id/role` with an admin session).
+Open **http://localhost:80/register** and create the first account. The first registered user should be given the `ADMIN` role (or update the role directly via `PATCH /api/v1/users/:id/role` with an admin session).
 
 ---
 
@@ -114,7 +114,7 @@ All variables live in `backend/.env`. The `docker-compose.yml` mounts this as `e
 | `PUSH_VAPID_PUBLIC_KEY` | Optional | VAPID public key for web push | *(generated)* |
 | `PUSH_VAPID_PRIVATE_KEY` | Optional | VAPID private key for web push | *(generated)* |
 | `OPENWEATHER_API_KEY` | Optional | OpenWeatherMap API key for weather widget | *(from openweathermap.org)* |
-| `APP_PORT` | No | Host port for the frontend container | `4173` |
+| `APP_PORT` | No | Host port for the frontend container (default: 80) | `8080` |
 
 > `DATABASE_URL` and `SQLITE_PATH` are set automatically by `docker-compose.yml` — you only need to set them if doing a manual install.
 
@@ -122,7 +122,7 @@ All variables live in `backend/.env`. The `docker-compose.yml` mounts this as `e
 
 ## Changing the Port
 
-By default the app runs on port `4173`. To use a different port, set `APP_PORT` in `backend/.env` or pass it inline:
+By default the app runs on port `80`. To use a different port, set `APP_PORT` in `backend/.env` or pass it inline:
 
 ```bash
 APP_PORT=8080 docker compose up -d --build
@@ -141,7 +141,7 @@ Install Caddy on the host and create a `Caddyfile`:
 ```
 family.local {
     tls internal          # LAN self-signed cert (use real cert for internet-facing)
-    reverse_proxy localhost:4173
+    reverse_proxy localhost:80
 }
 ```
 
@@ -153,7 +153,7 @@ For a public domain with automatic Let's Encrypt:
 
 ```
 organizer.yourdomain.com {
-    reverse_proxy localhost:4173
+    reverse_proxy localhost:80
 }
 ```
 
@@ -165,7 +165,7 @@ server {
     server_name family.local;
 
     location / {
-        proxy_pass         http://localhost:4173;
+        proxy_pass         http://localhost:80;
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;
         proxy_set_header   X-Real-IP         $remote_addr;
@@ -189,7 +189,7 @@ frontend:
   labels:
     - "traefik.enable=true"
     - "traefik.http.routers.organizer.rule=Host(`family.local`)"
-    - "traefik.http.services.organizer.loadbalancer.server.port=4173"
+    - "traefik.http.services.organizer.loadbalancer.server.port=80"
 ```
 
 ---
@@ -457,7 +457,7 @@ SQLite performs well on SD card/USB storage but use a USB SSD for better write e
 
 ## Troubleshooting
 
-### App won't load — `connection refused` on port 4173
+### App won't load — `connection refused` on port 80
 
 The frontend container may still be starting. Check:
 

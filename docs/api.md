@@ -4,151 +4,274 @@
 - Base URL: `/api/v1`
 - JSON payloads with camelCase keys.
 - Standard envelope for errors: `{ "error": { "code": "TASK_NOT_FOUND", "message": "...", "details": {} } }`
-- Authentication: session cookie + CSRF token for browser calls; JWT bearer for WebSocket upgrades or headless clients.
+- Authentication: session cookie (`express-session` + `connect-sqlite3` store). All state-changing requests require an active session.
 - Pagination via `?cursor=<opaque>` or `?page/limit` depending on endpoint; filtering with query params.
-- WebSocket endpoint: `/ws` with subprotocol `org.family+json`.
+- No WebSocket or JWT support — clients use React Query polling for live updates.
 
-## Auth & Users
+## Auth & Users (`/auth`)
+
+### POST /auth/register
+- Body: `{ username, email?, password, role? }`
+- Response: User (201)
+
 ### POST /auth/login
 - Body: `{ username, password }`
-- Response: `{ user, session }`
-- Sets HttpOnly cookie `fo_session`.
-
-### POST /auth/pin
-- Body: `{ username, pin }`
-- Response: same as login; limited to kiosk-approved devices.
+- Response: User + sets HttpOnly session cookie.
 
 ### POST /auth/logout
-- Clears session cookie.
+- Clears session.
 
-### GET /me
-- Returns current user profile, roles, feature toggles, linked calendars summary.
+### GET /auth/me
+- Returns current user profile.
 
-### POST /users
-- Admin only; create member/viewer.
+### PATCH /auth/me
+- Body: `{ email?, timezone?, colorHex? }`
 
-### PATCH /users/:id
-- Update profile, role, color, timezone.
+### POST /auth/me/password
+- Body: `{ currentPassword, newPassword }`
 
-## Google Calendar Linking
-### GET /google/authorize
-- Returns OAuth URL and state token.
+### GET /auth/users _(ADMIN)_
+- List all users.
 
-### POST /google/callback
-- Exchanges auth code; stores refresh token encrypted; returns linked calendars list.
+### POST /auth/users _(ADMIN)_
+- Create a new user.
 
-### GET /calendars
-- List linked calendars for current user; include sync status.
+### PATCH /auth/users/:id/role _(ADMIN)_
+- Body: `{ role }`
 
-### POST /calendars/:id/sync
-- Triggers manual sync (admin/member for their own calendars).
+### POST /auth/users/:id/reset-password _(ADMIN)_
+- Body: `{ newPassword }`
 
-## Calendar & Events
-### GET /calendar/events
-- Query params: `start`, `end`, `members[]`, `sources[]`.
-- Returns combined events/tasks/chores flagged by type.
+### DELETE /auth/users/:id _(ADMIN)_
+- Soft-deletes user (sets `deletedAt`, disables password login).
 
-### POST /calendar/events
-- Create local-only event; optional push to Google if write access ever enabled.
+## Tasks (`/tasks`)
 
-## Tasks
 ### GET /tasks
-- Filters: `status`, `assignee`, `label`, `dueBefore`, `dueAfter`.
+- Query: `?status&cursor&limit=20`
+- Response: `{ items, total, nextCursor }`
 
 ### POST /tasks
-- Body: `{ title, description, dueAt, priority, recurrence, assignments[] }`
+- Body: `{ title, description?, dueAt?, priority?=0, status?="OPEN", labels?, assigneeUserIds?, recurrence? }`
+
+### GET /tasks/:id
+- Returns task with assignments.
 
 ### PATCH /tasks/:id
-- Update core fields; handles optimistic concurrency with `updatedAt`.
+- Partial update of task fields.
 
-### POST /tasks/:id/assignments
-- Add user to task with optional role (owner/support).
+### DELETE /tasks/:id
+- Soft delete (204).
 
-### PATCH /tasks/:id/assignments/:assignmentId
-- Update assignment status, notes, completion timestamp.
+### GET /tasks/:id/history
+- Response: `{ taskId, history: TaskStatusChange[] }`
 
-### POST /tasks/:id/attachments
-- Multipart upload; links to attachments table.
+## Chores (`/chores`)
 
-## Chores
 ### GET /chores
-- Returns templates and upcoming assignments (expand flag).
+- Query: `?active&includeAssignments`
+- Response: `{ items, total }`
 
 ### POST /chores
-- Create template with rotation config.
+- Body: `{ title, description?, rotationType?, frequency, interval?=1, eligibleUserIds, weightMap?, rewardPoints?=0, active?=true }`
+
+### GET /chores/:id
 
 ### PATCH /chores/:id
-- Update details, toggle active state.
+
+### DELETE /chores/:id
+- (204)
+
+### PATCH /chores/assignments/:id
+- Body: `{ state?, notes? }`
+- Valid states: `PENDING | IN_PROGRESS | COMPLETED | SNOOZED | SKIPPED`
+
+### POST /chores/assignments/:id/skip
+- Body: `{ reason? }`
+
+### POST /chores/assignments/:id/swap
+- Body: `{ targetUserId }`
 
 ### POST /chores/:id/generate
-- Force rotation run for given window.
+- Generate next assignment for this chore.
 
-### PATCH /chore-assignments/:id
-- Update state (done, skipped, snoozed) and notes.
+### POST /chores/generate-all
+- Generate all pending assignments.
 
-## Grocery Lists
+### GET /chores/:id/streaks
+- Response: `{ choreId, streaks: [{ userId, username, currentStreak, longestStreak, totalCompleted }] }`
+
+## Grocery Lists (`/grocery`)
+
 ### GET /grocery/lists
-- Include item counts and active flag.
+- Query: `?includeItems&active`
 
 ### POST /grocery/lists
-- Create new list (store, preset, owner).
+- Body: `{ name, store?, presetKey?, isActive? }`
 
 ### PATCH /grocery/lists/:id
-- Rename, toggle active, change preset.
+
+### DELETE /grocery/lists/:id
 
 ### GET /grocery/lists/:id/items
-- Optional `?state=NEEDED` filter.
 
 ### POST /grocery/lists/:id/items
-- Add item(s); supports array bulk payload.
+- Body: `{ name, category?, quantity?, unit?, state?, assigneeUserId?, notes? }`
 
-### PATCH /grocery/items/:id
-- Update quantity, state, assignee, notes, sort order.
+### POST /grocery/lists/:id/items/bulk
+- Body: `{ text }` — natural-language bulk add ("3x bananas, milk").
 
-### POST /grocery/items/bulk
-- Operations: `markInCart`, `markPurchased`, `reset`.
+### POST /grocery/lists/:id/items/from-low-stock
+- Adds inventory items below threshold to the list.
 
-## Reminders
+### PATCH /grocery/lists/:listId/items/:itemId
+
+### DELETE /grocery/lists/:listId/items/:itemId
+
+## Inventory (`/inventory`)
+
+### GET /inventory
+- Query: `?search&category&lowStock`
+
+### GET /inventory/export
+- Returns text file download.
+
+### POST /inventory
+- Body: `{ name, category?, quantity?, unit?, lowStockThreshold?, notes?, dateAdded? }`
+
+### POST /inventory/bulk
+- Body: `{ text }` — natural-language bulk add.
+
+### PATCH /inventory/:id
+
+### DELETE /inventory/:id
+
+### POST /inventory/from-grocery
+- Body: `{ groceryItemId, groceryListId }`
+
+### POST /inventory/from-grocery-list
+- Body: `{ groceryListId }`
+
+## Calendar (`/calendar`)
+
+### GET /calendar/calendars
+- List linked Google calendars for the current user.
+
+### GET /calendar/events
+- Query: `?start&end&calendarId`
+- Returns events in the given date range.
+
+### POST /calendar/events
+- Body: `{ linkedCalendarId?, title, startAt, endAt, allDay?, timezone, colorHex?, location? }`
+
+### PATCH /calendar/events/:id
+
+### DELETE /calendar/events/:id
+- Soft delete (`deleted: true`).
+
+## Settings (`/settings`)
+
+### GET /settings
+- Response: `{ householdName, timezone, quietHours, hiddenTabs, theme, weatherLocation, weatherUnits }`
+
+### PATCH /settings _(ADMIN)_
+- Partial update of household settings.
+
+### GET /settings/me
+- Response: `{ theme, dashboardConfig, hiddenTabs }` — user preferences.
+
+### PATCH /settings/me
+- Update user preferences.
+
+## Reminders (`/reminders`)
+
 ### GET /reminders
-- List by owner or target.
+- Query: `?enabled&targetType`
 
 ### POST /reminders
-- Body: `{ targetType, targetId, title, message, channels, leadTimeMinutes, quietHours }`
+- Body: `{ title, message?, targetType, targetId?, channelMask?, leadTimeMinutes?, enabled? }`
+
+### GET /reminders/:id
 
 ### PATCH /reminders/:id
-- Update schedule/channel; enable/disable.
 
-### POST /reminders/:id/test
-- Trigger immediate send for diagnostics.
+### DELETE /reminders/:id
 
-## Settings & Administration
-### GET /settings
-- Household config (timezone, theme, quiet hours, feature flags).
+## Notifications (`/notifications`)
 
-### PATCH /settings
-- Admin updates to config.
+### POST /notifications/subscribe
+- Body: `{ endpoint, keys: { p256dh, auth } }`
 
-### GET /status
-- Health data (last calendar sync, reminder queue, DB size).
+### DELETE /notifications/subscribe
+- Body: `{ endpoint }`
 
-### POST /backup/export
-- Admin-only: returns signed URL or binary stream of DB dump + attachments archive.
+### GET /notifications/subscriptions
 
-## WebSocket Events
-- `task.updated`: `{ taskId, changes, assignmentStates }`
-- `chore.assignment`: `{ assignmentId, state, windowStart, userId }`
-- `grocery.item`: `{ itemId, state, listId, actor }`
-- `calendar.refresh`: instructs clients to refetch events for window.
-- `reminder.sent`: confirmation with status for UI badge.
+### GET /notifications/log
 
-Clients authenticate WebSocket using session token exchanged for JWT via `/auth/ws-token`.
+### GET /notifications/log/all _(ADMIN)_
 
-## Background Jobs
-- `/jobs/calendar-sync` (internal) triggered via message queue or cron; logs accessible via admin UI.
-- `/jobs/reminder-dispatch` similarly instrumented for observability.
+### POST /notifications/trigger/:reminderId
+- Manually fire a reminder for testing/diagnostics.
+
+### POST /notifications/process _(ADMIN)_
+- Process all pending reminder triggers.
+
+### POST /notifications/digest _(ADMIN)_
+
+### GET /notifications/vapid-public-key
+- Public endpoint — returns VAPID public key for push subscription setup.
+
+## Attachments (`/attachments`)
+
+### GET /attachments
+- Query: `?linkedEntityType&linkedEntityId`
+
+### POST /attachments
+- Multipart form-data: `file`, `linkedEntityType?`, `linkedEntityId?`
+- Max 10 MB; validated by magic bytes.
+
+### GET /attachments/:id/download
+
+### DELETE /attachments/:id
+
+## Google Integration (`/integrations/google`)
+
+### GET /integrations/google
+- List connected Google accounts with their linked calendars.
+
+### GET /integrations/google/start
+- Query: `?login_hint`
+- Response: `{ url }` — OAuth authorization URL.
+
+### GET /integrations/google/callback
+- OAuth redirect handler; exchanges code, stores encrypted refresh token.
+
+### DELETE /integrations/google/:accountId
+
+### POST /integrations/google/:accountId/sync
+
+### POST /integrations/google/sync-all
+
+## Other
+
+### GET /health
+- Response: `{ status: 'ok', timestamp }`
+
+### GET /weather
+- Query: `?location&units=imperial`
+- Response: current conditions + daily forecast.
+
+### GET /backup/export _(ADMIN)_
+
+### POST /backup/import _(ADMIN)_
 
 ## Error Codes (Sample)
 - `AUTH_INVALID_CREDENTIALS`
+- `VALIDATION_ERROR`
+- `NOT_FOUND`
+- `FORBIDDEN`
+- `CONFLICT`
 - `CALENDAR_SYNC_FAILED`
 - `TASK_ALREADY_COMPLETED`
 - `CHORE_ASSIGNMENT_LOCKED`

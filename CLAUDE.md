@@ -91,25 +91,29 @@ TZ                      # default UTC
 
 | Model | Key Fields |
 |-------|-----------|
-| User | id, username, email, passwordHash, pinHash, role, colorHex, deletedAt |
+| User | id, username, email, passwordHash, pinHash, role, colorHex, authProvider, timezone, deletedAt |
 | UserPreference | userId, theme, dashboardConfig (JSON), hiddenTabs |
-| GoogleAccount | userId, email, encryptedRefreshToken |
-| LinkedCalendar | userId, googleAccountId, googleId, displayName, colorHex |
-| FamilyEvent | linkedCalendarId, title, startAt, endAt, allDay, colorHex, deleted |
+| UserSecret | userId, secretType, encryptedValue (Bytes) |
+| GoogleAccount | userId, email, displayName, encryptedRefreshToken, lastSyncedAt |
+| LinkedCalendar | userId, googleAccountId, googleId, displayName, colorHex, accessRole, syncToken, lastSyncedAt |
+| FamilyEvent | linkedCalendarId, source (GOOGLE/LOCAL), title, startAt, endAt, allDay, colorHex, location, deleted |
 | Task | title, dueAt, priority(0-5), status, labels, recurrenceId, deletedAt |
 | TaskAssignment | taskId, userId, status, progressNote |
 | TaskStatusChange | taskId, fromStatus, toStatus, changedBy |
 | TaskRecurrence | frequency, interval, byDay, byMonthDay, until, count |
 | Chore | title, rotationType, frequency, interval, eligibleUserIds (CSV), rewardPoints, active |
-| ChoreAssignment | choreId, userId, windowStart, windowEnd, state, rotationOrder |
+| ChoreAssignment | choreId, userId, windowStart, windowEnd, state, rotationOrder, verifiedById |
 | GroceryList | ownerUserId, name, store, presetKey, isActive |
-| GroceryItem | listId, name, category, quantity, unit, state, assigneeUserId, claimedByUserId |
-| InventoryItem | name, category, quantity, unit, lowStockThreshold, pantryItemKey |
-| Reminder | ownerUserId, targetType, targetId, channelMask, leadTimeMinutes |
-| ReminderTrigger | reminderId, channel, nextFireAt, lastStatus |
-| Attachment | ownerUserId, fileName, filePath, contentType, byteSize, linkedEntityType/Id |
-| PushSubscription | userId, endpoint, p256dh, auth |
+| GroceryItem | listId, name, category, quantity, unit, state, assigneeUserId, claimedByUserId, pantryItemKey, sortOrder |
+| InventoryItem | name, category, quantity, unit, lowStockThreshold, pantryItemKey (unique) |
+| Reminder | ownerUserId, targetType, targetId, channelMask, leadTimeMinutes, enabled |
+| ReminderTrigger | reminderId, channel, nextFireAt, lastStatus, retryCount |
+| Attachment | ownerUserId, fileName, filePath, contentType, byteSize, checksum, linkedEntityType/Id, scanned |
+| PushSubscription | userId, endpoint, p256dh, auth, userAgent |
+| NotificationLog | userId, reminderId, channel, title, body, status, sentAt |
 | HouseholdSetting | key (PK), value |
+| AuditLog | actorUserId, actionType, entityType, entityId, payload, ipAddress, userAgent |
+| SearchIndex | entityType, entityId, content |
 
 **Enum values:**
 - Task status: `OPEN | IN_PROGRESS | BLOCKED | DONE | ARCHIVED`

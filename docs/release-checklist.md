@@ -42,7 +42,7 @@ A short runbook for tagging the repository, packaging assets, and rolling out th
 ## 5. Deployment
 - Follow `docs/deployment.md` to provision env vars, volumes, and Docker services.
 - Run `docker compose up -d --pull always` (or `--build`) on the target host.
-- Verify `/healthz` and `/readyz` endpoints return 200. Confirm the frontend loads over HTTPS.
+- Verify `GET /api/v1/health` returns `{ status: 'ok' }`. Confirm the frontend loads over HTTPS.
 
 ## 6. Post-Deployment Smoke Test
 - Sign in with a household user; ensure tasks/chores/grocery views load data.

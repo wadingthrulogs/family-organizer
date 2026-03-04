@@ -4,7 +4,8 @@
 | Entity | Description |
 | --- | --- |
 | `users` | Household accounts with role, profile info, and authentication credentials. |
-| `user_secrets` | Encrypted blobs (OAuth refresh tokens, push keys) linked to users. |
+| `user_secrets` | Encrypted blobs for arbitrary per-user secrets (not used for OAuth tokens — see `google_accounts`). |
+| `google_accounts` | Connected Google accounts per user; stores `encrypted_refresh_token` directly. |
 | `linked_calendars` | Mapping of Google calendars to household members, including color and sync metadata. |
 | `family_events` | Cached Google events plus locally created events for unified display. |
 | `tasks` | User-defined tasks with due dates, recurrence rules, and status. |
@@ -17,16 +18,23 @@
 | `reminders` | Reminder rules referencing tasks/chores/groceries/events. |
 | `reminder_triggers` | Scheduled occurrences for reminders, tracking last attempt and channel. |
 | `attachments` | File metadata for items referenced by tasks or groceries. |
-| `audit_logs` | Append-only log of significant actions for troubleshooting.
+| `push_subscriptions` | Browser Web Push subscription records per user. |
+| `notification_logs` | Delivery history for reminder notifications (push/email). |
+| `household_settings` | Key-value store for household-wide configuration. |
+| `audit_logs` | Append-only log of significant actions for troubleshooting. |
+| `search_index` | Optional full-text search index for tasks and grocery items. |
 
 ## Relationships
-- One `user` ⇨ many `linked_calendars`, `tasks` (author), `task_assignments`, `chore_assignments`, `grocery_lists` (owner), `reminders`.
+- One `user` ⇨ many `google_accounts`, `linked_calendars`, `tasks` (author), `task_assignments`, `chore_assignments`, `grocery_lists` (owner), `reminders`, `push_subscriptions`, `notification_logs`.
+- `google_accounts` ⇨ `linked_calendars` (1-to-many). Each Google account can have multiple linked calendars.
 - `tasks` ⇨ `task_assignments` (1-to-many) and optional `task_recurrences` (many tasks can reuse recurrence template).
-- `chores` ⇨ `chore_assignments` (1-to-many). Assignments reference `users` for assignee and optionally approver.
-- `grocery_lists` ⇨ `grocery_items` (1-to-many). Items can reference `tasks` for follow-up or `attachments` for photos.
+- `tasks` ⇨ `task_status_changes` (1-to-many) — audit trail of all status transitions.
+- `chores` ⇨ `chore_assignments` (1-to-many). Assignments reference `users` for assignee and optionally for verifier.
+- `grocery_lists` ⇨ `grocery_items` (1-to-many).
 - `reminders` reference polymorphic targets (task, chore, grocery_item, event) using target_type/target_id.
 - `reminder_triggers` belong to `reminders` and record channel-specific scheduling.
-- `user_secrets` hold encrypted data for `users` and `linked_calendars` (refresh tokens, push subscriptions).
+- `attachments` use a polymorphic `linked_entity_type`/`linked_entity_id` to associate with any entity.
+- `notification_logs` belong to `users` and optionally to `reminders` for delivery history.
 
 ## Key Fields & Considerations
 ### Users
@@ -45,8 +53,9 @@
 
 ### Chores
 - `chores.rotation_type`: `ROUND_ROBIN`, `WEIGHTED`, `MANUAL`.
-- `chore_assignments.state`: `PENDING`, `DONE`, `SKIPPED`, `SNOOZED`.
+- `chore_assignments.state`: `PENDING`, `IN_PROGRESS`, `COMPLETED`, `SNOOZED`, `SKIPPED`.
 - `chore_assignments.rotation_order` to reconstruct schedule history.
+- `chore_assignments.verified_by_id` optional reference to user who verified completion.
 
 ### Grocery Lists
 - `grocery_items.state`: `NEEDED`, `CLAIMED`, `IN_CART`, `PURCHASED`.

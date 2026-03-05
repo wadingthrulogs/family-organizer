@@ -26,11 +26,11 @@ setup:
 reconfigure:
 	@bash setup.sh --reconfigure
 
-## tailscale-setup: Set up Tailscale HTTPS (cert, nginx, env, rebuild)
+## tailscale-setup: Re-run Tailscale HTTPS setup (host-based standalone; prefer 'make setup' for new installs)
 tailscale-setup:
 	@bash tailscale-setup.sh
 
-## tailscale-renew: Renew Tailscale cert and reload nginx (no rebuild)
+## tailscale-renew: Renew Tailscale cert inside container and reload nginx (no rebuild)
 tailscale-renew:
 	@bash tailscale-setup.sh --renew
 

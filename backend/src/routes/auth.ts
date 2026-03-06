@@ -77,15 +77,19 @@ authRouter.post(
       });
     }
 
-    // Check username uniqueness
-    const existingUsername = await prisma.user.findUnique({ where: { username: payload.username } });
+    // Check username uniqueness (ignore soft-deleted users; rename them to free the username)
+    const existingUsername = await prisma.user.findFirst({ where: { username: payload.username, deletedAt: null } });
     if (existingUsername) {
       return res.status(409).json({ error: { code: 'USERNAME_TAKEN', message: 'Username already taken' } });
+    }
+    const deletedWithSameName = await prisma.user.findFirst({ where: { username: payload.username, deletedAt: { not: null } } });
+    if (deletedWithSameName) {
+      await prisma.user.update({ where: { id: deletedWithSameName.id }, data: { username: `${payload.username}_deleted_${deletedWithSameName.id}` } });
     }
 
     // Check email uniqueness if provided
     if (payload.email) {
-      const existingEmail = await prisma.user.findUnique({ where: { email: payload.email } });
+      const existingEmail = await prisma.user.findFirst({ where: { email: payload.email, deletedAt: null } });
       if (existingEmail) {
         return res.status(409).json({ error: { code: 'EMAIL_TAKEN', message: 'Email already in use' } });
       }
@@ -280,13 +284,17 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const payload = adminCreateUserSchema.parse(req.body ?? {});
 
-    const existingUsername = await prisma.user.findUnique({ where: { username: payload.username } });
+    const existingUsername = await prisma.user.findFirst({ where: { username: payload.username, deletedAt: null } });
     if (existingUsername) {
       return res.status(409).json({ error: { code: 'USERNAME_TAKEN', message: 'Username already taken' } });
     }
+    const deletedWithSameName = await prisma.user.findFirst({ where: { username: payload.username, deletedAt: { not: null } } });
+    if (deletedWithSameName) {
+      await prisma.user.update({ where: { id: deletedWithSameName.id }, data: { username: `${payload.username}_deleted_${deletedWithSameName.id}` } });
+    }
 
     if (payload.email) {
-      const existingEmail = await prisma.user.findUnique({ where: { email: payload.email } });
+      const existingEmail = await prisma.user.findFirst({ where: { email: payload.email, deletedAt: null } });
       if (existingEmail) {
         return res.status(409).json({ error: { code: 'EMAIL_TAKEN', message: 'Email already in use' } });
       }

@@ -531,48 +531,6 @@ function SettingsPage() {
                     placeholder={data?.googleClientSecretSet ? 'Leave blank to keep current' : 'Paste your client secret'}
                   />
                 </label>
-
-                {/* Google Cloud Console setup helper */}
-                {srvAppBaseUrl ? (
-                  <div className="space-y-2 rounded-lg border border-th-border-light bg-th-input/40 p-3">
-                    <p className="text-xs font-semibold text-heading">Google Cloud Console — OAuth 2.0 Client Settings</p>
-                    <p className="text-xs text-muted">Add these exact values when creating your OAuth 2.0 Client ID:</p>
-
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-form-label">Authorized JavaScript origins</p>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 truncate rounded border border-th-border bg-page px-2 py-1 text-xs font-mono text-primary">
-                          {srvAppBaseUrl.replace(/\/$/, '')}
-                        </code>
-                        <button
-                          type="button"
-                          className="shrink-0 rounded border border-th-border px-2 py-1 text-xs text-muted hover:text-primary"
-                          onClick={() => navigator.clipboard.writeText(srvAppBaseUrl.replace(/\/$/, ''))}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-form-label">Authorized redirect URIs</p>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 truncate rounded border border-th-border bg-page px-2 py-1 text-xs font-mono text-primary">
-                          {srvAppBaseUrl.replace(/\/$/, '')}/api/v1/integrations/google/callback
-                        </code>
-                        <button
-                          type="button"
-                          className="shrink-0 rounded border border-th-border px-2 py-1 text-xs text-muted hover:text-primary"
-                          onClick={() => navigator.clipboard.writeText(`${srvAppBaseUrl.replace(/\/$/, '')}/api/v1/integrations/google/callback`)}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted italic">Set the App Base URL above to see the values for Google Cloud Console.</p>
-                )}
               </div>
 
               {/* Weather */}

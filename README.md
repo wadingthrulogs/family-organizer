@@ -238,14 +238,16 @@ npm install
 npx prisma migrate dev
 npm run dev
 
-# Frontend (port 5173, Vite dev server) — separate terminal
+# Frontend (port 80, Vite dev server) — separate terminal
 cd frontend
 npm install
 npm run dev
 ```
 
-> **Note:** Port 5173 is the Vite dev server used during development.
+> **Note:** Port 80 is the Vite dev server used during development.
 > The Docker deployment (nginx) uses port **443** (HTTPS) by default.
+>
+> **Windows note:** Port 80 requires elevated privileges. If `npm run dev` fails with `EACCES` or `permission denied`, run your terminal as Administrator.
 
 The Vite dev server proxies `/api` to `http://localhost:3000` automatically.
 

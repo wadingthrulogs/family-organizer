@@ -35,8 +35,10 @@ npm run dev                 # starts API on http://localhost:3000
 # 3. Frontend (separate terminal)
 cd frontend
 npm install
-npm run dev                 # starts Vite dev server on http://localhost:5173
+npm run dev                 # starts Vite dev server on http://localhost:80
 ```
+
+> **Windows note:** Port 80 requires elevated privileges. If `npm run dev` fails with `EACCES` or `permission denied`, run your terminal as Administrator.
 
 The frontend dev server proxies `/api` to `http://localhost:3000` automatically — no extra config needed.
 

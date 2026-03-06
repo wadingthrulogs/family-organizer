@@ -22,9 +22,11 @@ Organizer/
 # Backend (port 3000)
 cd backend && npm run dev
 
-# Frontend (port 5173)
+# Frontend (port 80)
 cd frontend && npm run dev
 ```
+
+> **Windows note:** Port 80 requires elevated privileges. If `npm run dev` fails with `EACCES` or `permission denied`, run your terminal as Administrator.
 
 ---
 

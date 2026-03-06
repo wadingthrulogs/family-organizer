@@ -108,7 +108,11 @@ async function loadHouseholdSettings(): Promise<Record<string, unknown>> {
     }
   }
 
-  return { ...DEFAULTS, ...fromDb };
+  const merged = { ...DEFAULTS, ...fromDb };
+  if (!merged.appBaseUrl && process.env.APP_BASE_URL) {
+    merged.appBaseUrl = process.env.APP_BASE_URL;
+  }
+  return merged;
 }
 
 // Internal helper — reads + decrypts all server config from DB for hot-reloading

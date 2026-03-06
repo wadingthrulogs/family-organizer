@@ -78,6 +78,7 @@ function SettingsPage() {
   const [srvVapidPriv, setSrvVapidPriv] = useState('');
   const [srvSaving, setSrvSaving] = useState(false);
   const [srvNotice, setSrvNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   useEffect(() => {
     if (!data) {
@@ -477,13 +478,6 @@ function SettingsPage() {
 
           {srvOpen ? (
             <div className="mt-4 space-y-6">
-              {srvNotice ? (
-                <div
-                  className={`rounded border px-3 py-2 text-sm ${srvNotice.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}
-                >
-                  {srvNotice.message}
-                </div>
-              ) : null}
 
               {/* App URL */}
               <div className="rounded-card border border-th-border-light p-4 space-y-3">
@@ -531,6 +525,45 @@ function SettingsPage() {
                     placeholder={data?.googleClientSecretSet ? 'Leave blank to keep current' : 'Paste your client secret'}
                   />
                 </label>
+
+                {/* Required URIs for Google Cloud Console */}
+                <div className="rounded-lg border border-th-border-light bg-th-page p-3 space-y-2">
+                  <p className="text-xs font-semibold text-heading">Google Cloud Console — Required URIs</p>
+                  {(() => {
+                    const oauthBase = (srvAppBaseUrl || data?.appBaseUrl || '').replace(/\/$/, '');
+                    if (!oauthBase) {
+                      return <p className="text-xs text-muted">Set App Base URL above to generate these values.</p>;
+                    }
+                    const redirectUri = `${oauthBase}/api/v1/integrations/google/callback`;
+                    const copyField = (key: string, value: string) => {
+                      navigator.clipboard.writeText(value);
+                      setCopiedField(key);
+                      setTimeout(() => setCopiedField(null), 2000);
+                    };
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs font-semibold text-form-label">Authorized JavaScript origins</span>
+                          <div className="flex gap-2">
+                            <input readOnly value={oauthBase} className="min-w-0 flex-1 rounded-lg border border-th-border bg-th-input px-3 py-2 text-sm text-primary font-mono" />
+                            <button type="button" onClick={() => copyField('origin', oauthBase)} className="shrink-0 rounded-lg border border-th-border px-3 py-2 text-xs font-semibold text-heading hover:bg-th-border transition-colors">
+                              {copiedField === 'origin' ? '✓ Copied' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs font-semibold text-form-label">Authorized redirect URIs</span>
+                          <div className="flex gap-2">
+                            <input readOnly value={redirectUri} className="min-w-0 flex-1 rounded-lg border border-th-border bg-th-input px-3 py-2 text-sm text-primary font-mono" />
+                            <button type="button" onClick={() => copyField('redirect', redirectUri)} className="shrink-0 rounded-lg border border-th-border px-3 py-2 text-xs font-semibold text-heading hover:bg-th-border transition-colors">
+                              {copiedField === 'redirect' ? '✓ Copied' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
 
               {/* Weather */}
@@ -655,6 +688,14 @@ function SettingsPage() {
                 </div>
               </div>
 
+              <div className="flex flex-col gap-3">
+              {srvNotice ? (
+                <div
+                  className={`rounded border px-3 py-2 text-sm ${srvNotice.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}
+                >
+                  {srvNotice.message}
+                </div>
+              ) : null}
               <div className="flex justify-end">
                 <button
                   type="button"
@@ -697,6 +738,7 @@ function SettingsPage() {
                 >
                   {srvSaving ? 'Saving…' : 'Save server configuration'}
                 </button>
+              </div>
               </div>
             </div>
           ) : null}

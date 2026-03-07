@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -58,7 +58,7 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
   filename: (_req, file, cb) => {
-    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const unique = `${Date.now()}-${randomBytes(8).toString('hex')}`;
     const ext = path.extname(file.originalname);
     cb(null, `${unique}${ext}`);
   },
@@ -158,6 +158,10 @@ attachmentsRouter.get(
       return res.status(404).json({ error: { code: 'ATTACHMENT_NOT_FOUND', message: 'Attachment not found' } });
     }
 
+    if (attachment.ownerUserId !== null && attachment.ownerUserId !== req.session.userId && req.session.role !== 'ADMIN') {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
+    }
+
     const fullPath = path.resolve(UPLOADS_DIR, attachment.filePath);
     if (!fullPath.startsWith(path.resolve(UPLOADS_DIR) + path.sep)) {
       return res.status(400).json({ error: { code: 'INVALID_PATH', message: 'Invalid file path' } });
@@ -166,7 +170,8 @@ attachmentsRouter.get(
       return res.status(404).json({ error: { code: 'FILE_MISSING', message: 'File not found on disk' } });
     }
 
-    res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
+    const safeFileName = attachment.fileName.replace(/["\\\r\n]/g, '_');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"`);
     res.setHeader('Content-Type', attachment.contentType ?? 'application/octet-stream');
     res.sendFile(fullPath);
   })
@@ -181,6 +186,10 @@ attachmentsRouter.delete(
     const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
     if (!attachment) {
       return res.status(404).json({ error: { code: 'ATTACHMENT_NOT_FOUND', message: 'Attachment not found' } });
+    }
+
+    if (attachment.ownerUserId !== null && attachment.ownerUserId !== req.session.userId && req.session.role !== 'ADMIN') {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
     }
 
     // Delete the file from disk

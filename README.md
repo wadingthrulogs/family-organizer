@@ -35,12 +35,11 @@ chmod +x setup.sh
 bash setup.sh
 ```
 
-The wizard generates secrets, detects your local IP, asks about optional features,
-writes `backend/.env`, and optionally builds and starts the app.
+The wizard generates secrets, writes `backend/.env`, and builds and starts the app.
 
 **Windows users:** Run in WSL2.
-**Default URL:** `https://<your-lan-ip>:443` (Docker, nginx, HTTPS). The setup wizard will show the exact URL.
-**After setup:** Open the URL shown in the terminal and go to `/register` to create your admin account.
+**Default URL:** `http://localhost:80`. The setup wizard will show the exact URL.
+**After setup:** The script will display the app URL and a direct link to `/register` — open it to create your admin account.
 **Reconfigure:** Most settings (API keys, SMTP, push notifications, weather) can be changed via **Settings → Server Configuration** in the app (admin only). For core server config (`SESSION_SECRET`, `DATABASE_URL`, ports), edit `backend/.env` then `make restart`.
 
 Full guide: [docs/deployment.md](docs/deployment.md)
@@ -126,8 +125,8 @@ To sync Google Calendars, you need a free OAuth 2.0 client from Google Cloud.
      ```
      Replace `<APP_BASE_URL>` with your actual URL from setup.
      Examples:
-     - `https://192.168.1.50:443/api/v1/integrations/google/callback`
-     - `https://familyorganizer.tail411eff.ts.net/api/v1/integrations/google/callback`
+     - `http://localhost:80/api/v1/integrations/google/callback` *(initial setup)*
+     - `https://familyorganizer.tail411eff.ts.net/api/v1/integrations/google/callback` *(Tailscale HTTPS)*
 5. Click **Create** — a dialog will show your **Client ID** and **Client Secret**
 
 ### 4. Add the Credentials to `backend/.env`
@@ -157,74 +156,53 @@ After authorising, your calendars will appear under **Settings → Google Calend
 ## Tailscale HTTPS (Recommended)
 
 Tailscale issues free, browser-trusted TLS certificates for any machine on your tailnet — no
-Certbot, no Let's Encrypt, no port 80 needed. HTTPS is required for secure session cookies and
-browser push notifications.
+Certbot, no Let's Encrypt, no port-forwarding needed. HTTPS is required for secure session
+cookies and browser push notifications.
 
-> **Automated:** Run `bash tailscale-setup.sh` (or `make tailscale-setup`) to complete all steps
-> below automatically. Manual steps are kept below as reference.
+### What `tailscale-setup.sh` does automatically
 
-### 1. Install Tailscale and get your hostname
-
-Install Tailscale on the server and note the MagicDNS hostname:
+Run it from the repo root:
 
 ```bash
-tailscale status   # e.g. familyorganizer.tail411eff.ts.net
+bash tailscale-setup.sh
 ```
 
-### 2. Issue the certificate
+The script handles everything in order:
+
+1. **Installs Tailscale** on the host if not already installed (Linux/macOS/WSL2)
+2. **Detects your Tailscale MagicDNS hostname** (e.g. `mymachine.tail411eff.ts.net`) from `tailscale status`
+3. **Issues a TLS certificate** via `tailscale cert` and saves it to `/etc/tailscale/certs/`
+4. **Patches `frontend/nginx.conf`** — switches `listen 80` to `listen 443 ssl`, sets `server_name` to your hostname, and adds the `ssl_certificate` directives
+5. **Updates `.env` and `backend/.env`** — sets `APP_BASE_URL=https://<hostname>`, `APP_PORT=443`, and `SESSION_SECURE=true`
+6. **Rebuilds and restarts containers** — runs `docker compose down && docker compose up -d --build`
+7. **Polls the health endpoint** until the app responds over HTTPS
+8. **Optionally installs a weekly cron** to renew the certificate and reload nginx without downtime
+
+After the script finishes, open `https://<your-hostname>` — you should see the padlock.
+
+### What you still need to do manually
+
+**If you use Google Calendar**, update your OAuth redirect URI in Google Cloud Console:
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) → **APIs & Services → Credentials**
+2. Click your OAuth client → **Authorised redirect URIs**
+3. Add:
+   ```
+   https://<your-hostname>/api/v1/integrations/google/callback
+   ```
+4. Click **Save**
+
+> **Tip:** Open **Settings → Server Configuration** in the app — the Google OAuth section shows the exact URIs you need to register, pre-filled with your current `APP_BASE_URL`.
+
+### Re-running and renewal
 
 ```bash
-sudo mkdir -p /etc/tailscale/certs
-sudo tailscale cert \
-  --cert-file /etc/tailscale/certs/<your-hostname>.crt \
-  --key-file  /etc/tailscale/certs/<your-hostname>.key \
-  <your-hostname>
+bash tailscale-setup.sh --renew   # Re-issue cert + reload nginx (no rebuild)
+bash tailscale-setup.sh --cron    # Install/update the weekly renewal cron only
 ```
 
-### 3. Configure the app
+The setup script (`bash setup.sh`) preserves your Tailscale hostname across restarts and will not overwrite a configured `APP_BASE_URL`.
 
-Set your Tailscale hostname as `APP_BASE_URL` in the root `.env`:
-
-```env
-APP_PORT=443
-APP_BASE_URL=https://<your-hostname>
-SESSION_SECURE=true
-```
-
-The setup script (`bash setup.sh`) preserves this URL across reboots — it will not overwrite a
-configured hostname with the detected LAN IP.
-
-### 4. Rebuild
-
-```bash
-docker compose down && docker compose up -d --build
-```
-
-Open `https://<your-hostname>` — you should see the padlock.
-
-### 5. Update Google OAuth redirect URI
-
-If you use Google Calendar, add the new HTTPS callback URI in
-[Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials →
-your OAuth client → Authorised redirect URIs:
-
-```
-https://<your-hostname>/api/v1/integrations/google/callback
-```
-
-### Certificate auto-renewal
-
-Tailscale certs expire every ~90 days. Add a weekly cron to renew without downtime:
-
-```cron
-0 3 * * 1  tailscale cert \
-  --cert-file /etc/tailscale/certs/<your-hostname>.crt \
-  --key-file  /etc/tailscale/certs/<your-hostname>.key \
-  <your-hostname> \
-  && docker exec $(docker compose -f /path/to/Organizer/docker-compose.yml ps -q frontend) nginx -s reload
-```
-
-Full details and troubleshooting: [Tailscale-guide.md](Tailscale-guide.md)
 
 ---
 

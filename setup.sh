@@ -205,14 +205,7 @@ if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
   APP_BASE_URL=$(grep -E '^APP_BASE_URL=' .env 2>/dev/null | cut -d= -f2-) || true
 
   if [[ -z "$APP_BASE_URL" ]]; then
-    # Nothing set — detect IP and build a URL
-    detect_ip
-    if [[ -z "$DETECTED_IP" ]]; then
-      error "Could not detect server IP."
-      printf "  Set APP_BASE_URL in .env, then run: ${COMPOSE_CMD} up -d\n\n"
-      exit 1
-    fi
-    APP_BASE_URL="http://${DETECTED_IP}:${APP_PORT}"
+    APP_BASE_URL="http://localhost:${APP_PORT}"
   fi
 
   # Keep backend/.env in sync (in-place, preserves secrets)
@@ -243,7 +236,7 @@ printf "  ${BOLD}${CYAN}└─────────────────�
 printf "\n"
 printf "  This wizard will:\n"
 printf "   • Generate cryptographic secrets\n"
-printf "   • Detect your local IP for ${BOLD}APP_BASE_URL${RESET}\n"
+printf "   • Set ${BOLD}APP_BASE_URL${RESET} to localhost\n"
 printf "   • Write ${BOLD}backend/.env${RESET} from the example template\n"
 printf "   • Optionally build and start the app\n"
 printf "\n"
@@ -302,13 +295,7 @@ printf "\n  ${BOLD}[3/6] Frontend port${RESET}\n"
 APP_PORT=80
 info "Using port ${APP_PORT}  ${DIM}(run tailscale-setup.sh to enable HTTPS on 443)${RESET}"
 
-if [[ -n "$DETECTED_IP" ]]; then
-  SUGGESTED_URL="http://${DETECTED_IP}:${APP_PORT}"
-  info "Detected LAN IP: ${BOLD}${DETECTED_IP}${RESET}"
-else
-  SUGGESTED_URL="http://localhost:${APP_PORT}"
-  warn "Could not detect LAN IP — using localhost"
-fi
+SUGGESTED_URL="http://localhost:${APP_PORT}"
 
 # ── [4/6] APP_BASE_URL ─────────────────────────────────────────────────────────
 printf "\n  ${BOLD}[4/6] APP_BASE_URL${RESET}\n"

@@ -27,9 +27,9 @@ A privacy-first intranet web application that lets household members share calen
 - Manual refresh and scheduled background sync with incremental cache updates.
 
 ### Tasks & To-Dos
-- CRUD for tasks with title, description, due date, priority, labels, attachments (local file reference), and recurrence.
-- Assignment to one or multiple members; per-task status history.
-- Views: list, board (status lanes), and timeline integrated with calendar day/week views.
+- CRUD for tasks with title, description, due date, labels, and recurrence. Assignment to one or multiple members.
+- Tasks are open or done; status history tracked internally.
+- View: grouped todo list (Overdue / Today / Upcoming / No Due Date) with quick-add bar and filter tabs (All / Active / Done / Mine).
 
 ### Chores & Household Rotations
 - Chore templates with frequency (daily/weekly/custom), estimated effort, and eligible members.

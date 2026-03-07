@@ -16,7 +16,7 @@
 ### Frontend (React + Vite + Tailwind)
 - Authentication views (login, OAuth linking prompts).
 - Calendar with day/week/month view and combined events/tasks/chores overlay.
-- Task Kanban board, grocery list UI with shopping mode, chore planner, reminder settings.
+- Task todo list with quick-add and inline editing, grocery list UI with shopping mode, chore planner, reminder settings.
 - Dashboard widget grid (drag/resize via react-grid-layout).
 - Data freshness via React Query polling (stale-while-revalidate); no WebSocket.
 - Push notification subscription handled via browser Push API + `POST /notifications/subscribe`.

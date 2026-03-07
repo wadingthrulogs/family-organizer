@@ -1,6 +1,6 @@
 # Family Organizer
 
-I created this app after seeing some freinds get magic mirror and dakboard. I didn't want to pay a subscription, wanted something self hosted with all the features and thought it would also make a fun AI coding project. This is supposed to be run a raspberry pi or linux host, but since its run in containters it can run on a windows host. 
+I created this app after seeing some friends get Magic Mirror and DAKboard. I didn't want to pay a subscription, I wanted something self-hosted with all the features, and I thought it would make a fun AI coding project. This is meant to run on a Raspberry Pi or Linux host, but since it runs in containers, it can also run on a Windows host. 
 
 Requriments - 
 * [Open Weather Map API Key](https://openweathermap.org/api)
@@ -15,7 +15,7 @@ I am still working on the reminders and notifications tabs.
 ## Features
 - **Dashboard** — Drag-and-resize widget grid, 16 themes
 - **Calendar** — Google Calendar sync, day/week/month views, manual events
-- **Tasks** — Kanban board with assignments, priorities, due dates, recurrence, and history
+- **Tasks** — Simple todo list with quick-add, open/closed status, assignees, due dates, and recurrence
 - **Chores** — Rotation scheduling (round-robin / weighted / manual), streaks, reward points
 - **Grocery Lists** — Shopping mode, bulk add, low-stock auto-populate
 - **Inventory** — Pantry tracker with low-stock thresholds and export
@@ -261,7 +261,7 @@ The Vite dev server proxies `/api` to `http://localhost:3000` automatically.
 | Auth | express-session, bcrypt |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS |
 | Data fetching | TanStack Query v5 |
-| Drag & drop | @dnd-kit, react-grid-layout |
+| Drag & drop | react-grid-layout (dashboard) |
 | Deployment | Docker Compose, Nginx |
 
 ---

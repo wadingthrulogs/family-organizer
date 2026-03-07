@@ -18,7 +18,7 @@
 +-------------------------------------------------------------+
 | Left Column (65%)                                        | |
 |  - Today Card: timeline list of events/tasks              | |
-|  - Upcoming Tasks: kanban mini-lanes (Today, Tomorrow...) | |
+|  - Upcoming Tasks: scrollable list of open tasks, quick-close checkbox per row | |
 |  - Chore Spotlight: carousel of pending chores per member | |
 | Right Column (35%)                                       | |
 |  - Grocery Quick Add form + top 5 needed items           | |
@@ -35,13 +35,15 @@ Mobile adapts to stacked cards with sticky nav bar.
 - Tasks and chores appear as pill overlays with icons (checkbox vs broom) and color-coded borders.
 - Mobile day view shows agenda list with swipe to mark done.
 
-## Task Board
+## Tasks (Todo List)
 ```
-Kanban layout (columns: Backlog · In Progress · Waiting · Done)
-Each card: title, assignees avatars, due date chip, checklist count.
-Sidebar: filters (labels, members, due range) + quick add form.
+Quick-add bar at top (type title + Enter to create).
+Filter tabs: All | Active | Done | Mine.
+Tasks grouped by date: Overdue (red) / Today (orange) / Upcoming / No Due Date.
+Each row: checkbox (open/done toggle), title, due date pill, assignee avatars, expand chevron.
 ```
-- On phones, columns become horizontal scrollable lanes.
+- Click any row to expand: shows description, inline edit form (title, due date, labels, assignees, recurrence), delete button.
+- Mobile: same layout, stacks naturally.
 
 ## Chore Planner
 - Calendar strip showing next 14 days; below, list of assignments grouped by day.

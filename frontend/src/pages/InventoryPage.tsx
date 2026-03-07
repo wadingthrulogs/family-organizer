@@ -303,18 +303,36 @@ function InventoryPage() {
       )}
 
       {editingItem && (
-        <section className="rounded-card border border-th-border bg-card p-5 shadow-soft">
-          <h2 className="mb-3 font-semibold text-heading">Edit {editingItem.name}</h2>
-          {updateError && <p className="mb-2 text-xs text-red-600">{updateError}</p>}
-          <InventoryForm
-            form={form}
-            onChange={handleChange}
-            onSubmit={handleSubmitEdit}
-            onCancel={handleCancel}
-            submitLabel="Save changes"
-            isSubmitting={updateItem.isPending}
-          />
-        </section>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={handleCancel}
+        >
+          <div
+            className="w-full max-w-lg rounded-card border border-th-border bg-card p-6 shadow-soft"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-semibold text-heading">Edit {editingItem.name}</h2>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="text-xl leading-none text-muted hover:text-heading"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            {updateError && <p className="mb-2 text-xs text-red-600">{updateError}</p>}
+            <InventoryForm
+              form={form}
+              onChange={handleChange}
+              onSubmit={handleSubmitEdit}
+              onCancel={handleCancel}
+              submitLabel="Save changes"
+              isSubmitting={updateItem.isPending}
+            />
+          </div>
+        </div>
       )}
 
       <div className="flex items-center gap-3">

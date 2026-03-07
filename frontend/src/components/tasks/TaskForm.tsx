@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import type { TaskStatus } from '../../types/task';
 import { fetchUsers, type UserListItem } from '../../api/auth';
 
 export type RecurrenceValues = {
@@ -13,14 +12,10 @@ export type TaskFormValues = {
   title: string;
   description?: string;
   dueAt?: string | null;
-  priority: number;
-  status: TaskStatus;
   labels?: string;
   assigneeUserIds?: number[];
   recurrence?: RecurrenceValues | null;
 };
-
-const STATUS_OPTIONS: TaskStatus[] = ['OPEN', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'ARCHIVED'];
 
 function toInputValue(iso?: string | null) {
   if (!iso) {
@@ -51,8 +46,6 @@ export function TaskForm({ initialValues, onSubmit, onCancel, submitLabel, isSub
   const [title, setTitle] = useState(initialValues?.title ?? '');
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [dueAt, setDueAt] = useState(toInputValue(initialValues?.dueAt));
-  const [priority, setPriority] = useState(initialValues?.priority ?? 0);
-  const [status, setStatus] = useState<TaskStatus>(initialValues?.status ?? 'OPEN');
   const [labels, setLabels] = useState(initialValues?.labels ?? '');
   const [assigneeIds, setAssigneeIds] = useState<number[]>(initialValues?.assigneeUserIds ?? []);
   const [showRecurrence, setShowRecurrence] = useState(!!initialValues?.recurrence);
@@ -68,8 +61,6 @@ export function TaskForm({ initialValues, onSubmit, onCancel, submitLabel, isSub
     setTitle(initialValues?.title ?? '');
     setDescription(initialValues?.description ?? '');
     setDueAt(toInputValue(initialValues?.dueAt));
-    setPriority(initialValues?.priority ?? 0);
-    setStatus(initialValues?.status ?? 'OPEN');
     setLabels(initialValues?.labels ?? '');
     setAssigneeIds(initialValues?.assigneeUserIds ?? []);
     setShowRecurrence(!!initialValues?.recurrence);
@@ -77,7 +68,7 @@ export function TaskForm({ initialValues, onSubmit, onCancel, submitLabel, isSub
       setRecFrequency(initialValues.recurrence.frequency);
       setRecInterval(initialValues.recurrence.interval);
     }
-  }, [initialValues?.title, initialValues?.description, initialValues?.dueAt, initialValues?.priority, initialValues?.status, initialValues?.labels, initialValues?.assigneeUserIds, initialValues?.recurrence]);
+  }, [initialValues?.title, initialValues?.description, initialValues?.dueAt, initialValues?.labels, initialValues?.assigneeUserIds, initialValues?.recurrence]);
 
   const isDisabled = useMemo(() => {
     return !title.trim() || Boolean(isSubmitting);
@@ -93,8 +84,6 @@ export function TaskForm({ initialValues, onSubmit, onCancel, submitLabel, isSub
       title: title.trim(),
       description: description.trim() ? description.trim() : undefined,
       dueAt: toIsoString(dueAt ?? ''),
-      priority: Number(priority) || 0,
-      status,
       labels: labels.trim() || undefined,
       assigneeUserIds: assigneeIds.length > 0 ? assigneeIds : undefined,
       recurrence: showRecurrence ? { frequency: recFrequency, interval: recInterval } : null,
@@ -124,41 +113,14 @@ export function TaskForm({ initialValues, onSubmit, onCancel, submitLabel, isSub
           placeholder="Optional context"
         />
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="space-y-1">
-          <label className="text-xs font-semibold uppercase text-form-label">Due</label>
-          <input
-            type="datetime-local"
-            value={dueAt}
-            onChange={(event) => setDueAt(event.target.value)}
-            className="w-full rounded-lg border border-th-border px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-semibold uppercase text-form-label">Priority</label>
-          <input
-            type="number"
-            min={0}
-            max={5}
-            value={priority}
-            onChange={(event) => setPriority(Number(event.target.value))}
-            className="w-full rounded-lg border border-th-border px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-semibold uppercase text-form-label">Status</label>
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value as TaskStatus)}
-            className="w-full rounded-lg border border-th-border px-3 py-2 text-sm"
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option.replace('_', ' ')}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="space-y-1">
+        <label className="text-xs font-semibold uppercase text-form-label">Due</label>
+        <input
+          type="datetime-local"
+          value={dueAt}
+          onChange={(event) => setDueAt(event.target.value)}
+          className="w-full rounded-lg border border-th-border px-3 py-2 text-sm"
+        />
       </div>
 
       {/* Labels */}

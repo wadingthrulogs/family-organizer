@@ -1,13 +1,6 @@
 import { useTasks } from '../../hooks/useTasks';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
-
-const PRIORITY_COLORS: Record<number, string> = {
-  1: 'bg-gray-400/20 text-gray-400',
-  2: 'bg-blue-400/20 text-blue-400',
-  3: 'bg-amber-400/20 text-amber-500',
-  4: 'bg-red-400/20 text-red-500',
-  5: 'bg-red-600/20 text-red-600',
-};
+import { useUpdateTaskMutation } from '../../hooks/useTaskMutations';
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -22,6 +15,7 @@ function formatDate(dateStr: string): string {
 export default function TasksWidget() {
   const { data: tasksData } = useTasks();
   const { ref, compact, tiny, height, baseFontSize } = useWidgetSize();
+  const updateTask = useUpdateTaskMutation();
   const tasks = tasksData?.items ?? [];
   const pendingTasks = tasks.filter(
     (t) => t.status !== 'DONE' && t.status !== 'ARCHIVED' && !t.deletedAt,
@@ -50,18 +44,23 @@ export default function TasksWidget() {
       <div className="flex-1 min-h-0 overflow-y-auto">
         {pendingTasks.length > 0 ? (
           <ul className="space-y-1 pr-0.5">
-            {pendingTasks
-              .sort((a, b) => b.priority - a.priority)
-              .map((t) => (
+            {pendingTasks.map((t) => (
                 <li
                   key={t.id}
                   className={`flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] ${compact ? 'px-2 py-1' : 'px-3 py-2'}`}
                 >
-                  <span
-                    className={`shrink-0 rounded-full px-1 py-0.5 text-[0.55em] font-bold ${PRIORITY_COLORS[t.priority] ?? PRIORITY_COLORS[1]}`}
+                  {/* Close button */}
+                  <button
+                    type="button"
+                    onClick={() => updateTask.mutate({ taskId: t.id, data: { status: 'DONE' } })}
+                    disabled={updateTask.isPending}
+                    className="shrink-0 flex h-4 w-4 items-center justify-center rounded border border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white transition-colors group"
+                    aria-label="Mark done"
                   >
-                    P{t.priority}
-                  </span>
+                    <svg className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                    </svg>
+                  </button>
                   <span className="flex-1 text-[var(--color-text)] truncate text-[0.9em]">
                     {t.title}
                   </span>

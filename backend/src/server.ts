@@ -28,8 +28,8 @@ export function createApp(env: AppEnv) {
     })
   );
   app.use(compression());
-  app.use(json({ limit: '2mb' }));
-  app.use(urlencoded({ extended: true, limit: '2mb' }));
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
   app.use(cookieParser());
   app.use(
     session({

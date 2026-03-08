@@ -123,6 +123,67 @@ backupRouter.post(
       (await prisma.user.findMany({ select: { id: true } })).map((u) => u.id)
     );
 
+    // ── Pre-process data outside the transaction ─────────────────────────
+    // Filter and shape all input arrays before touching the DB so that:
+    //  (a) the transaction does minimal work, and
+    //  (b) we avoid try/catch inside the transaction (which can corrupt the
+    //      Prisma transaction context if a query fails mid-flight).
+
+    const recurrences: typeof data.taskRecurrences = Array.isArray(data.taskRecurrences)
+      ? data.taskRecurrences.filter((r: { frequency: unknown }) => r.frequency)
+      : [];
+
+    const tasks: typeof data.tasks = Array.isArray(data.tasks)
+      ? data.tasks.filter((t: { title: unknown }) => typeof t.title === 'string' && t.title)
+      : [];
+
+    const taskAssignments: typeof data.taskAssignments = Array.isArray(data.taskAssignments)
+      ? data.taskAssignments.filter(
+          (a: { taskId: number; userId: number }) => existingUserIds.has(a.userId)
+        )
+      : [];
+
+    const chores: typeof data.chores = Array.isArray(data.chores)
+      ? data.chores.filter((c: { title: unknown }) => typeof c.title === 'string' && c.title)
+      : [];
+
+    const choreAssignments: typeof data.choreAssignments = Array.isArray(data.choreAssignments)
+      ? data.choreAssignments.filter((a: { windowStart: unknown; windowEnd: unknown }) =>
+          a.windowStart && a.windowEnd
+        )
+      : [];
+
+    const groceryLists: typeof data.groceryLists = Array.isArray(data.groceryLists)
+      ? data.groceryLists.filter((l: { name: unknown }) => typeof l.name === 'string' && l.name)
+      : [];
+
+    const groceryItems: typeof data.groceryItems = Array.isArray(data.groceryItems)
+      ? data.groceryItems
+      : [];
+
+    const inventoryItems: typeof data.inventoryItems = Array.isArray(data.inventoryItems)
+      ? data.inventoryItems.filter((i: { name: unknown }) => typeof i.name === 'string' && i.name)
+      : [];
+
+    const reminders: typeof data.reminders = Array.isArray(data.reminders)
+      ? data.reminders.filter((r: { title: unknown }) => typeof r.title === 'string' && r.title)
+      : [];
+
+    // Only LOCAL events — Google events belong to synced calendars that won't exist in a new instance
+    const localEvents: typeof data.familyEvents = Array.isArray(data.familyEvents)
+      ? data.familyEvents.filter(
+          (e: { source: string; title: unknown }) =>
+            e.source === 'LOCAL' && typeof e.title === 'string' && e.title
+        )
+      : [];
+
+    const householdSettings: typeof data.householdSettings = Array.isArray(data.householdSettings)
+      ? data.householdSettings.filter(
+          (s: { key: unknown; value: unknown }) => s.key && s.value !== undefined
+        )
+      : [];
+
+    // ── Transaction ──────────────────────────────────────────────────────
     const counts = {
       tasks: 0,
       taskRecurrences: 0,
@@ -139,259 +200,199 @@ backupRouter.post(
     await prisma.$transaction(async (tx) => {
       // ── 1. TaskRecurrences ──────────────────────────────────────────────
       const recurrenceIdMap = new Map<number, number>();
-      if (Array.isArray(data.taskRecurrences)) {
-        for (const rec of data.taskRecurrences) {
-          try {
-            const created = await tx.taskRecurrence.create({
-              data: {
-                frequency: rec.frequency,
-                interval: rec.interval ?? 1,
-                byDay: rec.byDay ?? null,
-                byMonthDay: rec.byMonthDay ?? null,
-                until: rec.until ? new Date(rec.until) : null,
-                count: rec.count ?? null,
-              },
-            });
-            recurrenceIdMap.set(rec.id, created.id);
-            counts.taskRecurrences++;
-          } catch {
-            // skip malformed recurrence records
-          }
-        }
+      for (const rec of recurrences) {
+        const created = await tx.taskRecurrence.create({
+          data: {
+            frequency: rec.frequency,
+            interval: rec.interval ?? 1,
+            byDay: rec.byDay ?? null,
+            byMonthDay: rec.byMonthDay ?? null,
+            until: rec.until ? new Date(rec.until) : null,
+            count: rec.count ?? null,
+          },
+        });
+        recurrenceIdMap.set(rec.id, created.id);
+        counts.taskRecurrences++;
       }
 
       // ── 2. Tasks ────────────────────────────────────────────────────────
       const taskIdMap = new Map<number, number>();
-      if (Array.isArray(data.tasks)) {
-        for (const task of data.tasks) {
-          try {
-            const created = await tx.task.create({
-              data: {
-                title: task.title,
-                description: task.description ?? null,
-                dueAt: task.dueAt ? new Date(task.dueAt) : null,
-                priority: task.priority ?? 0,
-                status: task.status ?? 'OPEN',
-                labels: task.labels ?? null,
-                recurrenceId: task.recurrenceId ? (recurrenceIdMap.get(task.recurrenceId) ?? null) : null,
-              },
-            });
-            taskIdMap.set(task.id, created.id);
-            counts.tasks++;
-          } catch {
-            // skip malformed task records
-          }
-        }
+      for (const task of tasks) {
+        const created = await tx.task.create({
+          data: {
+            title: task.title,
+            description: task.description ?? null,
+            dueAt: task.dueAt ? new Date(task.dueAt) : null,
+            priority: task.priority ?? 0,
+            status: task.status ?? 'OPEN',
+            labels: task.labels ?? null,
+            recurrenceId: task.recurrenceId
+              ? (recurrenceIdMap.get(task.recurrenceId) ?? null)
+              : null,
+          },
+        });
+        taskIdMap.set(task.id, created.id);
+        counts.tasks++;
       }
 
       // ── 3. TaskAssignments ──────────────────────────────────────────────
-      if (Array.isArray(data.taskAssignments)) {
-        for (const assignment of data.taskAssignments) {
-          const newTaskId = taskIdMap.get(assignment.taskId);
-          if (!newTaskId) continue; // task was skipped or not in backup
-          if (!existingUserIds.has(assignment.userId)) continue; // user doesn't exist in target DB
-          try {
-            await tx.taskAssignment.create({
-              data: {
-                taskId: newTaskId,
-                userId: assignment.userId,
-                status: assignment.status ?? 'OPEN',
-                progressNote: assignment.progressNote ?? null,
-                completedAt: assignment.completedAt ? new Date(assignment.completedAt) : null,
-              },
-            });
-            counts.taskAssignments++;
-          } catch {
-            // skip duplicates or malformed records
-          }
-        }
+      for (const assignment of taskAssignments) {
+        const newTaskId = taskIdMap.get(assignment.taskId);
+        if (!newTaskId) continue; // task wasn't in this backup
+        await tx.taskAssignment.create({
+          data: {
+            taskId: newTaskId,
+            userId: assignment.userId,
+            status: assignment.status ?? 'OPEN',
+            progressNote: assignment.progressNote ?? null,
+            completedAt: assignment.completedAt ? new Date(assignment.completedAt) : null,
+          },
+        });
+        counts.taskAssignments++;
       }
 
       // ── 4. Chores ───────────────────────────────────────────────────────
       const choreIdMap = new Map<number, number>();
-      if (Array.isArray(data.chores)) {
-        for (const chore of data.chores) {
-          try {
-            const created = await tx.chore.create({
-              data: {
-                title: chore.title,
-                description: chore.description ?? null,
-                rotationType: chore.rotationType ?? 'ROUND_ROBIN',
-                frequency: chore.frequency ?? 'WEEKLY',
-                interval: chore.interval ?? 1,
-                eligibleUserIds: chore.eligibleUserIds ?? '',
-                weightMapJson: chore.weightMapJson ?? null,
-                rewardPoints: chore.rewardPoints ?? 0,
-                active: chore.active ?? true,
-              },
-            });
-            choreIdMap.set(chore.id, created.id);
-            counts.chores++;
-          } catch {
-            // skip malformed chore records
-          }
-        }
+      for (const chore of chores) {
+        const created = await tx.chore.create({
+          data: {
+            title: chore.title,
+            description: chore.description ?? null,
+            rotationType: chore.rotationType ?? 'ROUND_ROBIN',
+            frequency: chore.frequency ?? 'WEEKLY',
+            interval: chore.interval ?? 1,
+            eligibleUserIds: chore.eligibleUserIds ?? '',
+            weightMapJson: chore.weightMapJson ?? null,
+            rewardPoints: chore.rewardPoints ?? 0,
+            active: chore.active ?? true,
+          },
+        });
+        choreIdMap.set(chore.id, created.id);
+        counts.chores++;
       }
 
       // ── 5. ChoreAssignments ─────────────────────────────────────────────
-      if (Array.isArray(data.choreAssignments)) {
-        for (const assignment of data.choreAssignments) {
-          const newChoreId = choreIdMap.get(assignment.choreId);
-          if (!newChoreId) continue;
-          try {
-            await tx.choreAssignment.create({
-              data: {
-                choreId: newChoreId,
-                userId: assignment.userId && existingUserIds.has(assignment.userId) ? assignment.userId : null,
-                windowStart: new Date(assignment.windowStart),
-                windowEnd: new Date(assignment.windowEnd),
-                state: assignment.state ?? 'PENDING',
-                rotationOrder: assignment.rotationOrder ?? null,
-                notes: assignment.notes ?? null,
-                completedAt: assignment.completedAt ? new Date(assignment.completedAt) : null,
-              },
-            });
-            counts.choreAssignments++;
-          } catch {
-            // skip malformed assignment records
-          }
-        }
+      for (const assignment of choreAssignments) {
+        const newChoreId = choreIdMap.get(assignment.choreId);
+        if (!newChoreId) continue;
+        await tx.choreAssignment.create({
+          data: {
+            choreId: newChoreId,
+            userId:
+              assignment.userId && existingUserIds.has(assignment.userId)
+                ? assignment.userId
+                : null,
+            windowStart: new Date(assignment.windowStart),
+            windowEnd: new Date(assignment.windowEnd),
+            state: assignment.state ?? 'PENDING',
+            rotationOrder: assignment.rotationOrder ?? null,
+            notes: assignment.notes ?? null,
+            completedAt: assignment.completedAt ? new Date(assignment.completedAt) : null,
+          },
+        });
+        counts.choreAssignments++;
       }
 
       // ── 6. GroceryLists + GroceryItems ──────────────────────────────────
-      if (Array.isArray(data.groceryLists)) {
-        for (const list of data.groceryLists) {
-          try {
-            const created = await tx.groceryList.create({
-              data: {
-                name: list.name,
-                store: list.store ?? null,
-                presetKey: list.presetKey ?? null,
-                isActive: list.isActive ?? true,
-                ownerUserId: list.ownerUserId && existingUserIds.has(list.ownerUserId) ? list.ownerUserId : null,
-              },
-            });
+      for (const list of groceryLists) {
+        const created = await tx.groceryList.create({
+          data: {
+            name: list.name,
+            store: list.store ?? null,
+            presetKey: list.presetKey ?? null,
+            isActive: list.isActive ?? true,
+            ownerUserId:
+              list.ownerUserId && existingUserIds.has(list.ownerUserId)
+                ? list.ownerUserId
+                : null,
+          },
+        });
 
-            const listItems = Array.isArray(data.groceryItems)
-              ? data.groceryItems.filter((i: { listId: number }) => i.listId === list.id)
-              : [];
-
-            for (const item of listItems) {
-              try {
-                await tx.groceryItem.create({
-                  data: {
-                    listId: created.id,
-                    name: item.name,
-                    category: item.category ?? null,
-                    quantity: item.quantity ?? 1,
-                    unit: item.unit ?? null,
-                    state: item.state ?? 'NEEDED',
-                    notes: item.notes ?? null,
-                    sortOrder: item.sortOrder ?? null,
-                  },
-                });
-              } catch {
-                // skip malformed item records
-              }
-            }
-            counts.groceryLists++;
-          } catch {
-            // skip malformed list records
-          }
+        const items = groceryItems.filter(
+          (i: { listId: number }) => i.listId === list.id
+        );
+        for (const item of items) {
+          await tx.groceryItem.create({
+            data: {
+              listId: created.id,
+              name: item.name,
+              category: item.category ?? null,
+              quantity: item.quantity ?? 1,
+              unit: item.unit ?? null,
+              state: item.state ?? 'NEEDED',
+              notes: item.notes ?? null,
+              sortOrder: item.sortOrder ?? null,
+            },
+          });
         }
+        counts.groceryLists++;
       }
 
       // ── 7. InventoryItems ───────────────────────────────────────────────
-      if (Array.isArray(data.inventoryItems)) {
-        for (const item of data.inventoryItems) {
-          try {
-            await tx.inventoryItem.create({
-              data: {
-                name: item.name,
-                category: item.category ?? null,
-                quantity: item.quantity ?? 1,
-                unit: item.unit ?? null,
-                pantryItemKey: null, // Don't duplicate unique keys
-                lowStockThreshold: item.lowStockThreshold ?? null,
-                notes: item.notes ?? null,
-                dateAdded: item.dateAdded ? new Date(item.dateAdded) : new Date(),
-              },
-            });
-            counts.inventoryItems++;
-          } catch {
-            // skip malformed inventory records
-          }
-        }
+      for (const item of inventoryItems) {
+        await tx.inventoryItem.create({
+          data: {
+            name: item.name,
+            category: item.category ?? null,
+            quantity: item.quantity ?? 1,
+            unit: item.unit ?? null,
+            pantryItemKey: null, // don't duplicate unique keys
+            lowStockThreshold: item.lowStockThreshold ?? null,
+            notes: item.notes ?? null,
+            dateAdded: item.dateAdded ? new Date(item.dateAdded) : new Date(),
+          },
+        });
+        counts.inventoryItems++;
       }
 
       // ── 8. Reminders ────────────────────────────────────────────────────
-      if (Array.isArray(data.reminders)) {
-        for (const reminder of data.reminders) {
-          try {
-            await tx.reminder.create({
-              data: {
-                ownerUserId: req.session.userId!, // use the authenticated admin's ID
-                title: reminder.title,
-                message: reminder.message ?? null,
-                targetType: reminder.targetType ?? 'STANDALONE',
-                channelMask: reminder.channelMask ?? 1,
-                leadTimeMinutes: reminder.leadTimeMinutes ?? 0,
-                quietHoursStart: reminder.quietHoursStart ?? null,
-                quietHoursEnd: reminder.quietHoursEnd ?? null,
-                enabled: reminder.enabled ?? true,
-              },
-            });
-            counts.reminders++;
-          } catch {
-            // skip malformed reminder records
-          }
-        }
+      for (const reminder of reminders) {
+        await tx.reminder.create({
+          data: {
+            ownerUserId: req.session.userId!, // use the authenticated admin's ID
+            title: reminder.title,
+            message: reminder.message ?? null,
+            targetType: reminder.targetType ?? 'STANDALONE',
+            channelMask: reminder.channelMask ?? 1,
+            leadTimeMinutes: reminder.leadTimeMinutes ?? 0,
+            quietHoursStart: reminder.quietHoursStart ?? null,
+            quietHoursEnd: reminder.quietHoursEnd ?? null,
+            enabled: reminder.enabled ?? true,
+          },
+        });
+        counts.reminders++;
       }
 
-      // ── 9. FamilyEvents (LOCAL source only) ─────────────────────────────
-      if (Array.isArray(data.familyEvents)) {
-        for (const event of data.familyEvents) {
-          if (event.source !== 'LOCAL') continue; // skip Google-synced events
-          try {
-            await tx.familyEvent.create({
-              data: {
-                source: 'LOCAL',
-                linkedCalendarId: null, // don't restore Google calendar links
-                title: event.title,
-                description: event.description ?? null,
-                startAt: new Date(event.startAt),
-                endAt: new Date(event.endAt),
-                timezone: event.timezone ?? 'UTC',
-                allDay: event.allDay ?? false,
-                colorHex: event.colorHex ?? null,
-                location: event.location ?? null,
-                deleted: false,
-              },
-            });
-            counts.familyEvents++;
-          } catch {
-            // skip malformed event records
-          }
-        }
+      // ── 9. FamilyEvents (LOCAL only, pre-filtered above) ────────────────
+      for (const event of localEvents) {
+        await tx.familyEvent.create({
+          data: {
+            source: 'LOCAL',
+            linkedCalendarId: null, // don't restore Google calendar links
+            title: event.title,
+            description: event.description ?? null,
+            startAt: new Date(event.startAt),
+            endAt: new Date(event.endAt),
+            timezone: event.timezone ?? 'UTC',
+            allDay: event.allDay ?? false,
+            colorHex: event.colorHex ?? null,
+            location: event.location ?? null,
+            deleted: false,
+          },
+        });
+        counts.familyEvents++;
       }
 
       // ── 10. HouseholdSettings ───────────────────────────────────────────
-      if (Array.isArray(data.householdSettings)) {
-        for (const setting of data.householdSettings) {
-          if (!setting.key || setting.value === undefined) continue;
-          try {
-            await tx.householdSetting.upsert({
-              where: { key: setting.key },
-              create: { key: setting.key, value: setting.value },
-              update: { value: setting.value },
-            });
-            counts.householdSettings++;
-          } catch {
-            // skip malformed setting records
-          }
-        }
+      for (const setting of householdSettings) {
+        await tx.householdSetting.upsert({
+          where: { key: setting.key },
+          create: { key: setting.key, value: setting.value },
+          update: { value: setting.value },
+        });
+        counts.householdSettings++;
       }
-    });
+    }, { timeout: 30000 });
 
     res.json({ message: 'Import completed', counts });
   })

@@ -35,14 +35,39 @@ chmod +x setup.sh
 bash setup.sh
 ```
 
+
 The wizard generates secrets, writes `backend/.env`, and builds and starts the app.
 
 **Windows users:** Run in WSL2.
 **Default URL:** `http://localhost:80`. The setup wizard will show the exact URL.
 **After setup:** The script will display the app URL and a direct link to `/register` — open it to create your admin account.
-**Reconfigure:** Most settings (API keys, SMTP, push notifications, weather) can be changed via **Settings → Server Configuration** in the app (admin only). For core server config (`SESSION_SECRET`, `DATABASE_URL`, ports), edit `backend/.env` then `make restart`.
+**Reconfigure:** Most settings (API keys, SMTP, push notifications, weather) can be changed via **Settings → Server Configuration** in the app (admin only).
+
 
 Full guide: [docs/deployment.md](docs/deployment.md)
+
+### Enable HTTPS with Tailscale (recommended)
+
+After the initial setup, run the Tailscale setup script to get free, browser-trusted HTTPS on your local network — no port-forwarding or certificate management required:
+
+```bash
+bash tailscale-setup.sh
+```
+
+The script will:
+1. Install Tailscale if not already present
+2. Detect your MagicDNS hostname (e.g. `mymachine.tail411eff.ts.net`)
+3. Issue a TLS certificate and configure nginx for HTTPS
+4. Update your `.env` files and rebuild the containers
+
+Your app will be available at `https://<your-hostname>` when it finishes.
+
+> **If you use Google Calendar:** after running the script, add your new HTTPS redirect URI in [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → your OAuth client → Authorised redirect URIs:
+> ```
+> https://<your-hostname>/api/v1/integrations/google/callback
+> ```
+
+See [Tailscale-guide.md](Tailscale-guide.md) or the [Tailscale HTTPS](#tailscale-https-recommended) section below for renewal, cron setup, and troubleshooting.
 
 ---
 

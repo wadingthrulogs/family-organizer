@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useCalendarEvents } from '../../hooks/useCalendarEvents';
+import { useMealPlanCalendar } from '../../hooks/useMealPlans';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
 import type { CalendarEvent } from '../../types/calendar';
 
@@ -259,7 +260,25 @@ export default function EventsWidget() {
 
   const { start, end } = getRange(range);
   const { data: eventsData } = useCalendarEvents({ start, end });
-  const events = eventsData?.items ?? [];
+
+  const mealStart = start.slice(0, 10);
+  const mealEnd = new Date(new Date(end).getTime() - 1).toISOString().slice(0, 10);
+  const { data: mealEntriesData } = useMealPlanCalendar(mealStart, mealEnd);
+
+  const mealEmoji: Record<string, string> = { BREAKFAST: '🌅', LUNCH: '🥗', DINNER: '🍽️', SNACK: '🍎' };
+  const events: CalendarEvent[] = useMemo(() => {
+    const base: CalendarEvent[] = eventsData?.items ?? [];
+    const meals: CalendarEvent[] = (mealEntriesData?.items ?? []).map((entry) => ({
+      id: -30000 - entry.id,
+      title: `${mealEmoji[entry.mealType] ?? '🍽️'} ${entry.title}`,
+      startAt: entry.actualDate + 'T12:00:00Z',
+      endAt: entry.actualDate + 'T12:00:00Z',
+      allDay: true,
+      timezone: 'UTC',
+      attendees: [],
+    }));
+    return [...base, ...meals];
+  }, [eventsData, mealEntriesData]);
 
   const rangeButtons: { label: string; value: EventRange }[] = [
     { label: 'Today', value: 'day' },

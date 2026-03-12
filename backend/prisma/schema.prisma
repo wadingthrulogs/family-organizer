@@ -40,6 +40,8 @@ model User {
   taskStatusChanges  TaskStatusChange[] @relation("TaskStatusChanger")
   preference         UserPreference?
   googleAccounts     GoogleAccount[]
+  recipes            Recipe[]           @relation("RecipeAuthor")
+  mealPlans          MealPlan[]         @relation("MealPlanAuthor")
 }
 
 model UserPreference {
@@ -392,4 +394,49 @@ model HouseholdSetting {
   key       String   @id
   value     String   // JSON-serialized value
   updatedAt DateTime @updatedAt
+}
+
+model Recipe {
+  id              Int      @id @default(autoincrement())
+  title           String
+  description     String?
+  servings        Int      @default(1)
+  prepMinutes     Int?
+  cookMinutes     Int?
+  sourceUrl       String?
+  ingredientsJson String   @default("[]")
+  createdByUserId Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy User            @relation("RecipeAuthor", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  entries   MealPlanEntry[]
+}
+
+model MealPlan {
+  id              Int      @id @default(autoincrement())
+  title           String?
+  weekStart       DateTime
+  createdByUserId Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy User            @relation("MealPlanAuthor", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  entries   MealPlanEntry[]
+}
+
+model MealPlanEntry {
+  id         Int      @id @default(autoincrement())
+  mealPlanId Int
+  recipeId   Int?
+  title      String
+  mealType   String
+  dayOffset  Int
+  servings   Int      @default(1)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  mealPlan MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  recipe   Recipe?  @relation(fields: [recipeId], references: [id], onDelete: SetNull)
 }

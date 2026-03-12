@@ -12,6 +12,7 @@ import RemindersPage from './pages/RemindersPage.tsx';
 import SettingsPage from './pages/SettingsPage.tsx';
 import KioskPage from './pages/KioskPage.tsx';
 import LoginPage from './pages/LoginPage.tsx';
+import MealPlanPage from './pages/MealPlanPage.tsx';
 import RegisterPage from './pages/RegisterPage.tsx';
 
 function App() {
@@ -48,6 +49,7 @@ function App() {
         <Route path="chores" element={<ChoresPage />} />
         <Route path="grocery" element={<GroceryPage />} />
         <Route path="inventory" element={<InventoryPage />} />
+        <Route path="meal-plans" element={<MealPlanPage />} />
         <Route path="reminders" element={<RemindersPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings" element={<SettingsPage />} />

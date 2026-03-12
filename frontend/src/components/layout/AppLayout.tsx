@@ -10,6 +10,7 @@ const navItems = [
   { to: '/chores', label: 'Chores', key: 'chores' },
   { to: '/grocery', label: 'Grocery', key: 'grocery' },
   { to: '/inventory', label: 'Inventory', key: 'inventory' },
+  { to: '/meal-plans', label: 'Meal Plan', key: 'meal-plans' },
   { to: '/reminders', label: 'Reminders', key: 'reminders' },
   { to: '/notifications', label: 'Notifications', key: 'notifications' },
   { to: '/settings', label: 'Settings', key: 'settings' },

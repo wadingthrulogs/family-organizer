@@ -75,6 +75,13 @@ const registry: WidgetDef[] = [
     component: lazy(() => import('./InventoryWidget')),
     defaultW: 6, defaultH: 3, minW: 1, minH: 1,
   },
+  {
+    id: 'mealPlan',
+    label: 'Meal Plan',
+    icon: '🍽️',
+    component: lazy(() => import('./MealPlanWidget')),
+    defaultW: 6, defaultH: 3, minW: 2, minH: 2,
+  },
 ];
 
 export function getWidget(id: string): WidgetDef | undefined {

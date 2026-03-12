@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
+import { useMealPlanCalendar } from '../hooks/useMealPlans';
 import { fetchLinkedCalendars } from '../api/calendar';
 import { fetchTasks } from '../api/tasks';
 import { fetchChores } from '../api/chores';
 import type { CalendarEvent } from '../types/calendar';
 
-type OverlaySource = 'calendar' | 'task' | 'chore';
+type OverlaySource = 'calendar' | 'task' | 'chore' | 'mealplan';
 
 interface CalendarItem extends CalendarEvent {
   overlaySource: OverlaySource;
@@ -91,12 +92,14 @@ const overlayColors: Record<OverlaySource, string> = {
   calendar: 'border-l-blue-500',
   task: 'border-l-violet-500',
   chore: 'border-l-amber-500',
+  mealplan: 'border-l-green-500',
 };
 
 const overlayBadges: Record<OverlaySource, { label: string; color: string }> = {
   calendar: { label: 'Event', color: 'bg-blue-100 text-blue-700' },
   task: { label: 'Task', color: 'bg-violet-100 text-violet-700' },
   chore: { label: 'Chore', color: 'bg-amber-100 text-amber-700' },
+  mealplan: { label: 'Meal', color: 'bg-green-100 text-green-700' },
 };
 
 function buildMonthGrid(anchor: Date) {
@@ -120,7 +123,7 @@ function CalendarPage() {
   const [view, setView] = useState<CalendarView>('week');
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [selectedCalendarId, setSelectedCalendarId] = useState<number | undefined>(undefined);
-  const [showOverlay, setShowOverlay] = useState<{ tasks: boolean; chores: boolean }>({ tasks: true, chores: true });
+  const [showOverlay, setShowOverlay] = useState<{ tasks: boolean; chores: boolean; meals: boolean }>({ tasks: true, chores: true, meals: true });
 
   const { data: calendarsData } = useQuery({
     queryKey: ['linkedCalendars'],
@@ -143,6 +146,11 @@ function CalendarPage() {
 
   const range = useMemo(() => getRange(view, anchorDate), [view, anchorDate]);
   const rangeLabel = useMemo(() => formatRangeLabel(view, range.start, range.end), [view, range.start, range.end]);
+
+  const mealRangeStart = useMemo(() => dateKey(range.start), [range.start]);
+  const mealRangeEnd = useMemo(() => dateKey(addDays(range.end, -1)), [range.end]);
+  const { data: mealEntriesData } = useMealPlanCalendar(mealRangeStart, mealRangeEnd);
+
   const queryParams = useMemo(() => ({
     start: range.start.toISOString(),
     end: range.end.toISOString(),
@@ -150,7 +158,7 @@ function CalendarPage() {
   }), [range.start, range.end, selectedCalendarId]);
   const { data, isLoading, isError, error, refetch, isFetching } = useCalendarEvents(queryParams);
 
-  // Build merged items from calendar events + tasks + chores
+  // Build merged items from calendar events + tasks + chores + meals
   const allItems = useMemo(() => {
     const items: CalendarItem[] = [];
 
@@ -202,8 +210,27 @@ function CalendarPage() {
       }
     }
 
+    // Meal plan entries
+    if (showOverlay.meals) {
+      const mealEmoji: Record<string, string> = { BREAKFAST: '🌅', LUNCH: '🥗', DINNER: '🍽️', SNACK: '🍎' };
+      for (const entry of (mealEntriesData?.items ?? [])) {
+        const iso = entry.actualDate + 'T12:00:00Z';
+        items.push({
+          id: -30000 - entry.id,
+          title: `${mealEmoji[entry.mealType] ?? '🍽️'} ${entry.title}`,
+          startAt: iso,
+          endAt: iso,
+          allDay: true,
+          timezone: 'UTC',
+          description: entry.notes ?? null,
+          overlaySource: 'mealplan',
+          attendees: [],
+        });
+      }
+    }
+
     return items;
-  }, [data, tasksData, choresData, range, showOverlay]);
+  }, [data, tasksData, choresData, mealEntriesData, range, showOverlay]);
 
   const eventsByDate = useMemo(() => groupEventsByDate(allItems), [allItems]);
   const activeDays = useMemo(() => {
@@ -301,6 +328,13 @@ function CalendarPage() {
             onClick={() => setShowOverlay((o) => ({ ...o, chores: !o.chores }))}
           >
             🧹 Chores
+          </button>
+          <button
+            type="button"
+            className={`rounded-full border px-3 py-2 text-xs font-medium ${showOverlay.meals ? 'border-green-400 bg-green-100 text-green-700' : 'border-th-border text-muted'}`}
+            onClick={() => setShowOverlay((o) => ({ ...o, meals: !o.meals }))}
+          >
+            🍽️ Meals
           </button>
         </div>
       </header>

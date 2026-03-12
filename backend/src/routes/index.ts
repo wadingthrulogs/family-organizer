@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type { AppEnv } from '../config/env.js';
 import { attachmentsRouter } from './attachments.js';
 import { authRouter } from './auth.js';
+import { mealPlansRouter } from './mealPlans.js';
 import { backupRouter } from './backup.js';
 import { calendarRouter } from './calendar.js';
 import { choresRouter } from './chores.js';
@@ -27,6 +28,7 @@ export function buildApiRouter(env: AppEnv) {
   router.use('/tasks', tasksRouter);
   router.use('/chores', choresRouter);
   router.use('/grocery', groceryRouter);
+  router.use('/meal-plans', mealPlansRouter);
   router.use('/inventory', inventoryRouter);
   router.use('/notifications', notificationsRouter);
   router.use('/reminders', remindersRouter);

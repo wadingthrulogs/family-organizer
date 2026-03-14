@@ -8,7 +8,6 @@ import ChoresPage from './pages/ChoresPage.tsx';
 import GroceryPage from './pages/GroceryPage.tsx';
 import InventoryPage from './pages/InventoryPage.tsx';
 import NotificationsPage from './pages/NotificationsPage.tsx';
-import RemindersPage from './pages/RemindersPage.tsx';
 import SettingsPage from './pages/SettingsPage.tsx';
 import KioskPage from './pages/KioskPage.tsx';
 import LoginPage from './pages/LoginPage.tsx';
@@ -50,7 +49,7 @@ function App() {
         <Route path="grocery" element={<GroceryPage />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="meal-plans" element={<MealPlanPage />} />
-        <Route path="reminders" element={<RemindersPage />} />
+        <Route path="reminders" element={<Navigate to="/notifications" replace />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -86,6 +86,20 @@ export function useWidgetSize(): WidgetSize & { ref: React.RefCallback<HTMLEleme
     };
   }, []);
 
+  // Real-time remeasure during pointer drag (covers RGL resize handle drags
+  // which outpace ResizeObserver's async delivery).
+  useEffect(() => {
+    const onPointerMove = () => {
+      if (!nodeRef.current) return;
+      const { offsetWidth: w, offsetHeight: h } = nodeRef.current;
+      setSize((prev) =>
+        prev.width !== w || prev.height !== h ? { width: w, height: h } : prev
+      );
+    };
+    document.addEventListener('pointermove', onPointerMove);
+    return () => document.removeEventListener('pointermove', onPointerMove);
+  }, []);
+
   const compact = size.width < 200 || size.height < 160;
   const tiny = size.width < 140 || size.height < 100;
   // Weighted average favoring width (60/40) so wide-but-short widgets

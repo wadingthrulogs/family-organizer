@@ -611,6 +611,10 @@ input, select, textarea {
   transition: all 200ms ease;
 }
 
+.dashboard-grid .react-grid-item.resizing {
+  transition: none !important;
+}
+
 .dashboard-grid .react-grid-item.react-draggable-dragging {
   z-index: 50;
   opacity: 0.9;

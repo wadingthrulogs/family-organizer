@@ -53,6 +53,8 @@ function DashboardPage() {
   const { data: prefs } = useUserPreferences();
   const updatePrefs = useUpdateUserPreferencesMutation();
   const serverSynced = useRef(false);
+  const editModeRef = useRef(editMode);
+  useEffect(() => { editModeRef.current = editMode; }, [editMode]);
 
   // When server preferences load, use server dashboard config (server wins)
   useEffect(() => {
@@ -75,6 +77,9 @@ function DashboardPage() {
 
   const handleLayoutChange = useCallback(
     (newLayout: Layout[]) => {
+      // Only persist when the user is actively editing; ignore RGL recomputations
+      // (compaction, window resize) that fire outside of edit mode.
+      if (!editModeRef.current) return;
       // Only persist layout changes made on the desktop (lg) breakpoint.
       // Mobile breakpoints use derived stacked layouts and should never
       // overwrite the user's saved desktop arrangement.
@@ -121,6 +126,10 @@ function DashboardPage() {
 
   const hideWidgetBorders = config.preferences?.hideWidgetBorders ?? false;
 
+  const numGridRows = Math.max(6,
+    config.slots.reduce((max, s) => Math.max(max, s.layout.y + s.layout.h), 0) + 2
+  );
+
   const handleToggleBorders = useCallback(() => {
     setConfig((prev) => {
       const next: DashboardConfig = {
@@ -147,7 +156,26 @@ function DashboardPage() {
         onToggleBorders={handleToggleBorders}
       />
 
-      <div ref={containerRef} className={hideWidgetBorders ? 'dashboard-no-borders' : ''}>
+      <div ref={containerRef} className={`relative ${hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
+        {mounted && editMode && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(12, 1fr)',
+              gridAutoRows: '120px',
+              gap: '16px',
+              zIndex: 0,
+            }}
+          >
+            {Array.from({ length: 12 * numGridRows }).map((_, i) => (
+              <div
+                key={i}
+                style={{ border: '1px dashed rgba(128,128,128,0.2)', borderRadius: '8px' }}
+              />
+            ))}
+          </div>
+        )}
         {mounted && (
           <ResponsiveGridLayout
             className="dashboard-grid"
@@ -157,6 +185,7 @@ function DashboardPage() {
             rowHeight={120}
             isDraggable={editMode}
             isResizable={editMode}
+            resizeHandles={editMode ? ['se'] : []}
             compactType="vertical"
             draggableHandle=".widget-drag-handle"
             margin={[16, 16]}
@@ -167,7 +196,7 @@ function DashboardPage() {
             const def = getWidget(slot.widgetId);
             const Widget = def?.component;
             return (
-              <div key={slot.layout.i} className="relative">
+              <div key={slot.layout.i} className="relative h-full">
                 {editMode && (
                   <>
                     <div className="widget-drag-handle absolute top-2 left-2 z-10 cursor-grab rounded-md bg-black/20 px-1.5 py-0.5 text-xs text-white backdrop-blur-sm select-none">

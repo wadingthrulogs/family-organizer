@@ -21,9 +21,9 @@ export default function ClockWidget() {
 
   const showDate = height > 100;
 
-  // Scale time font relative to available space — use width as primary driver
-  // since time is a horizontal string
-  const timeFontSize = Math.max(14, Math.min(72, width * 0.14, height * 0.35));
+  // Scale time font relative to available space — constrained by both axes
+  // so the string fits whether the widget is tall-and-narrow or wide-and-short.
+  const timeFontSize = Math.max(14, Math.min(width * 0.14, height * 0.45));
 
   return (
     <div ref={ref} style={{ fontSize: baseFontSize }} className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-2 text-center flex flex-col items-center justify-center h-full overflow-hidden">

@@ -46,9 +46,16 @@ function formFromItem(item: InventoryItem): FormState {
   };
 }
 
+type SortCol = 'name' | 'category' | 'quantity' | 'dateAdded';
+
 function InventoryPage() {
   const [search, setSearch] = useState('');
   const [showLowStock, setShowLowStock] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [sort, setSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'name', dir: 'asc' });
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [categoryDraft, setCategoryDraft] = useState('');
+
   const { data, isLoading, isError, error, refetch, isFetching } = useInventory(
     showLowStock ? { lowStock: true } : undefined
   );
@@ -56,8 +63,11 @@ function InventoryPage() {
   const createItem = useCreateInventoryItemMutation();
   const updateItem = useUpdateInventoryItemMutation();
   const deleteItem = useDeleteInventoryItemMutation();
-
   const bulkAdd = useBulkAddInventoryItemsMutation();
+
+  const loadingQtyItemId = updateItem.isPending
+    ? (updateItem.variables as { itemId: number } | undefined)?.itemId ?? null
+    : null;
 
   const [composerOpen, setComposerOpen] = useState(false);
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
@@ -78,15 +88,32 @@ function InventoryPage() {
   };
 
   const items = data?.items ?? [];
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return items;
-    const q = search.toLowerCase();
-    return items.filter(
-      (item) =>
-        item.name.toLowerCase().includes(q) ||
-        (item.category && item.category.toLowerCase().includes(q))
-    );
-  }, [items, search]);
+    let result = items;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (item) =>
+          item.name.toLowerCase().includes(q) ||
+          (item.category && item.category.toLowerCase().includes(q))
+      );
+    }
+    if (activeCategory !== null) {
+      result = result.filter((item) => item.category === activeCategory);
+    }
+    result = [...result].sort((a, b) => {
+      let cmp = 0;
+      switch (sort.col) {
+        case 'name':      cmp = a.name.localeCompare(b.name); break;
+        case 'category':  cmp = (a.category ?? '').localeCompare(b.category ?? ''); break;
+        case 'quantity':  cmp = a.quantity - b.quantity; break;
+        case 'dateAdded': cmp = (a.dateAdded ?? '').localeCompare(b.dateAdded ?? ''); break;
+      }
+      return sort.dir === 'asc' ? cmp : -cmp;
+    });
+    return result;
+  }, [items, search, activeCategory, sort]);
 
   const lowStockCount = useMemo(
     () =>
@@ -108,6 +135,13 @@ function InventoryPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleSort = (col: SortCol) =>
+    setSort((prev) =>
+      prev.col === col
+        ? { col, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { col, dir: 'asc' }
+    );
+
   const handleOpenCreate = () => {
     setEditingItem(null);
     setForm(emptyForm);
@@ -118,12 +152,35 @@ function InventoryPage() {
     setComposerOpen(false);
     setEditingItem(item);
     setForm(formFromItem(item));
+    setEditingCategoryId(null);
+    setCategoryDraft('');
   };
 
   const handleCancel = () => {
     setComposerOpen(false);
     setEditingItem(null);
     setForm(emptyForm);
+    setEditingCategoryId(null);
+    setCategoryDraft('');
+  };
+
+  const handleCategoryEditStart = (item: InventoryItem) => {
+    setEditingCategoryId(item.id);
+    setCategoryDraft(item.category ?? '');
+  };
+
+  const handleCategoryEditCommit = (item: InventoryItem) => {
+    const trimmed = categoryDraft.trim();
+    if (trimmed !== (item.category ?? '')) {
+      updateItem.mutate({ itemId: item.id, data: { category: trimmed || null } });
+    }
+    setEditingCategoryId(null);
+    setCategoryDraft('');
+  };
+
+  const handleCategoryEditCancel = () => {
+    setEditingCategoryId(null);
+    setCategoryDraft('');
   };
 
   const handleSubmitCreate = async (e: FormEvent) => {
@@ -187,6 +244,13 @@ function InventoryPage() {
 
   const isLowStock = (item: InventoryItem) =>
     item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold;
+
+  const SortIndicator = ({ col }: { col: SortCol }) =>
+    sort.col === col ? (
+      <span className="ml-1 text-accent">{sort.dir === 'asc' ? '↑' : '↓'}</span>
+    ) : (
+      <span className="ml-1 opacity-30">↕</span>
+    );
 
   return (
     <div className="space-y-6">
@@ -346,6 +410,36 @@ function InventoryPage() {
         {isFetching && !isLoading && <span className="text-xs text-faint">Refreshing…</span>}
       </div>
 
+      {categories.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveCategory(null)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+              activeCategory === null
+                ? 'border-accent bg-accent/10 text-accent'
+                : 'border-th-border text-muted hover:bg-hover-bg'
+            }`}
+          >
+            All
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                activeCategory === cat
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-th-border text-muted hover:bg-hover-bg'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isError && (
         <div className="flex items-center justify-between rounded-card border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           <span>{errorMessage}</span>
@@ -364,19 +458,46 @@ function InventoryPage() {
         </div>
       ) : filtered.length === 0 ? (
         <p className="rounded-card border border-dashed border-th-border bg-hover-bg p-6 text-sm text-muted">
-          {search ? 'No items match your search.' : 'Inventory is empty. Add items manually or move them from your grocery lists.'}
+          {search || activeCategory
+            ? 'No items match your filters.'
+            : 'Inventory is empty. Add items manually or move them from your grocery lists.'}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-card bg-card shadow-soft">
+          <datalist id="category-options">
+            {categories.map((cat) => (
+              <option key={cat} value={cat} />
+            ))}
+          </datalist>
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="text-faint">
-                <th className="px-4 py-3">Item</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Qty</th>
+                <th
+                  className="cursor-pointer select-none px-4 py-3 hover:text-heading"
+                  onClick={() => handleSort('name')}
+                >
+                  Item <SortIndicator col="name" />
+                </th>
+                <th
+                  className="cursor-pointer select-none px-4 py-3 hover:text-heading"
+                  onClick={() => handleSort('category')}
+                >
+                  Category <SortIndicator col="category" />
+                </th>
+                <th
+                  className="cursor-pointer select-none px-4 py-3 hover:text-heading"
+                  onClick={() => handleSort('quantity')}
+                >
+                  Qty <SortIndicator col="quantity" />
+                </th>
                 <th className="px-4 py-3">Threshold</th>
                 <th className="px-4 py-3">Notes</th>
-                <th className="px-4 py-3">Date Added</th>
+                <th
+                  className="cursor-pointer select-none px-4 py-3 hover:text-heading"
+                  onClick={() => handleSort('dateAdded')}
+                >
+                  Date Added <SortIndicator col="dateAdded" />
+                </th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -385,7 +506,7 @@ function InventoryPage() {
                 const low = isLowStock(item);
                 const isDeleting = deleteItem.isPending && deleteItem.variables === item.id;
                 return (
-                  <tr key={item.id} className={`border-t border-th-border-light ${low ? 'bg-amber-50/50' : ''}`}>
+                  <tr key={item.id} className="border-t border-th-border-light">
                     <td className="px-4 py-3 font-semibold text-heading">
                       {item.name}
                       {low && (
@@ -394,8 +515,67 @@ function InventoryPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-muted">{item.category ?? '—'}</td>
-                    <td className="px-4 py-3 text-muted">{formatQuantity(item)}</td>
+                    <td className="px-4 py-3">
+                      {editingCategoryId === item.id ? (
+                        <input
+                          autoFocus
+                          list="category-options"
+                          value={categoryDraft}
+                          onChange={(e) => setCategoryDraft(e.target.value)}
+                          onBlur={() => handleCategoryEditCommit(item)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); handleCategoryEditCommit(item); }
+                            else if (e.key === 'Escape') { e.preventDefault(); handleCategoryEditCancel(); }
+                          }}
+                          className="w-full rounded border border-accent bg-input px-2 py-0.5 text-sm text-heading outline-none focus:ring-1 focus:ring-accent"
+                        />
+                      ) : item.category ? (
+                        <button
+                          type="button"
+                          onClick={() => handleCategoryEditStart(item)}
+                          className="text-sm text-muted hover:text-heading hover:underline"
+                        >
+                          {item.category}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleCategoryEditStart(item)}
+                          className="text-xs text-faint hover:text-muted"
+                        >
+                          + category
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          aria-label="Decrease quantity"
+                          disabled={loadingQtyItemId === item.id || item.quantity <= 0}
+                          className="flex h-5 w-5 items-center justify-center rounded border border-th-border text-xs text-muted disabled:opacity-40 hover:bg-hover-bg"
+                          onClick={() =>
+                            updateItem.mutate({ itemId: item.id, data: { quantity: Math.max(0, item.quantity - 1) } })
+                          }
+                        >
+                          −
+                        </button>
+                        <span className={`min-w-[2.5rem] text-center text-sm text-muted ${loadingQtyItemId === item.id ? 'opacity-50' : ''}`}>
+                          {formatQuantity(item)}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label="Increase quantity"
+                          disabled={loadingQtyItemId === item.id}
+                          className="flex h-5 w-5 items-center justify-center rounded border border-th-border text-xs text-muted disabled:opacity-40 hover:bg-hover-bg"
+                          onClick={() =>
+                            updateItem.mutate({ itemId: item.id, data: { quantity: item.quantity + 1 } })
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-muted">
                       {item.lowStockThreshold != null ? item.lowStockThreshold : '—'}
                     </td>

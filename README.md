@@ -8,18 +8,17 @@ Requriments -
 Optional 
 * [Tailscale account](https://tailscale.com/)
 
-I am still working on the reminders and notifications tabs. 
-
 ---
 
 ## Features
-- **Dashboard** — Drag-and-resize widget grid, 16 themes
+- **Dashboard** — Drag-and-resize widget grid, 16 themes, custom background photo with opacity control, kiosk display mode
 - **Calendar** — Google Calendar sync, day/week/month views, manual events
 - **Tasks** — Simple todo list with quick-add, open/closed status, assignees, due dates, and recurrence
 - **Chores** — Rotation scheduling (round-robin / weighted / manual), streaks, reward points
 - **Grocery Lists** — Shopping mode, bulk add, low-stock auto-populate
 - **Inventory** — Pantry tracker with low-stock thresholds and export
-- **Reminders** — Web push and email notifications with configurable lead times
+- **Meal Plans** — Weekly planner with recipe management, ingredient inventory checking, and grocery list integration
+- **Reminders & Notifications** — Web push and email notifications with configurable lead times
 - **Multi-user** — Role-based access (Admin / Member / Viewer), per-user colors
 
 
@@ -29,7 +28,7 @@ I am still working on the reminders and notifications tabs.
 ## Quick Start
 
 ```bash
-git clone https://github.com/your-org/family-organizer.git
+git clone https://github.com/wadingthrulogs/family-organizer.git
 cd family-organizer
 chmod +x setup.sh
 bash setup.sh
@@ -100,7 +99,6 @@ These are foundational settings that must be present at startup:
 | `DATABASE_URL` / `SQLITE_PATH` | Database file location |
 | `PORT` | Server port |
 | `NODE_ENV` | Runtime environment |
-| `GOOGLE_REDIRECT_URL` | OAuth callback (must match Google Console) |
 
 ---
 
@@ -108,14 +106,19 @@ These are foundational settings that must be present at startup:
 
 | Command | What it does |
 |---------|-------------|
-| `make up` | Start the app |
-| `make down` | Stop the app |
-| `make restart` | Restart containers |
+| `make setup` | Run setup wizard (first-time install or quick restart) |
+| `make reconfigure` | Re-run setup wizard to change configuration |
+| `make up` | Build and start all containers |
+| `make down` | Stop and remove containers (data is preserved) |
+| `make restart` | Restart containers without rebuilding |
 | `make logs` | Follow live logs |
 | `make status` | Show container health |
 | `make backup` | Save timestamped DB backup to `./backups/` |
 | `make restore FILE=path` | Restore DB from backup |
 | `make update` | Pull latest code and rebuild |
+| `make shell-backend` | Open a shell inside the running backend container |
+| `make tailscale-setup` | Set up Tailscale HTTPS (cert, nginx, env, rebuild) |
+| `make tailscale-renew` | Renew Tailscale cert and reload nginx (no rebuild) |
 
 ---
 
@@ -248,7 +251,7 @@ npm run dev
 ```
 
 > **Note:** Port 80 is the Vite dev server used during development.
-> The Docker deployment (nginx) uses port **443** (HTTPS) by default.
+> The Docker deployment (nginx) defaults to port **80**. Port 443 is used after Tailscale HTTPS setup.
 >
 > **Windows note:** Port 80 requires elevated privileges. If `npm run dev` fails with `EACCES` or `permission denied`, run your terminal as Administrator.
 
@@ -276,6 +279,9 @@ The Vite dev server proxies `/api` to `http://localhost:3000` automatically.
 | [docs/deployment.md](docs/deployment.md) | Full deployment guide — Docker, reverse proxy, env vars, backups |
 | [docs/architecture.md](docs/architecture.md) | System architecture overview |
 | [docs/api.md](docs/api.md) | API endpoint reference |
+| [docs/data-model.md](docs/data-model.md) | Database schema and entity relationships |
+| [docs/requirements.md](docs/requirements.md) | Functional and non-functional requirements |
+| [docs/release-checklist.md](docs/release-checklist.md) | Release and deployment runbook |
 | [Tailscale-guide.md](Tailscale-guide.md) | HTTPS setup via Tailscale — certs, renewal, Google OAuth fix |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |

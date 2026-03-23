@@ -125,6 +125,37 @@ function DashboardPage() {
   }, [persistConfig]);
 
   const hideWidgetBorders = config.preferences?.hideWidgetBorders ?? false;
+  const backgroundImageUrl = config.preferences?.backgroundImageUrl;
+
+  const handleSetBackground = useCallback((url: string, overlay?: number) => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          backgroundImageUrl: url,
+          backgroundOverlay: overlay ?? prev.preferences?.backgroundOverlay ?? 0.4,
+        },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleClearBackground = useCallback(() => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          backgroundImageUrl: undefined,
+          backgroundOverlay: undefined,
+        },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
 
   const numGridRows = Math.max(6,
     config.slots.reduce((max, s) => Math.max(max, s.layout.y + s.layout.h), 0) + 2
@@ -154,6 +185,9 @@ function DashboardPage() {
         onReset={handleReset}
         hideWidgetBorders={hideWidgetBorders}
         onToggleBorders={handleToggleBorders}
+        backgroundImageUrl={backgroundImageUrl}
+        onSetBackground={handleSetBackground}
+        onClearBackground={handleClearBackground}
       />
 
       <div ref={containerRef} className={`relative ${hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>

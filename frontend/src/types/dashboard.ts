@@ -7,6 +7,8 @@ export interface DashboardWidgetSlot {
 
 export interface DashboardPreferences {
   hideWidgetBorders?: boolean;
+  backgroundImageUrl?: string;
+  backgroundOverlay?: number;
 }
 
 export interface DashboardConfig {

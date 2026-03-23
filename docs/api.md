@@ -222,6 +222,70 @@
 ### GET /notifications/vapid-public-key
 - Public endpoint — returns VAPID public key for push subscription setup.
 
+## Meal Plans (`/meal-plans`)
+
+### GET /meal-plans/recipes
+- List all recipes created by the current user.
+- Response: `{ items, total }`
+
+### POST /meal-plans/recipes
+- Body: `{ title, description?, servings?=1, prepMinutes?, cookMinutes?, sourceUrl?, ingredients?: [{ name, quantity?, unit?, inventoryItemId? }] }`
+- Response: Recipe (201)
+
+### GET /meal-plans/recipes/:recipeId
+
+### PATCH /meal-plans/recipes/:recipeId
+- Partial update of recipe fields.
+
+### DELETE /meal-plans/recipes/:recipeId
+- Hard delete (204).
+
+### GET /meal-plans/recipes/:recipeId/inventory-check
+- Query: `?servings` (default: recipe's default servings)
+- Checks each ingredient against inventory quantities.
+- Response: `{ canMake, servings, ingredients: [{ name, required?, unit?, inStock?, status: 'ok'|'low'|'missing'|'unlinked', inventoryItemId?, inventoryName? }] }`
+
+### POST /meal-plans/recipes/:recipeId/add-missing-to-grocery
+- Body: `{ groceryListId, servings? }`
+- Adds only low/missing ingredients to the specified grocery list (skips duplicates).
+- Response: `{ added, skipped, items }`
+
+### GET /meal-plans/entries-by-range
+- Query: `?start=YYYY-MM-DD&end=YYYY-MM-DD`
+- Returns entries (with resolved dates) that fall in the given date window.
+- Response: `{ items: [{ id, title, mealType, actualDate, servings, notes, recipeId, mealPlanId }] }`
+
+### GET /meal-plans
+- List all meal plans (most recent first, up to 20), including entries.
+- Response: `{ items, total }`
+
+### POST /meal-plans
+- Body: `{ weekStart, title? }`
+- Response: MealPlan with entries (201)
+
+### GET /meal-plans/:planId
+
+### PATCH /meal-plans/:planId
+- Body: `{ title? }`
+
+### DELETE /meal-plans/:planId
+- Hard delete (204).
+
+### POST /meal-plans/:planId/entries
+- Body: `{ title, mealType: 'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK', dayOffset: 0–6, servings?=1, recipeId?, notes? }`
+- Response: Entry (201)
+
+### PATCH /meal-plans/:planId/entries/:entryId
+- Partial update of entry fields.
+
+### DELETE /meal-plans/:planId/entries/:entryId
+- Hard delete (204).
+
+### POST /meal-plans/:planId/send-to-grocery
+- Body: `{ groceryListId }`
+- Adds all recipe ingredients from the plan to the specified grocery list (skips duplicates).
+- Response: `{ added, skipped, items }`
+
 ## Attachments (`/attachments`)
 
 ### GET /attachments

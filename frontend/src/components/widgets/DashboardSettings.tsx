@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAllWidgets } from './widgetRegistry';
 import type { DashboardConfig, DashboardWidgetSlot } from '../../types/dashboard';
 import { generateSlotId, saveDashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '../../types/dashboard';
+import { api } from '../../api/client';
 
 interface DashboardSettingsBarProps {
   config: DashboardConfig;
@@ -12,6 +13,9 @@ interface DashboardSettingsBarProps {
   onReset: () => void;
   hideWidgetBorders: boolean;
   onToggleBorders: () => void;
+  backgroundImageUrl?: string;
+  onSetBackground: (url: string, overlay?: number) => void;
+  onClearBackground: () => void;
 }
 
 export default function DashboardSettingsBar({
@@ -22,10 +26,19 @@ export default function DashboardSettingsBar({
   onReset,
   hideWidgetBorders,
   onToggleBorders,
+  backgroundImageUrl,
+  onSetBackground,
+  onClearBackground,
 }: DashboardSettingsBarProps) {
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const [bgPickerOpen, setBgPickerOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [overlayValue, setOverlayValue] = useState(1);
+  const bgPickerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const widgets = getAllWidgets();
   const placedIds = new Set(config.slots.map((s) => s.widgetId));
@@ -41,6 +54,46 @@ export default function DashboardSettingsBar({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [pickerOpen]);
+
+  // Close background picker on outside click
+  useEffect(() => {
+    if (!bgPickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (bgPickerRef.current && !bgPickerRef.current.contains(e.target as Node)) {
+        setBgPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [bgPickerOpen]);
+
+  // Sync overlay slider with saved value when popover opens
+  useEffect(() => {
+    if (bgPickerOpen) {
+      setOverlayValue(config.preferences?.backgroundOverlay ?? 1);
+      setUploadError('');
+    }
+  }, [bgPickerOpen, config.preferences?.backgroundOverlay]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data } = await api.post<{ id: number }>('/attachments', formData);
+      const url = `/api/v1/attachments/${data.id}/download`;
+      onSetBackground(url, overlayValue);
+      setBgPickerOpen(false);
+    } catch {
+      setUploadError('Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleAddWidget = (widgetId: string) => {
     const def = widgets.find((w) => w.id === widgetId);
@@ -71,7 +124,7 @@ export default function DashboardSettingsBar({
   };
 
   return (
-    <div className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] px-4 py-3 flex flex-wrap items-center gap-3">
+    <div className="rounded-2xl bg-card border border-[var(--color-border)] px-4 py-3 flex flex-wrap items-center gap-3">
       {/* Edit mode toggle */}
       <button
         type="button"
@@ -96,7 +149,7 @@ export default function DashboardSettingsBar({
             ➕ Add widget
           </button>
           {pickerOpen && (
-            <div className="absolute left-0 top-full mt-2 z-50 w-56 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg py-1">
+            <div className="absolute left-0 top-full mt-2 z-50 w-56 rounded-xl border border-[var(--color-border)] bg-card shadow-lg py-1">
               {widgets.map((w) => {
                 const placed = placedIds.has(w.id);
                 return (
@@ -145,6 +198,81 @@ export default function DashboardSettingsBar({
       >
         {hideWidgetBorders ? '▫️ Borderless' : '🔲 Borders'}
       </button>
+
+      {/* Background photo */}
+      <div className="relative" ref={bgPickerRef}>
+        <button
+          type="button"
+          onClick={() => setBgPickerOpen((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            backgroundImageUrl
+              ? 'bg-[var(--color-accent)] text-white'
+              : 'border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]'
+          }`}
+        >
+          🖼️ {backgroundImageUrl ? 'Background set' : 'Background'}
+        </button>
+
+        {bgPickerOpen && (
+          <div className="absolute left-0 top-full mt-2 z-50 w-64 rounded-xl border border-[var(--color-border)] bg-card shadow-lg p-4 space-y-3">
+            {backgroundImageUrl && (
+              <div
+                className="w-full h-20 rounded-lg bg-cover bg-center border border-[var(--color-border)]"
+                style={{ backgroundImage: `url(${backgroundImageUrl})` }}
+              />
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors disabled:opacity-50"
+            >
+              {uploading ? 'Uploading…' : backgroundImageUrl ? '📷 Change photo' : '📷 Choose photo'}
+            </button>
+
+            {uploadError && (
+              <p className="text-xs text-red-500">{uploadError}</p>
+            )}
+
+            <div>
+              <label className="block text-xs text-[var(--color-text-muted)] mb-1">
+                Image opacity: {Math.round(overlayValue * 100)}%
+              </label>
+              <input
+                type="range"
+                min={0.1}
+                max={1}
+                step={0.05}
+                value={overlayValue}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  setOverlayValue(v);
+                  if (backgroundImageUrl) onSetBackground(backgroundImageUrl, v);
+                }}
+                className="w-full"
+              />
+            </div>
+
+            {backgroundImageUrl && (
+              <button
+                type="button"
+                onClick={() => { onClearBackground(); setBgPickerOpen(false); }}
+                className="w-full rounded-lg border border-red-300 px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors"
+              >
+                Remove background
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Spacer */}
       <div className="flex-1" />

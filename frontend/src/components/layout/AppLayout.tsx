@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useMemo } from 'react';
 import { useSettings } from '../../hooks/useSettings';
 import { useAuth } from '../../hooks/useAuth';
+import { useUserPreferences } from '../../hooks/useUserPreferences';
 
 const navItems = [
   { to: '/', label: 'Dashboard', key: 'dashboard' },
@@ -18,8 +19,11 @@ const navItems = [
 export function AppLayout() {
   const { data: settings } = useSettings();
   const { user, logout } = useAuth();
+  const { data: prefs } = useUserPreferences();
   const location = useLocation();
   const isDashboard = location.pathname === '/';
+  const bgImageUrl = isDashboard ? prefs?.dashboardConfig?.preferences?.backgroundImageUrl : undefined;
+  const bgOpacity = isDashboard ? (prefs?.dashboardConfig?.preferences?.backgroundOverlay ?? 1) : 0;
   const formattedDate = useMemo(() => {
     return new Intl.DateTimeFormat(undefined, {
       weekday: 'long',
@@ -45,6 +49,19 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-page">
+      {bgImageUrl && (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${bgImageUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundAttachment: 'fixed',
+            opacity: bgOpacity,
+            zIndex: 0,
+          }}
+        />
+      )}
       <header className="sticky top-0 z-20 bg-page/90 backdrop-blur border-b border-th-border">
         <div className={`mx-auto flex items-center justify-between px-4 py-4 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
           <div>

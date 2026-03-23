@@ -116,6 +116,9 @@ TZ                      # default UTC
 | HouseholdSetting | key (PK), value |
 | AuditLog | actorUserId, actionType, entityType, entityId, payload, ipAddress, userAgent |
 | SearchIndex | entityType, entityId, content |
+| Recipe | title, description, servings, prepMinutes, cookMinutes, sourceUrl, ingredientsJson (JSON), createdByUserId |
+| MealPlan | title, weekStart, createdByUserId |
+| MealPlanEntry | mealPlanId, recipeId?, title, mealType (BREAKFAST/LUNCH/DINNER/SNACK), dayOffset (0–6), servings, notes |
 
 **Enum values:**
 - Task status: `OPEN | IN_PROGRESS | BLOCKED | DONE | ARCHIVED`
@@ -179,6 +182,15 @@ TZ                      # default UTC
 - `PATCH /:id` / `DELETE /:id`
 - `POST /from-grocery` — `{ groceryItemId, groceryListId }`
 - `POST /from-grocery-list` — `{ groceryListId }`
+
+**Meal Plans `/meal-plans`**
+- `GET /recipes` / `POST /recipes` / `GET /recipes/:id` / `PATCH /recipes/:id` / `DELETE /recipes/:id`
+- `GET /recipes/:id/inventory-check` — `?servings` → `{ canMake, ingredients: [{ status: ok|low|missing|unlinked }] }`
+- `POST /recipes/:id/add-missing-to-grocery` — `{ groceryListId, servings? }`
+- `GET /entries-by-range` — `?start&end` → flat list of entries with resolved dates
+- `GET /` / `POST /` / `GET /:planId` / `PATCH /:planId` / `DELETE /:planId`
+- `POST /:planId/entries` / `PATCH /:planId/entries/:entryId` / `DELETE /:planId/entries/:entryId`
+- `POST /:planId/send-to-grocery` — `{ groceryListId }`
 
 **Calendar `/calendar`**
 - `GET /calendars` — linked Google calendars
@@ -351,6 +363,7 @@ interface GroceryItem { id, listId, name, category?, quantity, unit?, state, not
 | grocery | GroceryWidget | 6×3 |
 | reminders | RemindersWidget | 6×3 |
 | inventory | InventoryWidget | 6×3 |
+| mealPlan | MealPlanWidget | 6×3 |
 
 Dashboard config stored in localStorage (`dashboard-config`) and synced to server via `/settings/me`.
 

@@ -49,8 +49,15 @@ A privacy-first intranet web application that lets household members share calen
 
 ### Dashboard & Calendar UI
 - Dashboard cards for today's events, upcoming tasks, overdue chores, grocery quick-look, reminder queue.
+- Dashboard background photo with configurable opacity; kiosk display mode (full-screen, cursor-hiding, wake lock).
 - Calendar supports day/week/month, filtering by member/resource, overlay of tasks/chores.
 - Responsive layout optimized for phones/tablets with offline-friendly caching of recent data.
+
+### Meal Planning
+- Recipe management: CRUD with ingredient list (name, quantity, unit, optional inventory link), prep/cook times, serving size, and source URL.
+- Weekly meal planner grid (Monday–Sunday × meal type) with recipe slots and free-text entries.
+- Ingredient inventory check: compares recipe ingredients against inventory quantities and reports ok/low/missing status.
+- Add missing ingredients to a grocery list directly from a recipe or an entire meal plan week.
 
 ### Settings & Administration
 - Household profile (name, timezone, default categories, theme).
@@ -83,6 +90,4 @@ A privacy-first intranet web application that lets household members share calen
 
 ## Future Enhancements
 - Home Assistant integration for automations.
-- Shared meal planning linked to grocery lists.
 - SMS notifications via local modem.
-- Dark mode theme pack and custom color palettes.

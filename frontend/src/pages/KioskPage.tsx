@@ -105,6 +105,9 @@ function KioskPage() {
     };
   }, []);
 
+  const bgImageUrl = prefs?.dashboardConfig?.preferences?.backgroundImageUrl;
+  const bgOpacity = prefs?.dashboardConfig?.preferences?.backgroundOverlay ?? 1;
+
   // Apply kiosk class to root
   useEffect(() => {
     document.documentElement.classList.add('kiosk-mode');
@@ -131,6 +134,19 @@ function KioskPage() {
     <div
       className={`min-h-screen w-full bg-page p-4 ${cursorHidden ? 'cursor-hidden' : ''}`}
     >
+      {bgImageUrl && (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${bgImageUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundAttachment: 'fixed',
+            opacity: bgOpacity,
+            zIndex: 0,
+          }}
+        />
+      )}
       {/* Exit button — fades in on mouse movement */}
       <button
         type="button"

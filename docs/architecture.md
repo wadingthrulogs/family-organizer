@@ -17,7 +17,8 @@
 - Authentication views (login, OAuth linking prompts).
 - Calendar with day/week/month view and combined events/tasks/chores overlay.
 - Task todo list with quick-add and inline editing, grocery list UI with shopping mode, chore planner, reminder settings.
-- Dashboard widget grid (drag/resize via react-grid-layout).
+- Meal plan page: weekly grid (Mon–Sun × meal type), recipe management, inventory check, send-to-grocery flow.
+- Dashboard widget grid (drag/resize via react-grid-layout); custom background photo with opacity; kiosk full-screen mode.
 - Data freshness via React Query polling (stale-while-revalidate); no WebSocket.
 - Push notification subscription handled via browser Push API + `POST /notifications/subscribe`.
 

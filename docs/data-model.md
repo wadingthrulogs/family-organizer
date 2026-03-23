@@ -15,9 +15,12 @@
 | `chore_assignments` | Generated chore instances tied to a date window and specific member. |
 | `grocery_lists` | Named lists (Weekly, Costco) with metadata (store, preset). |
 | `grocery_items` | Items on a grocery list with quantity, category, claimed status. |
+| `recipes` | User-created recipes with ingredients, prep/cook times, and serving size. |
+| `meal_plans` | Weekly meal plan containers anchored to a `weekStart` date. |
+| `meal_plan_entries` | Individual meal slots within a plan (day + meal type + optional recipe). |
 | `reminders` | Reminder rules referencing tasks/chores/groceries/events. |
 | `reminder_triggers` | Scheduled occurrences for reminders, tracking last attempt and channel. |
-| `attachments` | File metadata for items referenced by tasks or groceries. |
+| `attachments` | File metadata for items referenced by tasks, groceries, or dashboard backgrounds. |
 | `push_subscriptions` | Browser Web Push subscription records per user. |
 | `notification_logs` | Delivery history for reminder notifications (push/email). |
 | `household_settings` | Key-value store for household-wide configuration. |
@@ -25,12 +28,14 @@
 | `search_index` | Optional full-text search index for tasks and grocery items. |
 
 ## Relationships
-- One `user` ⇨ many `google_accounts`, `linked_calendars`, `tasks` (author), `task_assignments`, `chore_assignments`, `grocery_lists` (owner), `reminders`, `push_subscriptions`, `notification_logs`.
+- One `user` ⇨ many `google_accounts`, `linked_calendars`, `tasks` (author), `task_assignments`, `chore_assignments`, `grocery_lists` (owner), `reminders`, `push_subscriptions`, `notification_logs`, `recipes` (author), `meal_plans` (author).
 - `google_accounts` ⇨ `linked_calendars` (1-to-many). Each Google account can have multiple linked calendars.
 - `tasks` ⇨ `task_assignments` (1-to-many) and optional `task_recurrences` (many tasks can reuse recurrence template).
 - `tasks` ⇨ `task_status_changes` (1-to-many) — audit trail of all status transitions.
 - `chores` ⇨ `chore_assignments` (1-to-many). Assignments reference `users` for assignee and optionally for verifier.
 - `grocery_lists` ⇨ `grocery_items` (1-to-many).
+- `recipes` ⇨ `meal_plan_entries` (1-to-many, optional). A recipe can appear in multiple plan entries.
+- `meal_plans` ⇨ `meal_plan_entries` (1-to-many). Each plan holds one week of meal slots.
 - `reminders` reference polymorphic targets (task, chore, grocery_item, event) using target_type/target_id.
 - `reminder_triggers` belong to `reminders` and record channel-specific scheduling.
 - `attachments` use a polymorphic `linked_entity_type`/`linked_entity_id` to associate with any entity.
@@ -61,6 +66,14 @@
 - `grocery_items.state`: `NEEDED`, `CLAIMED`, `IN_CART`, `PURCHASED`.
 - `pantry_item_key` optional identifier for tracking pantry stock/low reminders.
 - Support `sort_order` for drag/drop reordering by aisle.
+
+### Recipes & Meal Plans
+- `recipes.ingredients_json`: JSON array of `{ name, quantity?, unit?, inventoryItemId? }` objects.
+- `recipes.servings`: base serving count used to scale ingredient quantities for inventory checks.
+- `meal_plans.week_start`: Monday anchor date for the 7-day plan window.
+- `meal_plan_entries.day_offset`: 0 (Monday) through 6 (Sunday) — resolved to an absolute date at query time.
+- `meal_plan_entries.meal_type`: `BREAKFAST`, `LUNCH`, `DINNER`, or `SNACK`.
+- `meal_plan_entries.recipe_id`: optional FK to a recipe; entries can be free-text meals without a recipe.
 
 ### Reminders
 - `reminders.channel_mask`: bit flags for push/email/webhook.

@@ -17,7 +17,7 @@ Optional
 - **Chores** — Rotation scheduling (round-robin / weighted / manual), streaks, reward points
 - **Grocery Lists** — Shopping mode, bulk add, low-stock auto-populate
 - **Inventory** — Pantry tracker with low-stock thresholds and export
-- **Meal Plans** — Weekly planner with recipe management, ingredient inventory checking, and grocery list integration
+- **Meal Plans** — Weekly planner with recipe management, ingredient inventory checking, grocery list integration, and bulk recipe import (paste text or upload JSON)
 - **Reminders & Notifications** — Web push and email notifications with configurable lead times
 - **Multi-user** — Role-based access (Admin / Member / Viewer), per-user colors
 
@@ -178,6 +178,63 @@ make restart
 
 Log in to Family Organizer → **Settings → Google Calendar** → **Connect Google Account**.
 After authorising, your calendars will appear under **Settings → Google Calendar** to enable sync.
+
+---
+
+## Importing Recipes
+
+Open **Meal Plans → Recipes** and click **↑ Import**.
+
+### Paste text
+
+Paste one or more recipes separated by a blank line. The first line of each block is the title; the remaining lines are ingredients (quantity, unit, and name in any natural order).
+
+```
+Pasta Bolognese
+500g beef mince
+2 cans diced tomatoes
+1 onion
+2 cloves garlic
+
+Chicken Stir Fry
+2 chicken breasts
+1 cup broccoli
+2 tbsp soy sauce
+1 tbsp sesame oil
+```
+
+### Upload JSON
+
+Upload a `.json` file containing an array of recipe objects. All fields except `title` are optional.
+
+```json
+[
+  {
+    "title": "Pasta Bolognese",
+    "description": "Classic Italian meat sauce",
+    "servings": 4,
+    "prepMinutes": 15,
+    "cookMinutes": 45,
+    "sourceUrl": "https://example.com/pasta-bolognese",
+    "ingredients": [
+      { "name": "beef mince", "quantity": 500, "unit": "g" },
+      { "name": "diced tomatoes", "quantity": 2, "unit": "cans" },
+      { "name": "onion", "quantity": 1 },
+      { "name": "garlic", "quantity": 2, "unit": "cloves" }
+    ]
+  },
+  {
+    "title": "Chicken Stir Fry",
+    "servings": 2,
+    "cookMinutes": 20,
+    "ingredients": [
+      { "name": "chicken breasts", "quantity": 2 },
+      { "name": "broccoli", "quantity": 1, "unit": "cup" },
+      { "name": "soy sauce", "quantity": 2, "unit": "tbsp" }
+    ]
+  }
+]
+```
 
 ---
 

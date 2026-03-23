@@ -54,6 +54,11 @@ export async function deleteRecipe(recipeId: number): Promise<void> {
   await api.delete(`/meal-plans/recipes/${recipeId}`);
 }
 
+export async function bulkImportRecipes(text: string): Promise<{ items: Recipe[]; total: number }> {
+  const { data } = await api.post<{ items: Recipe[]; total: number }>('/meal-plans/recipes/bulk', { text });
+  return data;
+}
+
 // ─── Meal Plan API ──────────────────────────────────────────────────────────
 
 export async function fetchMealPlans(): Promise<ApiListResponse<MealPlan>> {

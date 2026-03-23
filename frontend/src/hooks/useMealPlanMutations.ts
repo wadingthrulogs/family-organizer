@@ -11,6 +11,7 @@ import {
   createRecipe,
   updateRecipe,
   deleteRecipe,
+  bulkImportRecipes,
   type CreateMealPlanPayload,
   type CreateMealPlanEntryPayload,
   type UpdateMealPlanEntryPayload,
@@ -114,6 +115,14 @@ export function useDeleteRecipeMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (recipeId: number) => deleteRecipe(recipeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recipes'] }),
+  });
+}
+
+export function useBulkImportRecipesMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (text: string) => bulkImportRecipes(text),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recipes'] }),
   });
 }

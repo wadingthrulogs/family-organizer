@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/require-auth.js';
 import { prisma } from '../lib/prisma.js';
 import { asyncHandler } from '../utils/async-handler.js';
+import { parseBulkLine } from '../utils/parse-bulk-line.js';
 
 export const mealPlansRouter = Router();
 mealPlansRouter.use(requireAuth);
@@ -246,6 +247,49 @@ mealPlansRouter.delete(
       }
       throw err;
     }
+  })
+);
+
+// ─── Recipe: Bulk Import ──────────────────────────────────────────────────────
+
+const bulkRecipesSchema = z.object({
+  text: z.string().trim().min(1).max(20000),
+});
+
+mealPlansRouter.post(
+  '/recipes/bulk',
+  asyncHandler(async (req, res) => {
+    const userId = req.session.userId!;
+    const { text } = bulkRecipesSchema.parse(req.body ?? {});
+
+    const blocks = text.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
+
+    const toCreate = blocks.map((block) => {
+      const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+      const title = lines[0];
+      const ingredients = lines.slice(1)
+        .map((l) => parseBulkLine(l))
+        .filter((r): r is NonNullable<typeof r> => r !== null)
+        .map(({ name, quantity, unit }) => ({ name, quantity, unit: unit ?? undefined }));
+      return { title, ingredients };
+    });
+
+    const created = await prisma.$transaction(
+      toCreate.map(({ title, ingredients }) =>
+        prisma.recipe.create({
+          data: {
+            title,
+            ingredientsJson: serializeIngredients(ingredients),
+            createdByUserId: userId,
+          },
+        })
+      )
+    );
+
+    res.status(201).json({
+      items: created.map((r) => ({ ...r, ingredients: parseIngredients(r.ingredientsJson) })),
+      total: created.length,
+    });
   })
 );
 

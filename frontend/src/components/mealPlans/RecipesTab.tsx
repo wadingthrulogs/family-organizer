@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { Recipe, RecipeIngredient, IngredientStatus } from '../../types/mealPlan';
 import type { CreateRecipePayload } from '../../api/mealPlans';
 import type { InventoryItem } from '../../types/inventory';
 import { RecipeForm } from './RecipeForm';
-import { useAddMissingToGroceryMutation } from '../../hooks/useMealPlanMutations';
+import { useAddMissingToGroceryMutation, useBulkImportRecipesMutation, useCreateRecipeMutation } from '../../hooks/useMealPlanMutations';
 
 interface RecipesTabProps {
   recipes: Recipe[];
@@ -101,7 +101,18 @@ export function RecipesTab({
   const [showGroceryDropdown, setShowGroceryDropdown] = useState<number | null>(null);
   const [addResult, setAddResult] = useState<Record<number, string>>({});
 
+  // Import modal state
+  const [importOpen, setImportOpen] = useState(false);
+  const [importTab, setImportTab] = useState<'text' | 'json'>('text');
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState('');
+  const [importSuccess, setImportSuccess] = useState('');
+  const [jsonProgress, setJsonProgress] = useState('');
+  const jsonFileRef = useRef<HTMLInputElement>(null);
+
   const addMissing = useAddMissingToGroceryMutation();
+  const bulkImport = useBulkImportRecipesMutation();
+  const createRecipeMutation = useCreateRecipeMutation();
 
   const getServings = (recipe: Recipe) => servingsOverride[recipe.id] ?? recipe.servings;
 
@@ -147,19 +158,119 @@ export function RecipesTab({
     return min >= 60 ? `${Math.floor(min / 60)}h ${min % 60 ? `${min % 60}m` : ''}`.trim() : `${min}m`;
   };
 
+  const openImport = () => {
+    setImportOpen(true);
+    setImportTab('text');
+    setImportText('');
+    setImportError('');
+    setImportSuccess('');
+    setJsonProgress('');
+  };
+
+  const closeImport = () => {
+    setImportOpen(false);
+    setImportText('');
+    setImportError('');
+    setImportSuccess('');
+    setJsonProgress('');
+  };
+
+  const handleTextImport = async () => {
+    if (!importText.trim()) {
+      setImportError('Please paste some recipe text first.');
+      return;
+    }
+    setImportError('');
+    setImportSuccess('');
+    try {
+      const result = await bulkImport.mutateAsync(importText);
+      setImportSuccess(`Imported ${result.total} recipe${result.total !== 1 ? 's' : ''} successfully.`);
+      setImportText('');
+    } catch {
+      setImportError('Import failed. Check your text format and try again.');
+    }
+  };
+
+  const handleJsonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError('');
+    setImportSuccess('');
+    setJsonProgress('');
+
+    let parsed: unknown;
+    try {
+      const text = await file.text();
+      parsed = JSON.parse(text);
+    } catch {
+      setImportError('Invalid JSON file. Please check the file format.');
+      if (jsonFileRef.current) jsonFileRef.current.value = '';
+      return;
+    }
+
+    if (!Array.isArray(parsed)) {
+      setImportError('JSON must be an array of recipe objects.');
+      if (jsonFileRef.current) jsonFileRef.current.value = '';
+      return;
+    }
+
+    const items = parsed as Array<Record<string, unknown>>;
+    const invalid = items.find((r) => typeof r.title !== 'string' || !r.title.trim());
+    if (invalid !== undefined) {
+      setImportError('Every recipe object must have a "title" string field.');
+      if (jsonFileRef.current) jsonFileRef.current.value = '';
+      return;
+    }
+
+    let imported = 0;
+    for (const item of items) {
+      try {
+        setJsonProgress(`Importing ${imported + 1} of ${items.length}…`);
+        await createRecipeMutation.mutateAsync({
+          title: item.title as string,
+          description: (item.description as string | undefined) ?? null,
+          servings: (item.servings as number | undefined) ?? 1,
+          prepMinutes: (item.prepMinutes as number | undefined) ?? null,
+          cookMinutes: (item.cookMinutes as number | undefined) ?? null,
+          sourceUrl: (item.sourceUrl as string | undefined) ?? null,
+          ingredients: Array.isArray(item.ingredients) ? item.ingredients as CreateRecipePayload['ingredients'] : [],
+        });
+        imported++;
+      } catch {
+        setImportError(`Failed on recipe "${item.title}" (${imported} of ${items.length} imported so far).`);
+        setJsonProgress('');
+        if (jsonFileRef.current) jsonFileRef.current.value = '';
+        return;
+      }
+    }
+
+    setJsonProgress('');
+    setImportSuccess(`Imported ${imported} recipe${imported !== 1 ? 's' : ''} from JSON.`);
+    if (jsonFileRef.current) jsonFileRef.current.value = '';
+  };
+
   return (
     <div>
       {/* Tab header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-heading">📖 Recipes</h2>
         {!showForm && (
-          <button
-            type="button"
-            onClick={() => { setEditingRecipe(null); setShowForm(true); }}
-            className="rounded-lg bg-btn-primary px-3 py-1.5 text-sm font-medium text-btn-primary-text"
-          >
-            + New recipe
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openImport}
+              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+            >
+              ↑ Import
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEditingRecipe(null); setShowForm(true); }}
+              className="rounded-lg bg-btn-primary px-3 py-1.5 text-sm font-medium text-btn-primary-text"
+            >
+              + New recipe
+            </button>
+          </div>
         )}
       </div>
 
@@ -348,6 +459,107 @@ export function RecipesTab({
       {/* Close grocery dropdown on outside click */}
       {showGroceryDropdown !== null && (
         <div className="fixed inset-0 z-10" onClick={() => setShowGroceryDropdown(null)} />
+      )}
+
+      {/* Import modal */}
+      {importOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={closeImport} />
+          <div className="relative z-10 w-full max-w-lg rounded-xl border border-[var(--color-border)] shadow-xl flex flex-col max-h-[90vh]" style={{ backgroundColor: 'var(--color-card)', backgroundImage: 'none' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
+              <h3 className="font-semibold text-heading">Import recipes</h3>
+              <button type="button" onClick={closeImport} className="text-[var(--color-text-muted)] hover:text-heading text-lg leading-none">✕</button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-[var(--color-border)]">
+              {(['text', 'json'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => { setImportTab(tab); setImportError(''); setImportSuccess(''); setJsonProgress(''); }}
+                  className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                    importTab === tab
+                      ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                      : 'border-transparent text-[var(--color-text-secondary)] hover:text-heading'
+                  }`}
+                >
+                  {tab === 'text' ? 'Paste text' : 'Upload JSON'}
+                </button>
+              ))}
+            </div>
+
+            {/* Body */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              {importTab === 'text' ? (
+                <>
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    Paste one or more recipes. Separate recipes with a blank line. First line is the title, remaining lines are ingredients.
+                  </p>
+                  <textarea
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    rows={10}
+                    className="w-full rounded-lg border border-[var(--color-border-input)] bg-[var(--color-input)] px-3 py-2 text-sm text-heading placeholder:text-[var(--color-text-faint)] resize-y font-mono"
+                    placeholder={`Pasta Bolognese\n500g beef mince\n2 cans diced tomatoes\n1 onion\n\nChicken Stir Fry\n2 chicken breasts\n1 cup broccoli\n2 tbsp soy sauce`}
+                  />
+                  {importError && <p className="text-xs text-red-500">{importError}</p>}
+                  {importSuccess && <p className="text-xs text-emerald-600">{importSuccess}</p>}
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    Upload a <code className="bg-[var(--color-bg-hover)] px-1 rounded">.json</code> file containing an array of recipe objects. Each must have a <code className="bg-[var(--color-bg-hover)] px-1 rounded">title</code> field.
+                  </p>
+                  <pre className="text-xs bg-[var(--color-bg-hover)] rounded-lg p-3 overflow-x-auto text-[var(--color-text-secondary)]">{`[\n  {\n    "title": "Pasta Bolognese",\n    "description": "Classic Italian meat sauce",\n    "servings": 4,\n    "prepMinutes": 15,\n    "cookMinutes": 45,\n    "sourceUrl": "https://example.com/recipe",\n    "ingredients": [\n      { "name": "beef mince", "quantity": 500, "unit": "g" }\n    ]\n  }\n]`}</pre>
+                  <input
+                    ref={jsonFileRef}
+                    type="file"
+                    accept=".json"
+                    onChange={handleJsonFile}
+                    className="block w-full text-sm text-[var(--color-text-secondary)] file:mr-3 file:rounded-lg file:border file:border-[var(--color-border)] file:bg-[var(--color-bg-hover)] file:px-3 file:py-1.5 file:text-xs file:text-[var(--color-text-secondary)] file:cursor-pointer"
+                  />
+                  {jsonProgress && <p className="text-xs text-[var(--color-text-secondary)]">{jsonProgress}</p>}
+                  {importError && <p className="text-xs text-red-500">{importError}</p>}
+                  {importSuccess && <p className="text-xs text-emerald-600">{importSuccess}</p>}
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            {importTab === 'text' && (
+              <div className="flex justify-end gap-2 px-5 py-4 border-t border-[var(--color-border)]">
+                <button
+                  type="button"
+                  onClick={closeImport}
+                  className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTextImport}
+                  disabled={bulkImport.isPending || !importText.trim()}
+                  className="rounded-lg bg-btn-primary px-4 py-2 text-sm font-medium text-btn-primary-text disabled:opacity-50"
+                >
+                  {bulkImport.isPending ? 'Importing…' : 'Import'}
+                </button>
+              </div>
+            )}
+            {importTab === 'json' && importSuccess && (
+              <div className="flex justify-end px-5 py-4 border-t border-[var(--color-border)]">
+                <button
+                  type="button"
+                  onClick={closeImport}
+                  className="rounded-lg bg-btn-primary px-4 py-2 text-sm font-medium text-btn-primary-text"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

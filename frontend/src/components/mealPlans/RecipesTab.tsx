@@ -39,7 +39,7 @@ function getIngredientStatus(
   const inStock = invItem.quantity;
   let status: IngredientStatus;
   if (required == null || required === 0) {
-    status = inStock > 0 ? 'ok' : 'missing';
+    status = inStock > 0 ? 'ok' : 'low';
   } else {
     status = inStock >= required ? 'ok' : 'low';
   }
@@ -304,7 +304,7 @@ export function RecipesTab({
             const hasMissing = availability === 'missing' || availability === 'low';
 
             return (
-              <div key={recipe.id} className="rounded-card border border-th-border bg-page overflow-hidden">
+              <div key={recipe.id} className={`rounded-card border border-th-border bg-page ${showGroceryDropdown === recipe.id ? 'overflow-visible' : 'overflow-hidden'}`}>
                 <button
                   type="button"
                   className="w-full flex items-start justify-between px-4 py-3 text-left hover:bg-hover-bg gap-2"

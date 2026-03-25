@@ -221,7 +221,7 @@ function DashboardPage() {
             isResizable={editMode}
             resizeHandles={editMode ? ['se'] : []}
             compactType="vertical"
-            draggableHandle=".widget-drag-handle"
+            draggableHandle={editMode ? ".widget-drag-handle" : undefined}
             margin={[16, 16]}
             onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
             onLayoutChange={handleLayoutChange}

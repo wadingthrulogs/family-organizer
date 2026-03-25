@@ -23,6 +23,7 @@ export function RecipeForm({ editingRecipe, inventoryItems, onSave, onCancel, is
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>(
     editingRecipe?.ingredients?.length ? editingRecipe.ingredients : [emptyIngredient()]
   );
+  const [activeAutocompleteIdx, setActiveAutocompleteIdx] = useState<number | null>(null);
 
   const updateIngredient = (index: number, field: keyof RecipeIngredient, value: string | number | undefined) => {
     setIngredients((prev) =>
@@ -174,13 +175,47 @@ export function RecipeForm({ editingRecipe, inventoryItems, onSave, onCancel, is
               <div key={idx} className="rounded-lg border border-th-border-light bg-page p-2 space-y-2">
                 {/* Name + qty + unit row */}
                 <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={ing.name}
-                    onChange={(e) => updateIngredient(idx, 'name', e.target.value)}
-                    placeholder="Ingredient"
-                    className="flex-1 rounded-lg border border-input bg-input px-3 py-1.5 text-sm text-heading placeholder:text-faint"
-                  />
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={ing.name}
+                      onChange={(e) => updateIngredient(idx, 'name', e.target.value)}
+                      onFocus={() => setActiveAutocompleteIdx(idx)}
+                      onBlur={() => setTimeout(() => setActiveAutocompleteIdx(null), 150)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setActiveAutocompleteIdx(null); }}
+                      placeholder="Ingredient"
+                      className="w-full rounded-lg border border-input bg-input px-3 py-1.5 text-sm text-heading placeholder:text-faint"
+                    />
+                    {activeAutocompleteIdx === idx && ing.name.trim().length > 0 && (() => {
+                      const suggestions = inventoryItems
+                        .filter((item) => item.name.toLowerCase().includes(ing.name.toLowerCase().trim()))
+                        .slice(0, 6);
+                      return suggestions.length > 0 ? (
+                        <div className="absolute left-0 top-full mt-1 z-50 w-full rounded-lg border border-th-border bg-card shadow-soft">
+                          {suggestions.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onMouseDown={() => {
+                                updateIngredient(idx, 'name', item.name);
+                                setActiveAutocompleteIdx(null);
+                              }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-hover-bg first:rounded-t-lg last:rounded-b-lg"
+                            >
+                              <span className="font-medium text-heading">{item.name}</span>
+                              {(item.category || item.quantity != null) && (
+                                <span className="text-xs text-muted ml-2">
+                                  {item.category}
+                                  {item.category && item.quantity != null ? ' · ' : ''}
+                                  {item.quantity != null ? `${item.quantity}${item.unit ? ` ${item.unit}` : ''} in stock` : ''}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
                   <input
                     type="number"
                     value={ing.quantity ?? ''}

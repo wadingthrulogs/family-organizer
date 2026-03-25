@@ -217,11 +217,9 @@ function DashboardPage() {
             layouts={getResponsiveLayouts(config.slots)}
             cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }}
             rowHeight={120}
-            isDraggable={editMode}
-            isResizable={editMode}
-            resizeHandles={editMode ? ['se'] : []}
+            dragConfig={{ enabled: editMode, handle: editMode ? '.widget-drag-handle' : undefined }}
+            resizeConfig={{ enabled: editMode, handles: editMode ? ['se'] : [] }}
             compactType="vertical"
-            draggableHandle={editMode ? ".widget-drag-handle" : undefined}
             margin={[16, 16]}
             onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
             onLayoutChange={handleLayoutChange}

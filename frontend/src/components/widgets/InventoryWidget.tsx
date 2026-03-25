@@ -1,5 +1,9 @@
+import { useState } from 'react';
 import { useInventory } from '../../hooks/useInventory';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
+import { useUpdateInventoryItemMutation } from '../../hooks/useInventoryMutations';
+import { useAddLowStockToGroceryMutation } from '../../hooks/useGroceryMutations';
+import { useGroceryLists } from '../../hooks/useGroceryLists';
 
 export default function InventoryWidget() {
   const { data, isLoading } = useInventory();
@@ -8,6 +12,32 @@ export default function InventoryWidget() {
   const lowStockItems = items.filter(
     (i) => i.lowStockThreshold != null && i.quantity <= i.lowStockThreshold,
   );
+
+  const [pendingQtyId, setPendingQtyId] = useState<number | null>(null);
+  const [groceryDropdownOpen, setGroceryDropdownOpen] = useState(false);
+  const [addedMsg, setAddedMsg] = useState('');
+
+  const updateQty = useUpdateInventoryItemMutation();
+  const addLowStock = useAddLowStockToGroceryMutation();
+  const { data: groceryData } = useGroceryLists();
+  const groceryLists = groceryData?.items ?? [];
+
+  const handleQtyChange = (itemId: number, current: number, delta: number) => {
+    const next = Math.max(0, (current ?? 0) + delta);
+    setPendingQtyId(itemId);
+    updateQty.mutate(
+      { itemId, data: { quantity: next } },
+      { onSettled: () => setPendingQtyId(null) },
+    );
+  };
+
+  const handleAddToGrocery = async (listId: number) => {
+    setGroceryDropdownOpen(false);
+    await addLowStock.mutateAsync(listId);
+    const listName = groceryLists.find((l) => l.id === listId)?.name ?? 'list';
+    setAddedMsg(`Added to ${listName}!`);
+    setTimeout(() => setAddedMsg(''), 3000);
+  };
 
   const showHeader = height > 80;
   const showLink = !compact;
@@ -57,6 +87,38 @@ export default function InventoryWidget() {
                   <span className="text-[0.55em] text-amber-500">+{lowStockItems.length - (width > 250 ? 5 : 3)} more</span>
                 )}
               </div>
+              {!compact && (
+                <div className="mt-1 relative">
+                  {addedMsg ? (
+                    <span className="text-[0.6em] text-emerald-600 font-medium">{addedMsg}</span>
+                  ) : groceryLists.length > 0 ? (
+                    <>
+                      <button
+                        type="button"
+                        onMouseDown={() => setGroceryDropdownOpen((v) => !v)}
+                        disabled={addLowStock.isPending}
+                        className="text-[0.6em] font-medium text-amber-700 underline disabled:opacity-50"
+                      >
+                        {addLowStock.isPending ? 'Adding…' : '🛒 Add all to grocery'}
+                      </button>
+                      {groceryDropdownOpen && (
+                        <div className="absolute left-0 top-full mt-0.5 z-50 rounded-lg border border-th-border bg-card shadow-soft min-w-[140px]">
+                          {groceryLists.map((list) => (
+                            <button
+                              key={list.id}
+                              type="button"
+                              onMouseDown={() => handleAddToGrocery(list.id)}
+                              className="block w-full text-left px-3 py-1.5 text-xs text-heading hover:bg-hover-bg first:rounded-t-lg last:rounded-b-lg"
+                            >
+                              {list.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                </div>
+              )}
             </div>
           )}
 
@@ -70,9 +132,26 @@ export default function InventoryWidget() {
                 >
                   <span className="text-[var(--color-text)] truncate text-[0.9em]">{item.name}</span>
                   {!tiny && (
-                    <span className="shrink-0 text-[0.6em] text-[var(--color-text-secondary)]">
-                      {item.quantity}{item.unit ? ` ${item.unit}` : ''}
-                    </span>
+                    <div className="shrink-0 flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={pendingQtyId === item.id}
+                        onClick={() => handleQtyChange(item.id, item.quantity, -1)}
+                        className="w-4 h-4 flex items-center justify-center rounded text-[0.7em] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] disabled:opacity-40 leading-none"
+                      >−</button>
+                      <span className="text-[0.65em] text-[var(--color-text-secondary)] min-w-[2ch] text-center tabular-nums">
+                        {pendingQtyId === item.id ? '…' : item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={pendingQtyId === item.id}
+                        onClick={() => handleQtyChange(item.id, item.quantity, 1)}
+                        className="w-4 h-4 flex items-center justify-center rounded text-[0.7em] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] disabled:opacity-40 leading-none"
+                      >+</button>
+                      {item.unit && (
+                        <span className="text-[0.6em] text-[var(--color-text-secondary)]">{item.unit}</span>
+                      )}
+                    </div>
                   )}
                 </li>
               ))}

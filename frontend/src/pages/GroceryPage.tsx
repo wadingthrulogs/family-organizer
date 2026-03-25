@@ -3,6 +3,7 @@ import { useGroceryLists } from '../hooks/useGroceryLists';
 import {
   useCreateGroceryItemMutation,
   useCreateGroceryListMutation,
+  useUpdateGroceryListMutation,
   useDeleteGroceryItemMutation,
   useDeleteGroceryListMutation,
   useUpdateGroceryItemMutation,
@@ -45,6 +46,7 @@ function formatQuantity(item: GroceryItem) {
 function GroceryPage() {
   const { data, isLoading, isError, error, refetch, isFetching } = useGroceryLists();
   const createList = useCreateGroceryListMutation();
+  const updateList = useUpdateGroceryListMutation();
   const createItem = useCreateGroceryItemMutation();
   const updateItem = useUpdateGroceryItemMutation();
   const deleteList = useDeleteGroceryListMutation();
@@ -55,6 +57,7 @@ function GroceryPage() {
   const addLowStock = useAddLowStockToGroceryMutation();
   const [shoppingMode, setShoppingMode] = useState(false);
   const [listComposerOpen, setListComposerOpen] = useState(false);
+  const [editingListId, setEditingListId] = useState<number | null>(null);
   const [itemComposerListId, setItemComposerListId] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<{ listId: number; item: GroceryItem } | null>(null);
   const [bulkAddListId, setBulkAddListId] = useState<number | null>(null);
@@ -97,6 +100,11 @@ function GroceryPage() {
     ? `${moveToInventory.variables.groceryListId}:${moveToInventory.variables.groceryItemId}`
     : null;
 
+  const updateListErrorMessage = updateList.isError
+    ? updateList.error instanceof Error
+      ? updateList.error.message
+      : 'Unable to update the grocery list right now.'
+    : undefined;
   const listComposerError = createList.isError
     ? createList.error instanceof Error
       ? createList.error.message
@@ -120,6 +128,23 @@ function GroceryPage() {
 
   const handleStateChange = (listId: number, itemId: number, state: GroceryItemState) => {
     updateItem.mutate({ listId, itemId, data: { state } });
+  };
+
+  const handleOpenListEditor = (listId: number) => {
+    setEditingListId((current) => (current === listId ? null : listId));
+  };
+
+  const handleUpdateList = async (listId: number, values: GroceryListFormValues) => {
+    await updateList.mutateAsync({
+      listId,
+      data: {
+        name: values.name,
+        store: values.store ?? null,
+        presetKey: values.presetKey ?? null,
+        isActive: values.isActive,
+      },
+    });
+    setEditingListId(null);
   };
 
   const handleCreateList = async (values: GroceryListFormValues) => {
@@ -461,6 +486,13 @@ function GroceryPage() {
                           )}
                           <button
                             type="button"
+                            className="rounded-full border border-th-border px-3 py-1 text-xs text-primary"
+                            onClick={() => handleOpenListEditor(list.id)}
+                          >
+                            {editingListId === list.id ? 'Cancel edit' : 'Edit list'}
+                          </button>
+                          <button
+                            type="button"
                             className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 disabled:opacity-40"
                             disabled={deletingListId === list.id}
                             onClick={() => handleDeleteList(list.id, list.name)}
@@ -471,6 +503,21 @@ function GroceryPage() {
                       </div>
                     </header>
                     {deleteListErrorForCard ? <p className="text-xs text-red-600">{deleteListErrorForCard}</p> : null}
+                    {editingListId === list.id ? (
+                      <div className="mb-4 rounded-lg border border-th-border bg-hover-bg p-4">
+                        <h4 className="mb-3 text-sm font-semibold text-heading">Edit list</h4>
+                        {updateListErrorMessage ? (
+                          <p className="mb-2 text-xs text-red-600">{updateListErrorMessage}</p>
+                        ) : null}
+                        <GroceryListForm
+                          initialValues={{ name: list.name, store: list.store, presetKey: list.presetKey, isActive: list.isActive }}
+                          submitLabel="Save changes"
+                          isSubmitting={updateList.isPending && updateList.variables?.listId === list.id}
+                          onSubmit={(values) => handleUpdateList(list.id, values)}
+                          onCancel={() => setEditingListId(null)}
+                        />
+                      </div>
+                    ) : null}
                     {items.length === 0 ? (
                       <p className="text-sm text-muted">No items yet. Add something from your preset or pantry.</p>
                     ) : (

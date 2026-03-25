@@ -6,6 +6,8 @@ import {
   type CreateGroceryItemPayload,
   createGroceryList,
   type CreateGroceryListPayload,
+  updateGroceryList,
+  type UpdateGroceryListPayload,
   deleteGroceryList,
   deleteGroceryItem,
   bulkAddGroceryItems,
@@ -17,6 +19,18 @@ export function useCreateGroceryListMutation() {
 
   return useMutation({
     mutationFn: (payload: CreateGroceryListPayload) => createGroceryList(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['groceryLists'] });
+    },
+  });
+}
+
+export function useUpdateGroceryListMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ listId, data }: { listId: number; data: UpdateGroceryListPayload }) =>
+      updateGroceryList(listId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groceryLists'] });
     },

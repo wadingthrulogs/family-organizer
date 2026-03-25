@@ -68,18 +68,22 @@ function AvailabilityBadge({ availability }: { availability: RecipeAvailability 
   return <span className="text-xs font-medium text-red-500 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">✕ Missing items</span>;
 }
 
-function IngredientStatusIcon({ status, required, inStock, unit }: { status: IngredientStatus; required?: number; inStock?: number; unit?: string }) {
-  if (status === 'unlinked') return null;
-  if (status === 'ok') return <span className="text-emerald-500 text-xs ml-1">✓</span>;
-  if (status === 'low') {
-    const unitStr = unit ? ` ${unit}` : '';
-    return (
-      <span className="text-amber-500 text-xs ml-1" title={`Need ${required}${unitStr}, have ${inStock}${unitStr}`}>
-        ⚠ ({inStock}{unitStr} / {required}{unitStr} needed)
-      </span>
-    );
+function IngredientStatusIcon({ status }: { status: IngredientStatus }) {
+  if (status === 'ok') {
+    return <span className="inline-flex items-center gap-1 text-xs ml-1 font-medium text-emerald-600">✓ In stock</span>;
   }
-  return <span className="text-red-400 text-xs ml-1">✗ not in inventory</span>;
+  if (status === 'low') {
+    return <span className="inline-flex items-center gap-1 text-xs ml-1 font-medium text-red-500">✗ Out of stock</span>;
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs ml-1 font-medium text-gray-400">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+        <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5" />
+        <line x1="2.5" y1="9.5" x2="9.5" y2="2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+      Not in inventory
+    </span>
+  );
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -375,12 +379,7 @@ export function RecipesTab({
                               {invItem && status !== 'ok' && (
                                 <span className="text-faint text-[10px]">({invItem.name})</span>
                               )}
-                              <IngredientStatusIcon
-                                status={status}
-                                required={required}
-                                inStock={inStock}
-                                unit={ing.unit ?? invItem?.unit ?? undefined}
-                              />
+                              <IngredientStatusIcon status={status} />
                             </li>
                           );
                         })}

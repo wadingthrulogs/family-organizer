@@ -15,15 +15,8 @@ import {
 } from '../hooks/useReminderMutations';
 import type { Reminder } from '../types/reminder';
 import { TARGET_TYPES, CHANNEL_FLAGS, channelLabels, formatLeadTime } from '../types/reminder';
-
-// ─── Shared constants ─────────────────────────────────────────────────────────
-
-const STATUS_COLORS: Record<string, string> = {
-  SENT: 'bg-emerald-100 text-emerald-700',
-  FAILED: 'bg-red-100 text-red-700',
-  SKIPPED: 'bg-amber-100 text-amber-700',
-  PENDING: 'bg-hover-bg text-secondary',
-};
+import { StatusBadge } from '../components/ui/StatusBadge';
+import { formatDisplayDateTime } from '../lib/dates';
 
 const CHANNEL_ICONS: Record<string, string> = {
   PUSH: '🔔',
@@ -541,17 +534,13 @@ function NotificationsContent() {
                       )}
                     </td>
                     <td className="px-3 py-3">
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[entry.status] ?? STATUS_COLORS.PENDING}`}
-                      >
-                        {entry.status}
-                      </span>
+                      <StatusBadge status={entry.status} />
                     </td>
                     <td className="px-3 py-3 text-muted">
                       {entry.reminder?.title ?? '—'}
                     </td>
                     <td className="px-3 py-3 text-xs text-muted">
-                      {formatTimestamp(entry.sentAt ?? entry.createdAt)}
+                      {formatDisplayDateTime(entry.sentAt ?? entry.createdAt)}
                     </td>
                   </tr>
                 ))}
@@ -562,19 +551,6 @@ function NotificationsContent() {
       </section>
     </div>
   );
-}
-
-// ─── Timestamp helper ─────────────────────────────────────────────────────────
-
-function formatTimestamp(value: string) {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────

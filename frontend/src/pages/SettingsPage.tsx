@@ -172,6 +172,10 @@ function SettingsPage() {
     }
   };
 
+  const isAdmin = user?.role === 'ADMIN';
+  const [mobileSectionKey, setMobileSectionKey] = useState<string | null>(null);
+  const sectionClass = (key: string) =>
+    mobileSectionKey !== null && mobileSectionKey === key ? 'block' : 'hidden md:block';
   const saving = updateSettings.isPending;
   const loadError = isError ? (error instanceof Error ? error.message : 'Unable to load settings right now.') : null;
   const saveError = updateSettings.isError
@@ -214,6 +218,46 @@ function SettingsPage() {
         </div>
         {isFetching ? <span className="text-xs text-faint">Refreshing…</span> : null}
       </div>
+      {/* ─── Mobile section list ─── */}
+      {mobileSectionKey === null && (
+        <ul className="mb-2 block space-y-2 md:hidden">
+          {[
+            { key: 'general', label: 'General', desc: 'Household name, timezone, quiet hours' },
+            { key: 'appearance', label: 'Appearance', desc: 'Theme and tab visibility' },
+            { key: 'weather', label: 'Weather', desc: 'Location and weather widget' },
+            { key: 'google', label: 'Google Calendar', desc: 'Sync events from Google' },
+            { key: 'server', label: 'Server Configuration', desc: isAdmin ? 'API keys, SMTP, VAPID, OAuth' : 'Managed by administrator' },
+            { key: 'backup', label: 'Backup & Export', desc: isAdmin ? 'Export or restore household data' : 'Managed by administrator' },
+            { key: 'account', label: isAdmin ? 'User Management' : 'Account', desc: isAdmin ? 'Manage household members' : 'Change your password' },
+          ].map((section) => (
+            <li key={section.key}>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-card border border-th-border bg-card px-4 py-3 text-left"
+                onClick={() => setMobileSectionKey(section.key)}
+              >
+                <div>
+                  <p className="text-sm font-medium text-heading">{section.label}</p>
+                  <p className="text-xs text-muted">{section.desc}</p>
+                </div>
+                <span className="text-lg text-muted" aria-hidden="true">›</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* ─── Mobile back button ─── */}
+      {mobileSectionKey !== null && (
+        <button
+          type="button"
+          className="mb-5 flex items-center gap-1 text-sm text-muted md:hidden"
+          onClick={() => setMobileSectionKey(null)}
+        >
+          ‹ Back to Settings
+        </button>
+      )}
+
       {loadError ? (
         <div className="mb-4 flex items-center justify-between rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           <span>{loadError}</span>
@@ -224,22 +268,31 @@ function SettingsPage() {
       ) : null}
       {saveError ? <p className="mb-4 text-sm text-red-600">{saveError}</p> : null}
       {successMessage ? <p className="mb-4 text-sm text-emerald-600">{successMessage}</p> : null}
+      <div className={sectionClass('general')}>
+      {!isAdmin && (
+        <div className="mb-4 flex items-center gap-2 rounded-card border border-th-border-light bg-hover-bg px-4 py-3 text-sm text-muted">
+          <span aria-hidden="true">🔒</span>
+          <span>Household settings are managed by an administrator.</span>
+        </div>
+      )}
       <form className="grid gap-5 md:grid-cols-2" onSubmit={handleSubmit}>
         <label className="flex flex-col gap-2 text-sm font-semibold text-form-label">
           Household name
           <input
-            className="rounded-card border border-th-border px-3 py-2"
+            className="rounded-card border border-th-border px-3 py-2 disabled:opacity-60"
             value={formState.householdName}
             onChange={(event) => handleChange('householdName', event.target.value)}
+            disabled={!isAdmin}
             required
           />
         </label>
         <label className="flex flex-col gap-2 text-sm font-semibold text-form-label">
           Timezone
           <select
-            className="rounded-card border border-th-border px-3 py-2"
+            className="rounded-card border border-th-border px-3 py-2 disabled:opacity-60"
             value={formState.timezone}
             onChange={(event) => handleChange('timezone', event.target.value)}
+            disabled={!isAdmin}
           >
             {timezones.map((zone) => (
               <option key={zone} value={zone}>
@@ -252,52 +305,70 @@ function SettingsPage() {
           Quiet hours start
           <input
             type="time"
-            className="rounded-card border border-th-border px-3 py-2"
+            className="rounded-card border border-th-border px-3 py-2 disabled:opacity-60"
             value={formState.quietStart}
             onChange={(event) => handleChange('quietStart', event.target.value)}
+            disabled={!isAdmin}
           />
         </label>
         <label className="flex flex-col gap-2 text-sm font-semibold text-form-label">
           Quiet hours end
           <input
             type="time"
-            className="rounded-card border border-th-border px-3 py-2"
+            className="rounded-card border border-th-border px-3 py-2 disabled:opacity-60"
             value={formState.quietEnd}
             onChange={(event) => handleChange('quietEnd', event.target.value)}
+            disabled={!isAdmin}
           />
         </label>
-        <div className="md:col-span-2 flex justify-end gap-3">
-          <button
-            type="button"
-            className="rounded-full border border-th-border px-5 py-2 text-sm"
-            disabled={!isDirty || saving}
-            onClick={() => {
-              setFormState(mapSettingsToFormState(data));
-              setTouched(false);
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text disabled:opacity-50"
-            disabled={!isDirty || saving}
-          >
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="md:col-span-2 flex justify-end gap-3">
+            <button
+              type="button"
+              className="rounded-full border border-th-border px-5 py-2 text-sm"
+              disabled={!isDirty || saving}
+              onClick={() => {
+                setFormState(mapSettingsToFormState(data));
+                setTouched(false);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+              disabled={!isDirty || saving}
+            >
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        )}
       </form>
+      </div>{/* end general section */}
 
       {/* ─── Weather ─── */}
+      <div className={sectionClass('weather')}>
       <WeatherSettings />
+      </div>
 
+      {/* ─── Appearance: Theme + Tab Visibility ─── */}
+      <div className={sectionClass('appearance')}>
       {/* ─── Theme ─── */}
       <ThemePicker />
 
       {/* ─── Tab Visibility ─── */}
       <section className="mt-10 border-t border-th-border-light pt-6">
-        <h2 className="font-semibold text-heading">Tab Visibility</h2>
-        <p className="text-sm text-muted mb-4">Choose which tabs to show in the navigation bar.</p>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <h2 className="font-semibold text-heading">Tab Visibility</h2>
+            <p className="text-sm text-muted">Choose which tabs to show in the navigation bar.</p>
+          </div>
+          {!isAdmin && (
+            <span className="flex items-center gap-1.5 rounded-full border border-th-border-light bg-hover-bg px-3 py-1 text-xs text-muted">
+              <span aria-hidden="true">🔒</span> Admin only
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {[
             { key: 'calendar', label: 'Calendar' },
@@ -313,13 +384,15 @@ function SettingsPage() {
             return (
               <label
                 key={tab.key}
-                className={`flex items-center gap-2 rounded-card border px-3 py-2 text-sm cursor-pointer select-none transition ${isHidden ? 'border-th-border bg-hover-bg text-faint' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}
+                className={`flex items-center gap-2 rounded-card border px-3 py-2 text-sm select-none transition ${isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${isHidden ? 'border-th-border bg-hover-bg text-faint' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}
               >
                 <input
                   type="checkbox"
                   className="accent-emerald-600"
                   checked={!isHidden}
+                  disabled={!isAdmin}
                   onChange={async () => {
+                    if (!isAdmin) return;
                     const updated = isHidden
                       ? hiddenTabs.filter((t) => t !== tab.key)
                       : [...hiddenTabs, tab.key];
@@ -336,8 +409,11 @@ function SettingsPage() {
           })}
         </div>
       </section>
+      </div>{/* end appearance section */}
 
-      <section className="mt-10 border-t border-th-border-light pt-6">
+      {/* ─── Google Calendar ─── */}
+      <div className={sectionClass('google')}>
+      <section className="mt-0 md:mt-10 border-t border-th-border-light pt-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-heading">Google Calendar</h2>
@@ -460,10 +536,12 @@ function SettingsPage() {
           </div>
         ) : null}
       </section>
+      </div>{/* end google section */}
 
       {/* ─── Server Configuration (Admin only) ─── */}
-      {user?.role === 'ADMIN' ? (
-        <section className="mt-10 border-t border-th-border-light pt-6">
+      <div className={sectionClass('server')}>
+      {isAdmin ? (
+        <section className="mt-0 md:mt-10 border-t border-th-border-light pt-6">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-2 text-left"
@@ -743,15 +821,40 @@ function SettingsPage() {
             </div>
           ) : null}
         </section>
-      ) : null}
+      ) : (
+        <section className="mt-10 border-t border-th-border-light pt-6">
+          <div className="flex items-center gap-3 text-muted">
+            <span aria-hidden="true" className="text-lg">🔒</span>
+            <div>
+              <h2 className="font-semibold text-heading">Server Configuration</h2>
+              <p className="text-sm text-muted">Managed by an administrator — API keys, SMTP, VAPID, and OAuth credentials.</p>
+            </div>
+          </div>
+        </section>
+      )}
+      </div>{/* end server section */}
 
       {/* ─── Backup & Export ─── */}
-      <div className="mt-10">
-        <BackupSection />
+      <div className={sectionClass('backup')}>
+      <div className="mt-0 md:mt-10">
+        {isAdmin ? <BackupSection /> : (
+          <section className="border-t border-th-border-light pt-6">
+            <div className="flex items-center gap-3 text-muted">
+              <span aria-hidden="true" className="text-lg">🔒</span>
+              <div>
+                <h2 className="font-semibold text-heading">Backup &amp; Export</h2>
+                <p className="text-sm text-muted">Managed by an administrator — export or restore household data.</p>
+              </div>
+            </div>
+          </section>
+        )}
       </div>
+      </div>{/* end backup section */}
 
       {/* ─── User Management (Admin only) ─── */}
+      <div className={sectionClass('account')}>
       <UserManagement />
+      </div>
     </div>
   );
 }

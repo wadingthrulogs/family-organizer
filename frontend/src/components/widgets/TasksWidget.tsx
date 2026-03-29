@@ -1,16 +1,7 @@
 import { useTasks } from '../../hooks/useTasks';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
 import { useUpdateTaskMutation } from '../../hooks/useTaskMutations';
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-}
+import { formatRelativeDate } from '../../lib/dates';
 
 export default function TasksWidget() {
   const { data: tasksData } = useTasks();
@@ -80,7 +71,7 @@ export default function TasksWidget() {
                   )}
                   {t.dueAt && !tiny && (
                     <span className="shrink-0 text-[0.6em] text-[var(--color-text-secondary)]">
-                      {formatDate(t.dueAt)}
+                      {formatRelativeDate(t.dueAt)}
                     </span>
                   )}
                 </li>

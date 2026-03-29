@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Task } from '../../types/task';
 import { TaskForm, type TaskFormValues } from './TaskForm';
 import { useUpdateTaskMutation, useDeleteTaskMutation } from '../../hooks/useTaskMutations';
+import { formatRelativeDate, getDateBucket } from '../../lib/dates';
 
 type Props = {
   task: Task;
@@ -10,16 +11,12 @@ type Props = {
 };
 
 function DueDatePill({ dueAt }: { dueAt: string }) {
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-  const due = new Date(dueAt);
-  const label = due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-
-  if (due < todayStart) {
+  const bucket = getDateBucket(dueAt);
+  const label = formatRelativeDate(dueAt);
+  if (bucket === 'overdue') {
     return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">{label}</span>;
   }
-  if (due < todayEnd) {
+  if (bucket === 'today') {
     return <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">{label}</span>;
   }
   return <span className="rounded-full border border-th-border bg-card px-2 py-0.5 text-xs text-muted">{label}</span>;

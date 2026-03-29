@@ -6,23 +6,13 @@ import { useTasks } from '../hooks/useTasks';
 import { useAuth } from '../hooks/useAuth';
 import { useAnnounce } from '../contexts/AnnouncementContext';
 import { EmptyState } from '../components/ui/EmptyState';
+import { getDateBucket } from '../lib/dates';
 
 type FilterTab = 'all' | 'active' | 'done' | 'mine';
 
 interface DateGroup {
   label: string;
   tasks: Task[];
-}
-
-function getDateBucket(dueAt: string | null | undefined): 'overdue' | 'today' | 'upcoming' | 'none' {
-  if (!dueAt) return 'none';
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-  const due = new Date(dueAt);
-  if (due < todayStart) return 'overdue';
-  if (due < todayEnd) return 'today';
-  return 'upcoming';
 }
 
 function groupTasks(tasks: Task[]): DateGroup[] {

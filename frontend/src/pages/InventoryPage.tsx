@@ -8,9 +8,9 @@ import {
 } from '../hooks/useInventoryMutations';
 import { exportInventoryTxt } from '../api/inventory';
 import type { InventoryItem } from '../types/inventory';
-import { Modal } from '../components/ui/Modal';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useAnnounce } from '../contexts/AnnouncementContext';
+import { toDateInputValue } from '../lib/dates';
 
 function formatQuantity(item: InventoryItem) {
   const qty = Number.isFinite(item.quantity) ? item.quantity : 1;
@@ -34,7 +34,7 @@ const emptyForm: FormState = {
   unit: '',
   lowStockThreshold: '',
   notes: '',
-  dateAdded: new Date().toISOString().slice(0, 10),
+  dateAdded: toDateInputValue(),
 };
 
 function formFromItem(item: InventoryItem): FormState {
@@ -287,9 +287,10 @@ function InventoryPage() {
           <button
             type="button"
             className="rounded-full border border-th-border px-4 py-2 text-sm text-primary"
+            title="Add multiple items at once using plain text — one item per line"
             onClick={() => { setBulkAddOpen((v) => !v); setBulkAddText(''); setComposerOpen(false); setEditingItem(null); }}
           >
-            {bulkAddOpen ? 'Close bulk add' : 'Bulk add'}
+            {bulkAddOpen ? 'Close' : '+ Add multiple'}
           </button>
           <button
             type="button"
@@ -334,8 +335,8 @@ function InventoryPage() {
       {bulkAddOpen && (
         <section className="rounded-card border border-dashed border-th-border bg-hover-bg p-5 shadow-soft">
           <header className="mb-3">
-            <h2 className="text-sm font-semibold text-heading">Bulk add to inventory</h2>
-            <p className="text-xs text-muted">One item per line. Supports formats like: <code>3x paper towels</code>, <code>2 bags rice</code>, <code>milk</code>, <code>batteries 4</code></p>
+            <h2 className="text-sm font-semibold text-heading">Add multiple items</h2>
+            <p className="text-xs text-muted">Type one item per line in plain English — quantities, units, and names are parsed automatically.</p>
             {bulkAdd.isError && (
               <p className="mt-1 text-xs text-red-600">
                 {bulkAdd.error instanceof Error ? bulkAdd.error.message : 'Bulk add failed'}
@@ -373,21 +374,20 @@ function InventoryPage() {
         </section>
       )}
 
-      <Modal
-        open={editingItem !== null}
-        onClose={handleCancel}
-        title={editingItem ? `Edit ${editingItem.name}` : ''}
-      >
-        {updateError && <p className="mb-2 text-xs text-red-600">{updateError}</p>}
-        <InventoryForm
-          form={form}
-          onChange={handleChange}
-          onSubmit={handleSubmitEdit}
-          onCancel={handleCancel}
-          submitLabel="Save changes"
-          isSubmitting={updateItem.isPending}
-        />
-      </Modal>
+      {editingItem && (
+        <section className="rounded-card border border-accent/40 bg-card p-5 shadow-soft">
+          <h2 className="mb-3 font-semibold text-heading">Edit {editingItem.name}</h2>
+          {updateError && <p className="mb-2 text-xs text-red-600">{updateError}</p>}
+          <InventoryForm
+            form={form}
+            onChange={handleChange}
+            onSubmit={handleSubmitEdit}
+            onCancel={handleCancel}
+            submitLabel="Save changes"
+            isSubmitting={updateItem.isPending}
+          />
+        </section>
+      )}
 
       <div className="flex items-center gap-3">
         <input
@@ -405,7 +405,7 @@ function InventoryPage() {
           <button
             type="button"
             onClick={() => setActiveCategory(null)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+            className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
               activeCategory === null
                 ? 'border-accent bg-accent/10 text-accent'
                 : 'border-th-border text-muted hover:bg-hover-bg'
@@ -418,7 +418,7 @@ function InventoryPage() {
               key={cat}
               type="button"
               onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+              className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
                 activeCategory === cat
                   ? 'border-accent bg-accent/10 text-accent'
                   : 'border-th-border text-muted hover:bg-hover-bg'
@@ -543,7 +543,7 @@ function InventoryPage() {
                           type="button"
                           aria-label="Decrease quantity"
                           disabled={loadingQtyItemId === item.id || item.quantity <= 0}
-                          className="flex h-5 w-5 items-center justify-center rounded border border-th-border text-xs text-muted disabled:opacity-40 hover:bg-hover-bg"
+                          className="flex h-8 w-8 items-center justify-center rounded border border-th-border text-xs text-muted disabled:opacity-40 hover:bg-hover-bg"
                           onClick={() =>
                             updateItem.mutate({ itemId: item.id, data: { quantity: Math.max(0, item.quantity - 1) } })
                           }
@@ -557,7 +557,7 @@ function InventoryPage() {
                           type="button"
                           aria-label="Increase quantity"
                           disabled={loadingQtyItemId === item.id}
-                          className="flex h-5 w-5 items-center justify-center rounded border border-th-border text-xs text-muted disabled:opacity-40 hover:bg-hover-bg"
+                          className="flex h-8 w-8 items-center justify-center rounded border border-th-border text-xs text-muted disabled:opacity-40 hover:bg-hover-bg"
                           onClick={() =>
                             updateItem.mutate({ itemId: item.id, data: { quantity: item.quantity + 1 } })
                           }
@@ -577,7 +577,7 @@ function InventoryPage() {
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
-                          className={`rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-40 ${
+                          className={`rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-40 ${
                             low
                               ? 'border border-amber-300 bg-amber-100 text-amber-700'
                               : 'border border-th-border text-secondary'
@@ -592,14 +592,14 @@ function InventoryPage() {
                         </button>
                         <button
                           type="button"
-                          className="rounded-full border border-th-border px-3 py-1 text-xs text-secondary"
+                          className="rounded-full border border-th-border px-3 py-2 text-xs text-secondary"
                           onClick={() => handleOpenEdit(item)}
                         >
                           Edit
                         </button>
                         <button
                           type="button"
-                          className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 disabled:opacity-40"
+                          className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40"
                           disabled={isDeleting}
                           onClick={() => handleDelete(item)}
                         >

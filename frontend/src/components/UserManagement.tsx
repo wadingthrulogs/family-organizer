@@ -9,18 +9,7 @@ import {
   changePassword,
   type UserListItem,
 } from '../api/auth';
-
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Admin',
-  MEMBER: 'Member',
-  VIEWER: 'Viewer',
-};
-
-const ROLE_COLORS: Record<string, string> = {
-  ADMIN: 'bg-purple-100 text-purple-800 border-purple-200',
-  MEMBER: 'bg-blue-100 text-blue-800 border-blue-200',
-  VIEWER: 'bg-hover-bg text-secondary border-th-border',
-};
+import { StatusBadge, statusColors } from './ui/StatusBadge';
 
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -295,14 +284,10 @@ export default function UserManagement() {
                     <td className="px-3 py-3 text-muted">{u.email ?? '—'}</td>
                     <td className="px-3 py-3">
                       {isSelf ? (
-                        <span
-                          className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${ROLE_COLORS[u.role] ?? ROLE_COLORS.VIEWER}`}
-                        >
-                          {ROLE_LABELS[u.role] ?? u.role}
-                        </span>
+                        <StatusBadge status={u.role} />
                       ) : (
                         <select
-                          className={`rounded border px-2 py-1 text-xs font-semibold ${ROLE_COLORS[u.role] ?? ROLE_COLORS.VIEWER}`}
+                          className={`rounded border px-2 py-1 text-xs font-semibold ${statusColors(u.role)}`}
                           value={u.role}
                           onChange={(e) =>
                             handleRoleChange(u.id, e.target.value as 'ADMIN' | 'MEMBER' | 'VIEWER')

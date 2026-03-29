@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { EmptyState } from '../components/ui/EmptyState';
+import { StatusBadge, statusLabel } from '../components/ui/StatusBadge';
 import { useGroceryLists } from '../hooks/useGroceryLists';
 import {
   useCreateGroceryItemMutation,
@@ -16,19 +17,6 @@ import { GroceryListForm, type GroceryListFormValues } from '../components/groce
 import { GroceryItemForm, type GroceryItemFormValues } from '../components/grocery/GroceryItemForm';
 import type { GroceryItem, GroceryItemState } from '../types/grocery';
 
-const stateStyles: Record<GroceryItemState, string> = {
-  NEEDED: 'bg-rose-50 text-rose-700 border-rose-200',
-  CLAIMED: 'bg-hover-bg text-secondary border-th-border',
-  IN_CART: 'bg-amber-50 text-amber-700 border-amber-200',
-  PURCHASED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-};
-
-const stateLabels: Record<GroceryItemState, string> = {
-  NEEDED: 'Needed',
-  CLAIMED: 'Claimed',
-  IN_CART: 'In Cart',
-  PURCHASED: 'Purchased',
-};
 
 const shoppingStateOrder: Record<GroceryItemState, number> = {
   NEEDED: 0,
@@ -57,6 +45,7 @@ function GroceryPage() {
   const bulkAdd = useBulkAddGroceryItemsMutation();
   const addLowStock = useAddLowStockToGroceryMutation();
   const [shoppingMode, setShoppingMode] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [listComposerOpen, setListComposerOpen] = useState(false);
   const [editingListId, setEditingListId] = useState<number | null>(null);
   const [itemComposerListId, setItemComposerListId] = useState<number | null>(null);
@@ -70,7 +59,11 @@ function GroceryPage() {
     return lists
       .flatMap((list) =>
         (list.items ?? [])
-          .filter((item) => item.state === 'NEEDED' || item.state === 'IN_CART')
+          .filter((item) => {
+            if (item.state !== 'NEEDED' && item.state !== 'IN_CART') return false;
+            if (activeCategory && item.category !== activeCategory) return false;
+            return true;
+          })
           .map((item) => ({ ...item, listName: list.name, listId: list.id }))
       )
       .sort((a, b) => {
@@ -79,11 +72,15 @@ function GroceryPage() {
         }
         return a.name.localeCompare(b.name);
       });
-  }, [lists]);
+  }, [lists, activeCategory]);
   const totalItems = allItems.length;
   const neededCount = useMemo(() => allItems.filter((item) => item.state === 'NEEDED').length, [allItems]);
   const inCartCount = useMemo(() => allItems.filter((item) => item.state === 'IN_CART').length, [allItems]);
   const purchasedCount = useMemo(() => allItems.filter((item) => item.state === 'PURCHASED').length, [allItems]);
+  const categories = useMemo(
+    () => [...new Set(allItems.map((i) => i.category).filter(Boolean) as string[])].sort(),
+    [allItems],
+  );
   const errorMessage = error instanceof Error ? error.message : 'Unable to load grocery lists right now.';
   const updateErrorMessage = updateItem.isError
     ? updateItem.error instanceof Error
@@ -308,6 +305,36 @@ function GroceryPage() {
         </article>
       </section>
 
+      {categories.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveCategory(null)}
+            className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
+              activeCategory === null
+                ? 'border-accent bg-accent/10 text-accent'
+                : 'border-th-border text-muted hover:bg-hover-bg'
+            }`}
+          >
+            All
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+              className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
+                activeCategory === cat
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-th-border text-muted hover:bg-hover-bg'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       {shoppingMode ? (
         <section className="rounded-card bg-shopping-bg p-5 text-shopping-text shadow-soft">
           <header className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -342,11 +369,11 @@ function GroceryPage() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <span className="rounded-full border border-white/30 px-3 py-1 text-xs font-semibold">
-                        {stateLabels[item.state]}
+                        {statusLabel(item.state)}
                       </span>
                       <button
                         type="button"
-                        className="rounded-full border border-white/40 px-3 py-1 text-xs text-shopping-text disabled:opacity-40"
+                        className="rounded-full border border-white/40 px-3 py-2.5 text-xs text-shopping-text disabled:opacity-40"
                         disabled={item.state === 'IN_CART' || item.state === 'PURCHASED' || isUpdating}
                         onClick={() => handleStateChange(item.listId, item.id, 'IN_CART')}
                       >
@@ -354,7 +381,7 @@ function GroceryPage() {
                       </button>
                       <button
                         type="button"
-                        className="rounded-full bg-card px-3 py-1 text-xs font-semibold text-heading disabled:opacity-40"
+                        className="rounded-full bg-card px-3 py-2.5 text-xs font-semibold text-heading disabled:opacity-40"
                         disabled={item.state === 'PURCHASED' || isUpdating}
                         onClick={() => handleStateChange(item.listId, item.id, 'PURCHASED')}
                       >
@@ -431,7 +458,10 @@ function GroceryPage() {
           ) : (
             <div className="space-y-5">
               {lists.map((list) => {
-                const items = list.items ?? [];
+                const allListItems = list.items ?? [];
+                const items = activeCategory
+                  ? allListItems.filter((i) => i.category === activeCategory)
+                  : allListItems;
                 const composerOpen = itemComposerListId === list.id;
                 const editingTarget = editingItem && editingItem.listId === list.id ? editingItem.item : null;
                 const isCreatePendingForList = createItem.isPending && createItem.variables?.listId === list.id;
@@ -457,14 +487,14 @@ function GroceryPage() {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            className="rounded-full border border-th-border px-3 py-1 text-xs text-primary"
+                            className="rounded-full border border-th-border px-3 py-2 text-xs text-primary"
                             onClick={() => handleOpenItemComposer(list.id)}
                           >
                             {composerOpen ? 'Close composer' : 'Add item'}
                           </button>
                           <button
                             type="button"
-                            className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 disabled:opacity-40"
+                            className="rounded-full border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 disabled:opacity-40"
                             disabled={addLowStock.isPending && addLowStock.variables === list.id}
                             onClick={() => addLowStock.mutate(list.id)}
                           >
@@ -472,15 +502,16 @@ function GroceryPage() {
                           </button>
                           <button
                             type="button"
-                            className="rounded-full border border-th-border px-3 py-1 text-xs text-primary"
+                            className="rounded-full border border-th-border px-3 py-2 text-xs text-primary"
+                            title="Add multiple items at once using plain text — one item per line"
                             onClick={() => handleOpenBulkAdd(list.id)}
                           >
-                            {bulkAddListId === list.id ? 'Close bulk' : 'Bulk add'}
+                            {bulkAddListId === list.id ? 'Close' : '+ Add multiple'}
                           </button>
                           {purchasedNotMoved.length > 0 && (
                             <button
                               type="button"
-                              className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 disabled:opacity-40"
+                              className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 disabled:opacity-40"
                               disabled={isMovingList}
                               onClick={() => moveListToInventory.mutate({ groceryListId: list.id })}
                             >
@@ -489,14 +520,14 @@ function GroceryPage() {
                           )}
                           <button
                             type="button"
-                            className="rounded-full border border-th-border px-3 py-1 text-xs text-primary"
+                            className="rounded-full border border-th-border px-3 py-2 text-xs text-primary"
                             onClick={() => handleOpenListEditor(list.id)}
                           >
                             {editingListId === list.id ? 'Cancel edit' : 'Edit list'}
                           </button>
                           <button
                             type="button"
-                            className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 disabled:opacity-40"
+                            className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40"
                             disabled={deletingListId === list.id}
                             onClick={() => handleDeleteList(list.id, list.name)}
                           >
@@ -546,15 +577,13 @@ function GroceryPage() {
                                   <td className="py-3 text-muted">{item.category ?? '—'}</td>
                                   <td className="py-3 text-muted">{formatQuantity(item)}</td>
                                   <td className="py-3">
-                                    <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${stateStyles[item.state]}`}>
-                                      {stateLabels[item.state]}
-                                    </span>
+                                    <StatusBadge status={item.state} />
                                   </td>
                                   <td className="py-3">
                                     <div className="flex justify-end gap-2">
                                       <button
                                         type="button"
-                                        className="rounded-full border border-th-border px-3 py-1 text-xs text-secondary disabled:opacity-40"
+                                        className="rounded-full border border-th-border px-3 py-2 text-xs text-secondary disabled:opacity-40"
                                         disabled={isUpdating || isDeleting || isMoving}
                                         onClick={() => handleEditItem(list.id, item)}
                                       >
@@ -562,7 +591,7 @@ function GroceryPage() {
                                       </button>
                                       <button
                                         type="button"
-                                        className="rounded-full border border-th-border px-3 py-1 text-xs text-primary disabled:opacity-40"
+                                        className="rounded-full border border-th-border px-3 py-2 text-xs text-primary disabled:opacity-40"
                                         disabled={item.state === 'IN_CART' || item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
                                         onClick={() => handleStateChange(list.id, item.id, 'IN_CART')}
                                       >
@@ -570,7 +599,7 @@ function GroceryPage() {
                                       </button>
                                       <button
                                         type="button"
-                                        className="rounded-full bg-btn-primary px-3 py-1 text-xs text-btn-primary-text disabled:opacity-40"
+                                        className="rounded-full bg-btn-primary px-3 py-2 text-xs text-btn-primary-text disabled:opacity-40"
                                         disabled={item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
                                         onClick={() => handleStateChange(list.id, item.id, 'PURCHASED')}
                                       >
@@ -587,7 +616,7 @@ function GroceryPage() {
                                       {item.state === 'PURCHASED' && !item.movedToInventoryAt && (
                                         <button
                                           type="button"
-                                          className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 disabled:opacity-40"
+                                          className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 disabled:opacity-40"
                                           disabled={isMoving || isDeleting}
                                           onClick={() => moveToInventory.mutate({ groceryItemId: item.id, groceryListId: list.id })}
                                         >
@@ -596,7 +625,7 @@ function GroceryPage() {
                                       )}
                                       <button
                                         type="button"
-                                        className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 disabled:opacity-40"
+                                        className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40"
                                         disabled={isDeleting}
                                         onClick={() => handleDeleteItem(list.id, item)}
                                       >
@@ -651,8 +680,8 @@ function GroceryPage() {
                     {bulkAddListId === list.id ? (
                       <div className="mt-4 rounded-card border border-dashed border-th-border bg-hover-bg p-4">
                         <header className="mb-3">
-                          <h4 className="text-sm font-semibold text-heading">Bulk add items to {list.name}</h4>
-                          <p className="text-xs text-muted">One item per line. Supports formats like: <code>3x bananas</code>, <code>2 lbs chicken</code>, <code>milk</code>, <code>eggs 12</code></p>
+                          <h4 className="text-sm font-semibold text-heading">Add multiple items to {list.name}</h4>
+                          <p className="text-xs text-muted">Type one item per line in plain English — quantities, units, and names are parsed automatically.</p>
                           {bulkAdd.isError && (
                             <p className="mt-1 text-xs text-red-600">
                               {bulkAdd.error instanceof Error ? bulkAdd.error.message : 'Bulk add failed'}

@@ -41,14 +41,24 @@ cd frontend && npm run dev
 
 | File | Purpose |
 |------|---------|
-| `backend/src/index.ts` | Entry point |
+| `backend/src/index.ts` | Entry point; loads env, starts services, 60s notification loop |
 | `backend/src/server.ts` | `createApp(env)` factory |
+| `backend/src/config/env.ts` | Environment variable schema + loading |
 | `backend/src/routes/index.ts` | All routes assembled here |
 | `backend/src/middleware/require-auth.ts` | Session auth guard |
 | `backend/src/middleware/require-role.ts` | Role-based access guard |
 | `backend/src/lib/prisma.ts` | Prisma DB client singleton |
 | `backend/src/middleware/error-handler.ts` | Global error handler |
 | `backend/prisma/schema.prisma` | Database schema |
+
+### Services Layer (`backend/src/services/`)
+| File | Purpose |
+|------|---------|
+| `background-sync.ts` | Periodic Google Calendar sync |
+| `chore-rotation.ts` | Chore assignment generation logic |
+| `google-calendar.ts` | Google Calendar sync implementation |
+| `notification-engine.ts` | Push notification processing |
+| `default-user.ts` | Default user creation on first run |
 
 ### Auth Pattern
 - Session-based (express-session + connect-sqlite3)
@@ -93,23 +103,23 @@ TZ                      # default UTC
 
 | Model | Key Fields |
 |-------|-----------|
-| User | id, username, email, passwordHash, pinHash, role, colorHex, authProvider, timezone, deletedAt |
+| User | id, username, email, passwordHash, pinHash, role, colorHex, authProvider, timezone, lastLoginAt, deletedAt |
 | UserPreference | userId, theme, dashboardConfig (JSON), hiddenTabs |
 | UserSecret | userId, secretType, encryptedValue (Bytes) |
 | GoogleAccount | userId, email, displayName, encryptedRefreshToken, lastSyncedAt |
 | LinkedCalendar | userId, googleAccountId, googleId, displayName, colorHex, accessRole, syncToken, lastSyncedAt |
-| FamilyEvent | linkedCalendarId, source (GOOGLE/LOCAL), title, startAt, endAt, allDay, colorHex, location, deleted |
+| FamilyEvent | linkedCalendarId, source (GOOGLE/LOCAL), sourceEventId, title, description, startAt, endAt, allDay, timezone, colorHex, location, attendees, etag, visibility, deleted |
 | Task | title, dueAt, priority(0-5), status, labels, recurrenceId, deletedAt |
-| TaskAssignment | taskId, userId, status, progressNote |
-| TaskStatusChange | taskId, fromStatus, toStatus, changedBy |
+| TaskAssignment | taskId, userId, status, progressNote, completedAt |
+| TaskStatusChange | taskId, fromStatus, toStatus, changedBy, note |
 | TaskRecurrence | frequency, interval, byDay, byMonthDay, until, count |
 | Chore | title, rotationType, frequency, interval, eligibleUserIds (CSV), rewardPoints, active |
-| ChoreAssignment | choreId, userId, windowStart, windowEnd, state, rotationOrder, verifiedById |
+| ChoreAssignment | choreId, userId, windowStart, windowEnd, state, rotationOrder, notes, completedAt, verifiedById |
 | GroceryList | ownerUserId, name, store, presetKey, isActive |
-| GroceryItem | listId, name, category, quantity, unit, state, assigneeUserId, claimedByUserId, pantryItemKey, sortOrder |
+| GroceryItem | listId, name, category, quantity, unit, state, assigneeUserId, claimedByUserId, pantryItemKey, sortOrder, movedToInventoryAt |
 | InventoryItem | name, category, quantity, unit, lowStockThreshold, pantryItemKey (unique) |
-| Reminder | ownerUserId, targetType, targetId, channelMask, leadTimeMinutes, enabled |
-| ReminderTrigger | reminderId, channel, nextFireAt, lastStatus, retryCount |
+| Reminder | ownerUserId, targetType, targetId, channelMask, leadTimeMinutes, quietHoursStart, quietHoursEnd, enabled |
+| ReminderTrigger | reminderId, channel, nextFireAt, lastAttemptAt, lastStatus, retryCount |
 | Attachment | ownerUserId, fileName, filePath, contentType, byteSize, checksum, linkedEntityType/Id, scanned |
 | PushSubscription | userId, endpoint, p256dh, auth, userAgent |
 | NotificationLog | userId, reminderId, channel, title, body, status, sentAt |
@@ -231,7 +241,8 @@ TZ                      # default UTC
 - `POST /:accountId/sync` / `POST /sync-all`
 
 **Other**
-- `GET /health` — `{ status: 'ok', timestamp }`
+- `GET /healthz` — root-level health check (unprotected)
+- `GET /api/v1/health` — `{ status: 'ok', timestamp }`
 - `GET /weather` — `?location&units=imperial` → current + daily forecast
 - `GET /backup/export` (ADMIN) / `POST /backup/import` (ADMIN)
 
@@ -254,13 +265,13 @@ TZ                      # default UTC
 | `frontend/src/main.tsx` | Entry point |
 | `frontend/src/App.tsx` | App shell + routing |
 | `frontend/src/api/client.ts` | Axios instance (`baseURL: '/api/v1'`, `withCredentials: true`) |
-| `frontend/src/context/ThemeContext.tsx` | Theme provider |
-| `frontend/src/context/AuthContext.tsx` | Auth state + current user |
+| `frontend/src/contexts/ThemeContext.tsx` | Theme provider |
+| `frontend/src/hooks/useAuth.tsx` | Auth state + current user (`AuthProvider` + `useAuth()`) |
 | `frontend/src/components/widgets/widgetRegistry.ts` | Dashboard widget registry |
 
 ### Provider Hierarchy (`main.tsx`)
 ```
-QueryClientProvider → BrowserRouter → AuthProvider → ThemeProvider → App
+ErrorBoundary → QueryClientProvider → BrowserRouter → AuthProvider → ThemeProvider → App
 ```
 
 ### Pages & Routes
@@ -275,8 +286,8 @@ QueryClientProvider → BrowserRouter → AuthProvider → ThemeProvider → App
 | `/calendar` | CalendarPage | Day/week/month view + overlays |
 | `/grocery` | GroceryPage | Shopping lists with shopping mode |
 | `/inventory` | InventoryPage | Pantry tracker |
-| `/reminders` | RemindersPage | Reminder CRUD |
-| `/notifications` | NotificationsPage | Push notification history |
+| `/reminders` | → redirect | Redirects to `/notifications` |
+| `/notifications` | NotificationsPage | Push notification history + reminder CRUD |
 | `/settings` | SettingsPage | Household config, Google, users, backup |
 | `/kiosk` | KioskPage | Minimal read-only family display |
 
@@ -345,7 +356,7 @@ interface GroceryItem { id, listId, name, category?, quantity, unit?, state, not
 ```
 
 ### Theming
-- 16 themes: `default, dark-plus, light-plus, monokai, dracula, solarized-dark, solarized-light, one-dark-pro, nord, github-dark, github-light, catppuccin-mocha, catppuccin-latte, gruvbox-dark, tokyo-night, rose-pine`
+- 16 themes: `default, dark-plus, light-plus, monokai, dracula, solarized-dark, solarized-light, one-dark-pro, nord, midnight, paper, catppuccin-mocha, catppuccin-latte, gruvbox-dark, tokyo-night, rose-pine`
 - All colors are CSS custom properties consumed by Tailwind via `tailwind.config.js`
 - Key tokens: `bg-page, bg-card, text-heading, text-muted, text-secondary, text-faint, border-th-border, border-th-border-light, bg-btn-primary, text-btn-primary, bg-input, border-input, accent, rounded-card, shadow-soft`
 - Shopping mode uses `color-shopping-*` tokens (dark theme regardless of active theme)

@@ -26,7 +26,9 @@ export function MealPlanGrid({ plan, weekDates, onAddEntry, onEditEntry, onDelet
   today.setHours(0, 0, 0, 0);
 
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
+      {/* Fade hint on right edge indicating scroll */}
+      <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-card to-transparent md:hidden" />
       <div className="min-w-[700px]">
         {/* Day headers */}
         <div className="grid grid-cols-[100px_repeat(7,1fr)] gap-1 mb-2">
@@ -57,12 +59,18 @@ export function MealPlanGrid({ plan, weekDates, onAddEntry, onEditEntry, onDelet
             </div>
 
             {/* Day cells */}
-            {DAY_LABELS.map((_, dayOffset) => {
+            {DAY_LABELS.map((day, dayOffset) => {
               const entries = getEntries(dayOffset, mt.value);
+              const date = weekDates[dayOffset];
+              const isToday = date && date.getTime() === today.getTime();
               return (
                 <div
                   key={dayOffset}
-                  className="min-h-[60px] rounded-lg border border-th-border-light bg-card/50 p-1 flex flex-col gap-1"
+                  className={`min-h-[60px] rounded-lg border p-1 flex flex-col gap-1 ${
+                    isToday
+                      ? 'border-btn-primary/30 bg-btn-primary/5'
+                      : 'border-th-border-light bg-card/50'
+                  }`}
                 >
                   {entries.map((entry) => (
                     <MealEntryCard
@@ -74,6 +82,7 @@ export function MealPlanGrid({ plan, weekDates, onAddEntry, onEditEntry, onDelet
                   ))}
                   <button
                     type="button"
+                    title={`Add ${mt.label} for ${day}`}
                     onClick={() => onAddEntry(dayOffset, mt.value)}
                     className="rounded border border-dashed border-th-border text-faint hover:text-secondary hover:border-th-border text-xs py-1 transition-colors"
                   >

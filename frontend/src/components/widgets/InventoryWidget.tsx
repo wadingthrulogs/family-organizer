@@ -35,10 +35,12 @@ export default function InventoryWidget() {
     );
   };
 
-  const handleMarkLow = (itemId: number, threshold: number) => {
-    setPendingMarkLowId(itemId);
+  const handleMarkLow = (item: { id: number; quantity: number; lowStockThreshold?: number | null }) => {
+    const isLow = item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold;
+    const newThreshold = isLow ? null : Math.max(item.quantity, 1);
+    setPendingMarkLowId(item.id);
     updateQty.mutate(
-      { itemId, data: { quantity: threshold } },
+      { itemId: item.id, data: { lowStockThreshold: newThreshold } },
       { onSettled: () => setPendingMarkLowId(null) },
     );
   };
@@ -143,15 +145,15 @@ export default function InventoryWidget() {
                         {item.unit && (
                           <span className="text-[0.6em] text-[var(--color-text-secondary)]">{item.unit}</span>
                         )}
-                        {/* Set to min */}
+                        {/* Mark Low */}
                         <button
                           type="button"
-                          disabled={item.lowStockThreshold == null || pendingMarkLowId === item.id || pendingQtyId === item.id}
-                          title={item.lowStockThreshold == null ? 'No threshold set' : `Set qty to threshold (${item.lowStockThreshold})`}
-                          onClick={() => item.lowStockThreshold != null && handleMarkLow(item.id, item.lowStockThreshold)}
+                          disabled={pendingMarkLowId === item.id || pendingQtyId === item.id}
+                          title={item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold ? 'Clear low stock threshold' : 'Mark as low stock'}
+                          onClick={() => handleMarkLow(item)}
                           className="ml-0.5 rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[0.55em] font-medium text-amber-700 disabled:opacity-40 hover:bg-amber-100"
                         >
-                          Min
+                          Low
                         </button>
                       </div>
                     )}

@@ -14,6 +14,7 @@ import {
 import { MealPlanGrid } from '../components/mealPlans/MealPlanGrid';
 import { AddMealEntryModal } from '../components/mealPlans/AddMealEntryModal';
 import { RecipesTab } from '../components/mealPlans/RecipesTab';
+import { Modal } from '../components/ui/Modal';
 import type { MealPlan, MealPlanEntry, MealType } from '../types/mealPlan';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -60,6 +61,8 @@ export default function MealPlanPage() {
   const [modalMealType, setModalMealType] = useState<MealType>('DINNER');
   const [editingEntry, setEditingEntry] = useState<MealPlanEntry | null>(null);
   const [showGroceryDropdown, setShowGroceryDropdown] = useState(false);
+  const [confirmDeleteEntry, setConfirmDeleteEntry] = useState<MealPlanEntry | null>(null);
+  const [confirmDeletePlan, setConfirmDeletePlan] = useState(false);
 
   const { data: plansData, isLoading, isError } = useMealPlans();
   const { data: recipesData } = useRecipes();
@@ -116,9 +119,14 @@ export default function MealPlanPage() {
     setShowEntryModal(true);
   };
 
-  const handleDeleteEntry = async (entry: MealPlanEntry) => {
-    if (!confirm(`Remove "${entry.title}"?`)) return;
-    await deleteEntry.mutateAsync({ planId: entry.mealPlanId, entryId: entry.id });
+  const handleDeleteEntry = (entry: MealPlanEntry) => {
+    setConfirmDeleteEntry(entry);
+  };
+
+  const handleConfirmDeleteEntry = async () => {
+    if (!confirmDeleteEntry) return;
+    await deleteEntry.mutateAsync({ planId: confirmDeleteEntry.mealPlanId, entryId: confirmDeleteEntry.id });
+    setConfirmDeleteEntry(null);
   };
 
   const handleSaveEntry = async (payload: Parameters<typeof createEntry.mutateAsync>[0]['payload']) => {
@@ -200,11 +208,17 @@ export default function MealPlanPage() {
               <button
                 type="button"
                 disabled={!currentPlan || groceryLists.length === 0}
+                title={groceryLists.length === 0 ? 'Create a grocery list first' : undefined}
                 onClick={() => setShowGroceryDropdown((v) => !v)}
                 className="rounded-lg bg-btn-primary px-3 py-2 text-sm font-medium text-btn-primary-text disabled:opacity-40"
               >
                 🛒 Send to Grocery ▾
               </button>
+              {groceryLists.length === 0 && (
+                <p className="mt-1 text-xs text-muted">
+                  <a href="/grocery" className="text-accent hover:underline">Create a grocery list</a> to enable this.
+                </p>
+              )}
               {showGroceryDropdown && (
                 <div className="absolute right-0 top-full mt-1 z-20 rounded-card bg-card border border-th-border shadow-soft min-w-[180px]">
                   {groceryLists.map((list) => (
@@ -271,7 +285,7 @@ export default function MealPlanPage() {
               <div className="mt-4 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => { if (confirm("Delete this week's meal plan and all its entries?")) deletePlan.mutateAsync(currentPlan.id); }}
+                  onClick={() => setConfirmDeletePlan(true)}
                   className="text-xs text-red-400 hover:text-red-500"
                 >
                   Delete this plan
@@ -313,6 +327,68 @@ export default function MealPlanPage() {
           isUpdating={updateRecipe.isPending}
         />
       )}
+
+      {/* Confirm delete entry modal */}
+      <Modal
+        open={confirmDeleteEntry !== null}
+        onClose={() => setConfirmDeleteEntry(null)}
+        title="Remove meal entry"
+        maxWidth="max-w-sm"
+      >
+        <p className="text-sm text-secondary mb-4">
+          Remove <strong className="text-heading">"{confirmDeleteEntry?.title}"</strong> from the plan?
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-full border border-th-border px-4 py-2 text-sm text-secondary"
+            onClick={() => setConfirmDeleteEntry(null)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            disabled={deleteEntry.isPending}
+            onClick={handleConfirmDeleteEntry}
+          >
+            {deleteEntry.isPending ? 'Removing…' : 'Remove'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Confirm delete plan modal */}
+      <Modal
+        open={confirmDeletePlan}
+        onClose={() => setConfirmDeletePlan(false)}
+        title="Delete meal plan"
+        maxWidth="max-w-sm"
+      >
+        <p className="text-sm text-secondary mb-4">
+          Delete this week's meal plan and all its entries? This cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-full border border-th-border px-4 py-2 text-sm text-secondary"
+            onClick={() => setConfirmDeletePlan(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            disabled={deletePlan.isPending}
+            onClick={async () => {
+              if (!currentPlan) return;
+              await deletePlan.mutateAsync(currentPlan.id);
+              setConfirmDeletePlan(false);
+            }}
+          >
+            {deletePlan.isPending ? 'Deleting…' : 'Delete plan'}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

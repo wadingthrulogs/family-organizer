@@ -34,6 +34,8 @@ function ChoresPage() {
   const [editingChore, setEditingChore] = useState<Chore | null>(null);
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [streaks, setStreaks] = useState<Record<number, ChoreStreak[]>>({});
+  const [focusMode, setFocusMode] = useState(false);
+  const [focusIndex, setFocusIndex] = useState(0);
 
   const chores = data?.items ?? [];
 
@@ -138,6 +140,27 @@ function ChoresPage() {
 
   const eligibleUsers = useMemo(() => users.map((u) => ({ id: u.id, username: u.username })), [users]);
 
+  const clampedFocusIndex = Math.min(focusIndex, Math.max(0, upcomingAssignments.length - 1));
+  const focusAssignment = upcomingAssignments[clampedFocusIndex] ?? null;
+
+  const handleFocusDone = async () => {
+    if (!focusAssignment || updateAssignment.isPending) return;
+    await handleAssignmentState(focusAssignment.id, 'COMPLETED');
+  };
+
+  const handleFocusSnooze = async () => {
+    if (!focusAssignment || updateAssignment.isPending) return;
+    await handleAssignmentState(focusAssignment.id, 'SNOOZED');
+  };
+
+  const handleFocusSkipAssignment = async () => {
+    if (!focusAssignment || skipAssignment.isPending) return;
+    await handleSkip(focusAssignment.id);
+  };
+
+  const handleFocusNext = () => setFocusIndex((i) => Math.min(i + 1, upcomingAssignments.length - 1));
+  const handleFocusPrev = () => setFocusIndex((i) => Math.max(i - 1, 0));
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -146,7 +169,18 @@ function ChoresPage() {
           <p className="text-sm text-muted">Rotation engine (round-robin, weighted) with streak tracking.</p>
         </div>
         <div className="flex gap-3">
-          <button className="rounded-full border border-th-border px-4 py-2 text-sm">Rotation rules</button>
+          <button
+            type="button"
+            aria-pressed={focusMode}
+            className={`rounded-full border px-4 py-2 text-sm transition ${
+              focusMode
+                ? 'border-accent bg-accent/10 text-accent'
+                : 'border-th-border text-muted hover:text-heading'
+            }`}
+            onClick={() => { setFocusMode((v) => !v); setFocusIndex(0); }}
+          >
+            {focusMode ? '✕ Exit focus' : '⚡ Focus mode'}
+          </button>
           <button
             className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text"
             onClick={() => setComposerOpen((value) => !value)}
@@ -170,6 +204,103 @@ function ChoresPage() {
           <p className="text-3xl font-semibold text-heading">{chores.length}</p>
         </article>
       </section>
+
+      {/* Focus mode card */}
+      {focusMode && (
+        <section className="overflow-hidden rounded-card border-2 border-accent bg-card shadow-soft">
+          <div className="flex items-center justify-between border-b border-th-border bg-accent/5 px-5 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent">Focus Mode</p>
+            <span className="text-xs text-muted">
+              {upcomingAssignments.length > 0
+                ? `${clampedFocusIndex + 1} of ${upcomingAssignments.length} pending`
+                : 'All done!'}
+            </span>
+          </div>
+          {focusAssignment ? (
+            <div className="space-y-4 p-5">
+              <div>
+                <div className="mb-2 flex items-center gap-2">
+                  <span
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
+                    style={{ backgroundColor: focusAssignment.assignee?.colorHex ?? '#94a3b8' }}
+                  >
+                    {focusAssignment.assignee?.username?.slice(0, 2).toUpperCase() ?? '??'}
+                  </span>
+                  <span className="text-xs text-muted">{focusAssignment.assignee?.username ?? 'Unassigned'}</span>
+                  {focusAssignment.rewardPoints > 0 && (
+                    <span className="rounded-full border border-th-border px-2 py-0.5 text-xs text-muted">
+                      {focusAssignment.rewardPoints} pts
+                    </span>
+                  )}
+                </div>
+                <p className="text-xl font-semibold text-heading">{focusAssignment.choreTitle}</p>
+                <p className="mt-1 text-xs text-muted">
+                  Window: {new Date(focusAssignment.windowStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  {' – '}
+                  {new Date(focusAssignment.windowEnd).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleFocusDone}
+                disabled={updateAssignment.isPending}
+                className="w-full rounded-lg bg-btn-primary py-3 text-base font-semibold text-btn-primary-text disabled:opacity-50"
+              >
+                {updateAssignment.isPending ? 'Saving…' : '✓ Mark Done'}
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleFocusSnooze}
+                  disabled={focusAssignment.state === 'SNOOZED' || updateAssignment.isPending}
+                  className="flex-1 rounded-lg border border-th-border py-2.5 text-sm text-secondary disabled:opacity-30"
+                >
+                  Snooze
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFocusSkipAssignment}
+                  disabled={skipAssignment.isPending}
+                  className="flex-1 rounded-lg border border-red-200 py-2.5 text-sm text-red-500 disabled:opacity-30"
+                >
+                  Skip
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleFocusPrev}
+                  disabled={clampedFocusIndex === 0}
+                  className="flex-1 rounded-lg border border-th-border py-2 text-sm text-muted disabled:opacity-30"
+                >
+                  ← Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFocusNext}
+                  disabled={clampedFocusIndex >= upcomingAssignments.length - 1}
+                  className="flex-1 rounded-lg border border-th-border py-2 text-sm text-muted disabled:opacity-30"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 text-center">
+              <p className="mb-2 text-3xl">🎉</p>
+              <p className="font-semibold text-heading">All caught up!</p>
+              <p className="mt-1 text-sm text-muted">No pending chore assignments.</p>
+              <button
+                type="button"
+                onClick={() => setFocusMode(false)}
+                className="mt-4 rounded-full border border-th-border px-4 py-2 text-sm text-muted"
+              >
+                Exit focus mode
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="rounded-card bg-card p-5 shadow-soft">
         <header className="mb-4 flex items-center justify-between">

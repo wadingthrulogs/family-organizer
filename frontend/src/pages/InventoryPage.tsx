@@ -6,9 +6,12 @@ import {
   useDeleteInventoryItemMutation,
   useBulkAddInventoryItemsMutation,
 } from '../hooks/useInventoryMutations';
+import { useGroceryLists } from '../hooks/useGroceryLists';
+import { useCreateGroceryItemMutation } from '../hooks/useGroceryMutations';
 import { exportInventoryTxt } from '../api/inventory';
 import type { InventoryItem } from '../types/inventory';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Modal } from '../components/ui/Modal';
 import { useAnnounce } from '../contexts/AnnouncementContext';
 import { toDateInputValue } from '../lib/dates';
 
@@ -68,11 +71,16 @@ function InventoryPage() {
   const deleteItem = useDeleteInventoryItemMutation();
   const bulkAdd = useBulkAddInventoryItemsMutation();
   const announce = useAnnounce();
+  const { data: groceryData } = useGroceryLists();
+  const groceryLists = groceryData?.items ?? [];
+  const createGroceryItem = useCreateGroceryItemMutation();
+  const [addToGroceryItemId, setAddToGroceryItemId] = useState<number | null>(null);
 
   const loadingQtyItemId = updateItem.isPending
     ? (updateItem.variables as { itemId: number } | undefined)?.itemId ?? null
     : null;
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [bulkAddText, setBulkAddText] = useState('');
@@ -225,6 +233,7 @@ function InventoryPage() {
 
   const handleDelete = async (item: InventoryItem) => {
     await deleteItem.mutateAsync(item.id);
+    setConfirmDeleteId(null);
     announce(`${item.name} removed from inventory.`);
     if (editingItem?.id === item.id) {
       setEditingItem(null);
@@ -374,20 +383,22 @@ function InventoryPage() {
         </section>
       )}
 
-      {editingItem && (
-        <section className="rounded-card border border-accent/40 bg-card p-5 shadow-soft">
-          <h2 className="mb-3 font-semibold text-heading">Edit {editingItem.name}</h2>
-          {updateError && <p className="mb-2 text-xs text-red-600">{updateError}</p>}
-          <InventoryForm
-            form={form}
-            onChange={handleChange}
-            onSubmit={handleSubmitEdit}
-            onCancel={handleCancel}
-            submitLabel="Save changes"
-            isSubmitting={updateItem.isPending}
-          />
-        </section>
-      )}
+      <Modal
+        open={editingItem !== null}
+        onClose={handleCancel}
+        title={editingItem ? `Edit ${editingItem.name}` : 'Edit item'}
+        maxWidth="max-w-2xl"
+      >
+        {updateError && <p className="mb-2 text-xs text-red-600">{updateError}</p>}
+        <InventoryForm
+          form={form}
+          onChange={handleChange}
+          onSubmit={handleSubmitEdit}
+          onCancel={handleCancel}
+          submitLabel="Save changes"
+          isSubmitting={updateItem.isPending}
+        />
+      </Modal>
 
       <div className="flex items-center gap-3">
         <input
@@ -482,12 +493,6 @@ function InventoryPage() {
                 </th>
                 <th className="px-4 py-3">Threshold</th>
                 <th className="px-4 py-3">Notes</th>
-                <th
-                  className="cursor-pointer select-none px-4 py-3 hover:text-heading"
-                  onClick={() => handleSort('dateAdded')}
-                >
-                  Date Added <SortIndicator col="dateAdded" />
-                </th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -570,9 +575,6 @@ function InventoryPage() {
                       {item.lowStockThreshold != null ? item.lowStockThreshold : '—'}
                     </td>
                     <td className="px-4 py-3 text-muted max-w-[200px] truncate">{item.notes ?? '—'}</td>
-                    <td className="px-4 py-3 text-muted whitespace-nowrap">
-                      {item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : '—'}
-                    </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
                         <button
@@ -590,6 +592,40 @@ function InventoryPage() {
                         >
                           {low ? '✓ Low' : 'Mark low'}
                         </button>
+                        {/* Add to grocery list */}
+                        {groceryLists.length > 0 && (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700"
+                              title="Add to a grocery list"
+                              onClick={() => setAddToGroceryItemId(addToGroceryItemId === item.id ? null : item.id)}
+                            >
+                              + List
+                            </button>
+                            {addToGroceryItemId === item.id && (
+                              <>
+                                <div className="absolute right-0 top-full mt-1 z-20 min-w-[160px] rounded-card border border-th-border bg-card shadow-soft">
+                                  {groceryLists.map((list) => (
+                                    <button
+                                      key={list.id}
+                                      type="button"
+                                      className="block w-full px-3 py-2 text-left text-xs text-heading hover:bg-hover-bg"
+                                      onClick={async () => {
+                                        await createGroceryItem.mutateAsync({ listId: list.id, data: { name: item.name } });
+                                        setAddToGroceryItemId(null);
+                                        announce(`${item.name} added to ${list.name}.`);
+                                      }}
+                                    >
+                                      {list.name}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="fixed inset-0 z-10" onClick={() => setAddToGroceryItemId(null)} />
+                              </>
+                            )}
+                          </div>
+                        )}
                         <button
                           type="button"
                           className="rounded-full border border-th-border px-3 py-2 text-xs text-secondary"
@@ -597,14 +633,34 @@ function InventoryPage() {
                         >
                           Edit
                         </button>
-                        <button
-                          type="button"
-                          className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40"
-                          disabled={isDeleting}
-                          onClick={() => handleDelete(item)}
-                        >
-                          {isDeleting ? 'Removing…' : 'Remove'}
-                        </button>
+                        {confirmDeleteId === item.id ? (
+                          <span className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className="rounded-full border border-red-500 bg-red-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                              disabled={isDeleting}
+                              onClick={() => handleDelete(item)}
+                            >
+                              {isDeleting ? 'Removing…' : 'Confirm'}
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-full border border-th-border px-2 py-2 text-xs text-muted"
+                              onClick={() => setConfirmDeleteId(null)}
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40"
+                            disabled={isDeleting}
+                            onClick={() => setConfirmDeleteId(item.id)}
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

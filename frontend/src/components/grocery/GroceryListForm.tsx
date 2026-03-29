@@ -85,6 +85,7 @@ export function GroceryListForm({
             className="w-full rounded-lg border border-th-border px-3 py-2 text-sm"
             placeholder="weekly-staples"
           />
+          <p className="text-xs text-faint">Optional identifier for auto-populating items. Leave blank if unsure.</p>
         </div>
       </div>
       <label className="flex items-center gap-2 text-sm text-secondary">

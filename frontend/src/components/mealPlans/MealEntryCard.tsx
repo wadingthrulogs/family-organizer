@@ -19,12 +19,13 @@ export function MealEntryCard({ entry, onDelete, onEdit }: MealEntryCardProps) {
       {entry.notes && (
         <p className="text-xs text-secondary mt-0.5 italic truncate">{entry.notes}</p>
       )}
-      <div className="absolute right-1 top-1 hidden group-hover:flex gap-1">
+      <div className="absolute right-1 top-1 flex gap-0.5 opacity-40 group-hover:opacity-100 transition-opacity">
         <button
           type="button"
           onClick={() => onEdit(entry)}
           className="rounded p-0.5 text-xs text-muted hover:text-heading hover:bg-hover-bg"
           title="Edit"
+          aria-label={`Edit ${entry.title}`}
         >
           ✏️
         </button>
@@ -33,6 +34,7 @@ export function MealEntryCard({ entry, onDelete, onEdit }: MealEntryCardProps) {
           onClick={() => onDelete(entry)}
           className="rounded p-0.5 text-xs text-muted hover:text-red-500 hover:bg-hover-bg"
           title="Delete"
+          aria-label={`Delete ${entry.title}`}
         >
           ✕
         </button>

@@ -3,6 +3,7 @@ import type { Recipe, RecipeIngredient, IngredientStatus } from '../../types/mea
 import type { CreateRecipePayload } from '../../api/mealPlans';
 import type { InventoryItem } from '../../types/inventory';
 import { RecipeForm } from './RecipeForm';
+import { Modal } from '../ui/Modal';
 import { useAddMissingToGroceryMutation, useBulkImportRecipesMutation, useCreateRecipeMutation } from '../../hooks/useMealPlanMutations';
 
 interface RecipesTabProps {
@@ -73,7 +74,7 @@ function IngredientStatusIcon({ status }: { status: IngredientStatus }) {
     return <span className="inline-flex items-center gap-1 text-xs ml-1 font-medium text-emerald-600">✓ In stock</span>;
   }
   if (status === 'low') {
-    return <span className="inline-flex items-center gap-1 text-xs ml-1 font-medium text-red-500">✗ Out of stock</span>;
+    return <span className="inline-flex items-center gap-1 text-xs ml-1 font-medium text-amber-600">⚠ Insufficient stock</span>;
   }
   return (
     <span className="inline-flex items-center gap-1 text-xs ml-1 font-medium text-gray-400">
@@ -100,6 +101,8 @@ export function RecipesTab({
 }: RecipesTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [confirmDeleteRecipe, setConfirmDeleteRecipe] = useState<Recipe | null>(null);
+  const [recipeSearch, setRecipeSearch] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [servingsOverride, setServingsOverride] = useState<Record<number, number>>({});
   const [showGroceryDropdown, setShowGroceryDropdown] = useState<number | null>(null);
@@ -135,10 +138,15 @@ export function RecipesTab({
     setShowForm(true);
   };
 
-  const handleDelete = async (recipe: Recipe) => {
-    if (!confirm(`Delete recipe "${recipe.title}"?`)) return;
-    await onDeleteRecipe(recipe.id);
-    if (expandedId === recipe.id) setExpandedId(null);
+  const handleDelete = (recipe: Recipe) => {
+    setConfirmDeleteRecipe(recipe);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDeleteRecipe) return;
+    await onDeleteRecipe(confirmDeleteRecipe.id);
+    if (expandedId === confirmDeleteRecipe.id) setExpandedId(null);
+    setConfirmDeleteRecipe(null);
   };
 
   const handleAddMissing = async (recipe: Recipe, listId: number) => {
@@ -257,7 +265,6 @@ export function RecipesTab({
     <div>
       {/* Tab header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-heading">📖 Recipes</h2>
         {!showForm && (
           <div className="flex items-center gap-2">
             <button
@@ -296,8 +303,16 @@ export function RecipesTab({
           No recipes yet. Create one to link it to meal plan entries.
         </p>
       ) : (
-        <div className="space-y-2">
-          {recipes.map((recipe) => {
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={recipeSearch}
+            onChange={(e) => setRecipeSearch(e.target.value)}
+            placeholder="Search recipes…"
+            className="w-full rounded-lg border border-th-border px-3 py-2 text-sm bg-input text-heading placeholder:text-faint outline-none focus:border-accent"
+          />
+          <div className="space-y-2">
+          {recipes.filter((r) => !recipeSearch.trim() || r.title.toLowerCase().includes(recipeSearch.toLowerCase()) || r.ingredients.some((i) => i.name.toLowerCase().includes(recipeSearch.toLowerCase()))).map((recipe) => {
             const servings = getServings(recipe);
             const availability = getRecipeAvailability(recipe, inventoryItems, servings);
             const isExpanded = expandedId === recipe.id;
@@ -452,6 +467,7 @@ export function RecipesTab({
               </div>
             );
           })}
+          </div>
         </div>
       )}
 
@@ -459,6 +475,34 @@ export function RecipesTab({
       {showGroceryDropdown !== null && (
         <div className="fixed inset-0 z-10" onClick={() => setShowGroceryDropdown(null)} />
       )}
+
+      {/* Confirm delete recipe modal */}
+      <Modal
+        open={confirmDeleteRecipe !== null}
+        onClose={() => setConfirmDeleteRecipe(null)}
+        title="Delete recipe"
+        maxWidth="max-w-sm"
+      >
+        <p className="text-sm text-secondary mb-4">
+          Delete <strong className="text-heading">"{confirmDeleteRecipe?.title}"</strong>? This cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-full border border-th-border px-4 py-2 text-sm text-secondary"
+            onClick={() => setConfirmDeleteRecipe(null)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            onClick={handleConfirmDelete}
+          >
+            Delete
+          </button>
+        </div>
+      </Modal>
 
       {/* Import modal */}
       {importOpen && (

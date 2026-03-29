@@ -52,6 +52,10 @@ function GroceryPage() {
   const [editingItem, setEditingItem] = useState<{ listId: number; item: GroceryItem } | null>(null);
   const [bulkAddListId, setBulkAddListId] = useState<number | null>(null);
   const [bulkAddText, setBulkAddText] = useState('');
+  const [confirmDeleteListId, setConfirmDeleteListId] = useState<number | null>(null);
+  const [confirmDeleteItemKey, setConfirmDeleteItemKey] = useState<string | null>(null);
+  const [openMenuListId, setOpenMenuListId] = useState<number | null>(null);
+  const [sortByCategoryListId, setSortByCategoryListId] = useState<Set<number>>(new Set());
 
   const lists = data?.items ?? [];
   const allItems = useMemo(() => lists.flatMap((list) => list.items ?? []), [lists]);
@@ -209,21 +213,17 @@ function GroceryPage() {
     setItemComposerListId(null);
   };
 
-  const handleDeleteList = async (listId: number, listName: string) => {
+  const handleDeleteList = async (listId: number) => {
     await deleteList.mutateAsync(listId);
-    if (itemComposerListId === listId) {
-      setItemComposerListId(null);
-    }
-    if (editingItem?.listId === listId) {
-      setEditingItem(null);
-    }
+    setConfirmDeleteListId(null);
+    if (itemComposerListId === listId) setItemComposerListId(null);
+    if (editingItem?.listId === listId) setEditingItem(null);
   };
 
   const handleDeleteItem = async (listId: number, item: GroceryItem) => {
     await deleteItem.mutateAsync({ listId, itemId: item.id });
-    if (editingItem && editingItem.item.id === item.id) {
-      setEditingItem(null);
-    }
+    setConfirmDeleteItemKey(null);
+    if (editingItem && editingItem.item.id === item.id) setEditingItem(null);
   };
 
   const handleExportList = () => {
@@ -265,7 +265,7 @@ function GroceryPage() {
             onClick={handleExportList}
             disabled={lists.length === 0}
           >
-            📄 Export list
+            Export list
           </button>
           <button
             type="button"
@@ -288,7 +288,7 @@ function GroceryPage() {
 
       <section className="grid gap-4 md:grid-cols-4">
         <article className="rounded-card border border-th-border bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted">Active Lists</p>
+          <p className="text-xs uppercase tracking-wide text-muted">Total Lists</p>
           <p className="text-3xl font-semibold text-heading">{lists.length}</p>
         </article>
         <article className="rounded-card border border-th-border bg-card p-4">
@@ -306,32 +306,46 @@ function GroceryPage() {
       </section>
 
       {categories.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveCategory(null)}
-            className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
-              activeCategory === null
-                ? 'border-accent bg-accent/10 text-accent'
-                : 'border-th-border text-muted hover:bg-hover-bg'
-            }`}
-          >
-            All
-          </button>
-          {categories.map((cat) => (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted">Filter by category:</span>
+            {activeCategory && (
+              <button
+                type="button"
+                onClick={() => setActiveCategory(null)}
+                className="text-xs text-accent hover:underline"
+              >
+                Filtering: {activeCategory} — clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
             <button
-              key={cat}
               type="button"
-              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+              onClick={() => setActiveCategory(null)}
               className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
-                activeCategory === cat
+                activeCategory === null
                   ? 'border-accent bg-accent/10 text-accent'
                   : 'border-th-border text-muted hover:bg-hover-bg'
               }`}
             >
-              {cat}
+              All
             </button>
-          ))}
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
+                  activeCategory === cat
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-th-border text-muted hover:bg-hover-bg'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -459,9 +473,13 @@ function GroceryPage() {
             <div className="space-y-5">
               {lists.map((list) => {
                 const allListItems = list.items ?? [];
-                const items = activeCategory
+                const filteredListItems = activeCategory
                   ? allListItems.filter((i) => i.category === activeCategory)
                   : allListItems;
+                const isSortedByCategory = sortByCategoryListId.has(list.id);
+                const items = isSortedByCategory
+                  ? [...filteredListItems].sort((a, b) => (a.category ?? '').localeCompare(b.category ?? '') || a.name.localeCompare(b.name))
+                  : filteredListItems;
                 const composerOpen = itemComposerListId === list.id;
                 const editingTarget = editingItem && editingItem.listId === list.id ? editingItem.item : null;
                 const isCreatePendingForList = createItem.isPending && createItem.variables?.listId === list.id;
@@ -482,15 +500,33 @@ function GroceryPage() {
                           {list.store ? `${list.store} • ` : ''}Created {new Date(list.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <div className="flex flex-col items-start gap-2 text-xs text-faint md:flex-row md:items-center md:gap-3">
-                        <span>{items.length} item{items.length === 1 ? '' : 's'}</span>
-                        <div className="flex flex-wrap gap-2">
+                      <div className="flex items-center gap-2 text-xs text-faint">
+                        <span className="shrink-0">{items.length} item{items.length === 1 ? '' : 's'}</span>
+                        {/* Primary action always visible */}
+                        <button
+                          type="button"
+                          className="rounded-full border border-th-border px-3 py-2 text-xs text-primary"
+                          onClick={() => handleOpenItemComposer(list.id)}
+                        >
+                          {composerOpen ? 'Close' : 'Add item'}
+                        </button>
+                        {/* Secondary actions: visible on md+, hidden behind menu on mobile */}
+                        <div className="hidden md:flex flex-wrap gap-2">
                           <button
                             type="button"
-                            className="rounded-full border border-th-border px-3 py-2 text-xs text-primary"
-                            onClick={() => handleOpenItemComposer(list.id)}
+                            className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
+                              isSortedByCategory
+                                ? 'border-accent bg-accent/10 text-accent'
+                                : 'border-th-border text-muted hover:bg-hover-bg'
+                            }`}
+                            onClick={() => setSortByCategoryListId((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(list.id)) next.delete(list.id);
+                              else next.add(list.id);
+                              return next;
+                            })}
                           >
-                            {composerOpen ? 'Close composer' : 'Add item'}
+                            {isSortedByCategory ? '↕ Sorted by category' : '↕ Sort by category'}
                           </button>
                           <button
                             type="button"
@@ -525,14 +561,106 @@ function GroceryPage() {
                           >
                             {editingListId === list.id ? 'Cancel edit' : 'Edit list'}
                           </button>
+                          {confirmDeleteListId === list.id ? (
+                            <span className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                className="rounded-full border border-red-500 bg-red-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                                disabled={deletingListId === list.id}
+                                onClick={() => handleDeleteList(list.id)}
+                              >
+                                {deletingListId === list.id ? 'Deleting…' : 'Confirm delete'}
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-full border border-th-border px-3 py-2 text-xs text-muted"
+                                onClick={() => setConfirmDeleteListId(null)}
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40"
+                              disabled={deletingListId === list.id}
+                              onClick={() => setConfirmDeleteListId(list.id)}
+                            >
+                              Delete list
+                            </button>
+                          )}
+                        </div>
+                        {/* Mobile kebab menu */}
+                        <div className="relative md:hidden">
                           <button
                             type="button"
-                            className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40"
-                            disabled={deletingListId === list.id}
-                            onClick={() => handleDeleteList(list.id, list.name)}
+                            className="rounded-full border border-th-border px-3 py-2 text-xs text-primary"
+                            aria-label="More actions"
+                            onClick={() => setOpenMenuListId(openMenuListId === list.id ? null : list.id)}
                           >
-                            {deletingListId === list.id ? 'Deleting…' : 'Delete list'}
+                            ···
                           </button>
+                          {openMenuListId === list.id && (
+                            <div className="absolute right-0 top-full mt-1 z-20 min-w-[180px] rounded-card border border-th-border bg-card shadow-soft">
+                              <button
+                                type="button"
+                                className="block w-full px-4 py-2.5 text-left text-xs text-primary hover:bg-hover-bg"
+                                onClick={() => {
+                                  setSortByCategoryListId((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(list.id)) next.delete(list.id);
+                                    else next.add(list.id);
+                                    return next;
+                                  });
+                                  setOpenMenuListId(null);
+                                }}
+                              >
+                                {isSortedByCategory ? '↕ Unsort' : '↕ Sort by category'}
+                              </button>
+                              <button
+                                type="button"
+                                className="block w-full px-4 py-2.5 text-left text-xs text-primary hover:bg-hover-bg"
+                                onClick={() => { handleOpenBulkAdd(list.id); setOpenMenuListId(null); }}
+                              >
+                                + Add multiple
+                              </button>
+                              <button
+                                type="button"
+                                className="block w-full px-4 py-2.5 text-left text-xs text-amber-700 hover:bg-hover-bg disabled:opacity-40"
+                                disabled={addLowStock.isPending && addLowStock.variables === list.id}
+                                onClick={() => { addLowStock.mutate(list.id); setOpenMenuListId(null); }}
+                              >
+                                {addLowStock.isPending && addLowStock.variables === list.id ? 'Adding…' : 'Add low stock items'}
+                              </button>
+                              {purchasedNotMoved.length > 0 && (
+                                <button
+                                  type="button"
+                                  className="block w-full px-4 py-2.5 text-left text-xs text-emerald-700 hover:bg-hover-bg disabled:opacity-40"
+                                  disabled={isMovingList}
+                                  onClick={() => { moveListToInventory.mutate({ groceryListId: list.id }); setOpenMenuListId(null); }}
+                                >
+                                  {isMovingList ? 'Moving…' : `Move all to Inventory (${purchasedNotMoved.length})`}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="block w-full px-4 py-2.5 text-left text-xs text-primary hover:bg-hover-bg"
+                                onClick={() => { handleOpenListEditor(list.id); setOpenMenuListId(null); }}
+                              >
+                                Edit list
+                              </button>
+                              <button
+                                type="button"
+                                className="block w-full px-4 py-2.5 text-left text-xs font-semibold text-red-700 hover:bg-hover-bg border-t border-th-border-light"
+                                onClick={() => { setConfirmDeleteListId(list.id); setOpenMenuListId(null); }}
+                              >
+                                Delete list
+                              </button>
+                            </div>
+                          )}
+                          {openMenuListId === list.id && (
+                            <div className="fixed inset-0 z-10" onClick={() => setOpenMenuListId(null)} />
+                          )}
                         </div>
                       </div>
                     </header>
@@ -555,90 +683,203 @@ function GroceryPage() {
                     {items.length === 0 ? (
                       <p className="text-sm text-muted">No items yet. Add something from your preset or pantry.</p>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                          <thead>
-                            <tr className="text-faint">
-                              <th className="py-2">Item</th>
-                              <th className="py-2">Category</th>
-                              <th className="py-2">Qty</th>
-                              <th className="py-2">State</th>
-                              <th className="py-2 text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {items.map((item) => {
-                              const isUpdating = pendingKey === `${list.id}:${item.id}`;
-                              const isDeleting = deletingItemKey === `${list.id}:${item.id}`;
-                              const isMoving = movingItemKey === `${list.id}:${item.id}`;
-                              return (
-                                <tr key={item.id} className="border-t border-th-border-light">
-                                  <td className="py-3 font-semibold text-heading">{item.name}</td>
-                                  <td className="py-3 text-muted">{item.category ?? '—'}</td>
-                                  <td className="py-3 text-muted">{formatQuantity(item)}</td>
-                                  <td className="py-3">
-                                    <StatusBadge status={item.state} />
-                                  </td>
-                                  <td className="py-3">
-                                    <div className="flex justify-end gap-2">
+                      <>
+                        {/* Mobile card layout */}
+                        <div className="md:hidden space-y-2">
+                          {items.map((item) => {
+                            const isUpdating = pendingKey === `${list.id}:${item.id}`;
+                            const isDeleting = deletingItemKey === `${list.id}:${item.id}`;
+                            const isMoving = movingItemKey === `${list.id}:${item.id}`;
+                            return (
+                              <div key={item.id} className="rounded-lg border border-th-border-light bg-hover-bg p-3">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div>
+                                    <p className="font-semibold text-heading text-sm">{item.name}</p>
+                                    <p className="text-xs text-muted">
+                                      {formatQuantity(item)}{item.category ? ` · ${item.category}` : ''}
+                                    </p>
+                                  </div>
+                                  <StatusBadge status={item.state} />
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  <button
+                                    type="button"
+                                    className="rounded-full border border-th-border px-3 py-1.5 text-xs text-secondary disabled:opacity-40"
+                                    disabled={isUpdating || isDeleting || isMoving}
+                                    onClick={() => handleEditItem(list.id, item)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded-full border border-th-border px-3 py-1.5 text-xs text-primary disabled:opacity-40"
+                                    disabled={item.state === 'IN_CART' || item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
+                                    onClick={() => handleStateChange(list.id, item.id, 'IN_CART')}
+                                  >
+                                    {isUpdating && updateItem.variables?.data?.state === 'IN_CART' ? 'Updating…' : 'In cart'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded-full bg-btn-primary px-3 py-1.5 text-xs text-btn-primary-text disabled:opacity-40"
+                                    disabled={item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
+                                    onClick={() => handleStateChange(list.id, item.id, 'PURCHASED')}
+                                  >
+                                    {isUpdating && updateItem.variables?.data?.state === 'PURCHASED' ? 'Saving…' : 'Purchased'}
+                                  </button>
+                                  {item.state === 'PURCHASED' && item.movedToInventoryAt && (
+                                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-600">
+                                      ✓ In Inventory
+                                    </span>
+                                  )}
+                                  {item.state === 'PURCHASED' && !item.movedToInventoryAt && (
+                                    <button
+                                      type="button"
+                                      className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-40"
+                                      disabled={isMoving || isDeleting}
+                                      onClick={() => moveToInventory.mutate({ groceryItemId: item.id, groceryListId: list.id })}
+                                    >
+                                      {isMoving ? 'Moving…' : '→ Inventory'}
+                                    </button>
+                                  )}
+                                  {confirmDeleteItemKey === `${list.id}:${item.id}` ? (
+                                    <span className="flex items-center gap-1">
                                       <button
                                         type="button"
-                                        className="rounded-full border border-th-border px-3 py-2 text-xs text-secondary disabled:opacity-40"
-                                        disabled={isUpdating || isDeleting || isMoving}
-                                        onClick={() => handleEditItem(list.id, item)}
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="rounded-full border border-th-border px-3 py-2 text-xs text-primary disabled:opacity-40"
-                                        disabled={item.state === 'IN_CART' || item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
-                                        onClick={() => handleStateChange(list.id, item.id, 'IN_CART')}
-                                      >
-                                        {isUpdating && updateItem.variables?.data?.state === 'IN_CART' ? 'Updating…' : 'Move to cart'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="rounded-full bg-btn-primary px-3 py-2 text-xs text-btn-primary-text disabled:opacity-40"
-                                        disabled={item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
-                                        onClick={() => handleStateChange(list.id, item.id, 'PURCHASED')}
-                                      >
-                                        {isUpdating && updateItem.variables?.data?.state === 'PURCHASED' ? 'Saving…' : 'Purchased'}
-                                      </button>
-                                      {item.state === 'PURCHASED' && item.movedToInventoryAt && (
-                                        <span
-                                          className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-600"
-                                          title={`Moved on ${new Date(item.movedToInventoryAt).toLocaleDateString()}`}
-                                        >
-                                          ✓ In Inventory
-                                        </span>
-                                      )}
-                                      {item.state === 'PURCHASED' && !item.movedToInventoryAt && (
-                                        <button
-                                          type="button"
-                                          className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 disabled:opacity-40"
-                                          disabled={isMoving || isDeleting}
-                                          onClick={() => moveToInventory.mutate({ groceryItemId: item.id, groceryListId: list.id })}
-                                        >
-                                          {isMoving ? 'Moving…' : '→ Inventory'}
-                                        </button>
-                                      )}
-                                      <button
-                                        type="button"
-                                        className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40"
+                                        className="rounded-full border border-red-500 bg-red-500 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
                                         disabled={isDeleting}
                                         onClick={() => handleDeleteItem(list.id, item)}
                                       >
-                                        {isDeleting ? 'Deleting…' : 'Delete'}
+                                        {isDeleting ? 'Deleting…' : 'Confirm'}
                                       </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                                      <button
+                                        type="button"
+                                        className="rounded-full border border-th-border px-2 py-1.5 text-xs text-muted"
+                                        onClick={() => setConfirmDeleteItemKey(null)}
+                                      >
+                                        ✕
+                                      </button>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-40"
+                                      disabled={isDeleting}
+                                      onClick={() => setConfirmDeleteItemKey(`${list.id}:${item.id}`)}
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Desktop table layout */}
+                        <div className="hidden md:block overflow-x-auto">
+                          <table className="w-full text-left text-sm">
+                            <thead>
+                              <tr className="text-faint">
+                                <th className="py-2">Item</th>
+                                <th className="py-2">Category</th>
+                                <th className="py-2">Qty</th>
+                                <th className="py-2">State</th>
+                                <th className="py-2 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {items.map((item) => {
+                                const isUpdating = pendingKey === `${list.id}:${item.id}`;
+                                const isDeleting = deletingItemKey === `${list.id}:${item.id}`;
+                                const isMoving = movingItemKey === `${list.id}:${item.id}`;
+                                return (
+                                  <tr key={item.id} className="border-t border-th-border-light">
+                                    <td className="py-3 font-semibold text-heading">{item.name}</td>
+                                    <td className="py-3 text-muted">{item.category ?? '—'}</td>
+                                    <td className="py-3 text-muted">{formatQuantity(item)}</td>
+                                    <td className="py-3">
+                                      <StatusBadge status={item.state} />
+                                    </td>
+                                    <td className="py-3">
+                                      <div className="flex justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          className="rounded-full border border-th-border px-3 py-2 text-xs text-secondary disabled:opacity-40"
+                                          disabled={isUpdating || isDeleting || isMoving}
+                                          onClick={() => handleEditItem(list.id, item)}
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="rounded-full border border-th-border px-3 py-2 text-xs text-primary disabled:opacity-40"
+                                          disabled={item.state === 'IN_CART' || item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
+                                          onClick={() => handleStateChange(list.id, item.id, 'IN_CART')}
+                                        >
+                                          {isUpdating && updateItem.variables?.data?.state === 'IN_CART' ? 'Updating…' : 'Move to cart'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="rounded-full bg-btn-primary px-3 py-2 text-xs text-btn-primary-text disabled:opacity-40"
+                                          disabled={item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
+                                          onClick={() => handleStateChange(list.id, item.id, 'PURCHASED')}
+                                        >
+                                          {isUpdating && updateItem.variables?.data?.state === 'PURCHASED' ? 'Saving…' : 'Purchased'}
+                                        </button>
+                                        {item.state === 'PURCHASED' && item.movedToInventoryAt && (
+                                          <span
+                                            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-600"
+                                            title={`Moved on ${new Date(item.movedToInventoryAt).toLocaleDateString()}`}
+                                          >
+                                            ✓ In Inventory
+                                          </span>
+                                        )}
+                                        {item.state === 'PURCHASED' && !item.movedToInventoryAt && (
+                                          <button
+                                            type="button"
+                                            className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 disabled:opacity-40"
+                                            disabled={isMoving || isDeleting}
+                                            onClick={() => moveToInventory.mutate({ groceryItemId: item.id, groceryListId: list.id })}
+                                          >
+                                            {isMoving ? 'Moving…' : '→ Inventory'}
+                                          </button>
+                                        )}
+                                        {confirmDeleteItemKey === `${list.id}:${item.id}` ? (
+                                          <span className="flex items-center gap-1">
+                                            <button
+                                              type="button"
+                                              className="rounded-full border border-red-500 bg-red-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                                              disabled={isDeleting}
+                                              onClick={() => handleDeleteItem(list.id, item)}
+                                            >
+                                              {isDeleting ? 'Deleting…' : 'Confirm'}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="rounded-full border border-th-border px-2 py-2 text-xs text-muted"
+                                              onClick={() => setConfirmDeleteItemKey(null)}
+                                            >
+                                              ✕
+                                            </button>
+                                          </span>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40"
+                                            disabled={isDeleting}
+                                            onClick={() => setConfirmDeleteItemKey(`${list.id}:${item.id}`)}
+                                          >
+                                            Delete
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
                     )}
                     {composerOpen ? (
                       <div className="mt-4 rounded-card border border-dashed border-th-border bg-hover-bg p-4">

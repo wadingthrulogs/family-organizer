@@ -331,8 +331,8 @@
   --color-shopping-card: rgba(255,255,255,0.05);
 }
 
-/* ─── GitHub Dark ─── */
-[data-theme="github-dark"] {
+/* ─── Midnight ─── */
+[data-theme="midnight"] {
   --color-bg-page: #0D1117;
   --color-bg-card: #161B22;
   --color-bg-card-alt: #1C2128;
@@ -367,8 +367,8 @@
   --color-shopping-card: rgba(255,255,255,0.04);
 }
 
-/* ─── GitHub Light ─── */
-[data-theme="github-light"] {
+/* ─── Paper ─── */
+[data-theme="paper"] {
   --color-bg-page: #FFFFFF;
   --color-bg-card: #FFFFFF;
   --color-bg-card-alt: #F6F8FA;

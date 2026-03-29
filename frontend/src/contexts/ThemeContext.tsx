@@ -11,8 +11,8 @@ export type ThemeId =
   | 'solarized-light'
   | 'one-dark-pro'
   | 'nord'
-  | 'github-dark'
-  | 'github-light'
+  | 'midnight'
+  | 'paper'
   | 'catppuccin-mocha'
   | 'catppuccin-latte'
   | 'gruvbox-dark'
@@ -35,8 +35,8 @@ export const THEMES: ThemeMeta[] = [
   { id: 'solarized-light', name: 'Solarized Light', colors: { bg: '#FDF6E3', card: '#EEE8D5', accent: '#268BD2', text: '#073642' } },
   { id: 'one-dark-pro', name: 'One Dark Pro', colors: { bg: '#282C34', card: '#2C313A', accent: '#61AFEF', text: '#ABB2BF' } },
   { id: 'nord', name: 'Nord', colors: { bg: '#2E3440', card: '#3B4252', accent: '#88C0D0', text: '#D8DEE9' } },
-  { id: 'github-dark', name: 'GitHub Dark', colors: { bg: '#0D1117', card: '#161B22', accent: '#238636', text: '#C9D1D9' } },
-  { id: 'github-light', name: 'GitHub Light', colors: { bg: '#FFFFFF', card: '#F6F8FA', accent: '#2DA44E', text: '#1F2328' } },
+  { id: 'midnight', name: 'Midnight', colors: { bg: '#0D1117', card: '#161B22', accent: '#238636', text: '#C9D1D9' } },
+  { id: 'paper', name: 'Paper', colors: { bg: '#FFFFFF', card: '#F6F8FA', accent: '#2DA44E', text: '#1F2328' } },
   { id: 'catppuccin-mocha', name: 'Catppuccin Mocha', colors: { bg: '#1E1E2E', card: '#242435', accent: '#CBA6F7', text: '#CDD6F4' } },
   { id: 'catppuccin-latte', name: 'Catppuccin Latte', colors: { bg: '#EFF1F5', card: '#E6E9EF', accent: '#8839EF', text: '#4C4F69' } },
   { id: 'gruvbox-dark', name: 'Gruvbox Dark', colors: { bg: '#282828', card: '#3C3836', accent: '#FB4934', text: '#EBDBB2' } },

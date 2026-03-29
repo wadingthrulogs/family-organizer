@@ -54,10 +54,10 @@ export default function TasksWidget() {
                     type="button"
                     onClick={() => updateTask.mutate({ taskId: t.id, data: { status: 'DONE' } })}
                     disabled={updateTask.isPending}
-                    className="shrink-0 flex h-4 w-4 items-center justify-center rounded border border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white transition-colors group"
+                    className="shrink-0 flex h-4 w-4 items-center justify-center rounded border-2 border-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white transition-colors group"
                     aria-label="Mark done"
                   >
-                    <svg className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                    <svg className="h-2.5 w-2.5 opacity-30 group-hover:opacity-100 text-[var(--color-text-secondary)] group-hover:text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
                     </svg>
                   </button>

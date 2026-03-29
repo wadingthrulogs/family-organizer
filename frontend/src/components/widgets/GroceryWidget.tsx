@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useGroceryLists } from '../../hooks/useGroceryLists';
+import { useCreateGroceryItemMutation } from '../../hooks/useGroceryMutations';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
 
 export default function GroceryWidget() {
@@ -10,8 +12,26 @@ export default function GroceryWidget() {
   const inCartCount = allItems.filter((i) => i.state === 'IN_CART').length;
   const purchasedCount = allItems.filter((i) => i.state === 'PURCHASED').length;
 
+  const [quickAddText, setQuickAddText] = useState('');
+  const [quickAddListId, setQuickAddListId] = useState<number | null>(null);
+  const [addedMsg, setAddedMsg] = useState('');
+  const addItem = useCreateGroceryItemMutation();
+
+  const selectedListId = quickAddListId ?? lists[0]?.id ?? null;
+
+  const handleQuickAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = quickAddText.trim();
+    if (!name || !selectedListId) return;
+    await addItem.mutateAsync({ listId: selectedListId, data: { name } });
+    setQuickAddText('');
+    setAddedMsg('Added!');
+    setTimeout(() => setAddedMsg(''), 2500);
+  };
+
   const showHeader = height > 80;
   const showLink = !compact;
+  const showQuickAdd = !compact && lists.length > 0;
   const showStats = height > 140 && width > 160;
   const showList = height > 200 || (!showStats && height > 100);
 
@@ -32,6 +52,42 @@ export default function GroceryWidget() {
           )}
         </div>
       )}
+
+      {/* Quick-add form */}
+      {showQuickAdd && (
+        <form onSubmit={handleQuickAdd} className="flex items-center gap-1 mb-2 shrink-0">
+          {lists.length > 1 && (
+            <select
+              value={selectedListId ?? ''}
+              onChange={(e) => setQuickAddListId(Number(e.target.value))}
+              className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-secondary)] text-[0.7em] px-1 py-0.5 shrink-0 max-w-[5rem]"
+            >
+              {lists.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          )}
+          <input
+            type="text"
+            value={quickAddText}
+            onChange={(e) => setQuickAddText(e.target.value)}
+            placeholder="Add item…"
+            disabled={addItem.isPending}
+            className="flex-1 min-w-0 rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] text-[0.75em] px-2 py-0.5 outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={!quickAddText.trim() || !selectedListId || addItem.isPending}
+            className="shrink-0 w-5 h-5 flex items-center justify-center rounded bg-[var(--color-accent)] text-white text-[0.8em] font-bold disabled:opacity-40"
+          >
+            {addItem.isPending ? '…' : addedMsg ? '✓' : '+'}
+          </button>
+        </form>
+      )}
+
+      <p aria-live="polite" role="status" className="text-[0.65em] text-emerald-600 font-medium mb-1 shrink-0 min-h-[1em]">
+        {addedMsg}
+      </p>
 
       {isLoading ? (
         <p className="text-[0.85em] text-[var(--color-text-secondary)]">Loading…</p>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { EmptyState } from '../components/ui/EmptyState';
 import { useChores } from '../hooks/useChores';
 import { ChoreCard } from '../components/chores/ChoreCard';
 import { ChoreForm, type ChoreFormValues } from '../components/chores/ChoreForm';
@@ -297,7 +298,10 @@ function ChoresPage() {
             ) : null}
           </header>
           {chores.length === 0 ? (
-            <p className="text-sm text-muted">No chores yet. Use the button above to create one.</p>
+            <EmptyState
+              title="No chores yet."
+              description="Use the Add chore button above to create your first chore rotation."
+            />
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {chores.map((chore) => (

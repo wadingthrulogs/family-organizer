@@ -1,26 +1,30 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSettings } from '../../hooks/useSettings';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserPreferences } from '../../hooks/useUserPreferences';
 
 const navItems = [
-  { to: '/', label: 'Dashboard', key: 'dashboard' },
-  { to: '/calendar', label: 'Calendar', key: 'calendar' },
-  { to: '/tasks', label: 'Tasks', key: 'tasks' },
-  { to: '/chores', label: 'Chores', key: 'chores' },
-  { to: '/grocery', label: 'Grocery', key: 'grocery' },
-  { to: '/inventory', label: 'Inventory', key: 'inventory' },
-  { to: '/meal-plans', label: 'Meal Plan', key: 'meal-plans' },
-  { to: '/notifications', label: 'Notifications', key: 'notifications' },
-  { to: '/settings', label: 'Settings', key: 'settings' },
+  { to: '/', label: 'Dashboard', key: 'dashboard', icon: '⊞' },
+  { to: '/calendar', label: 'Calendar', key: 'calendar', icon: '📅' },
+  { to: '/tasks', label: 'Tasks', key: 'tasks', icon: '✓' },
+  { to: '/chores', label: 'Chores', key: 'chores', icon: '🧹' },
+  { to: '/grocery', label: 'Grocery', key: 'grocery', icon: '🛒' },
+  { to: '/inventory', label: 'Inventory', key: 'inventory', icon: '📦' },
+  { to: '/meal-plans', label: 'Meal Plan', key: 'meal-plans', icon: '🍽️' },
+  { to: '/notifications', label: 'Notifications', key: 'notifications', icon: '🔔' },
+  { to: '/settings', label: 'Settings', key: 'settings', icon: '⚙️' },
 ];
+
+// Bottom tab bar always shows these 4 + a "More" button for the rest
+const BOTTOM_TAB_KEYS = ['dashboard', 'tasks', 'chores', 'grocery'];
 
 export function AppLayout() {
   const { data: settings } = useSettings();
   const { user, logout } = useAuth();
   const { data: prefs } = useUserPreferences();
   const location = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
   const isDashboard = location.pathname === '/';
   const bgImageUrl = isDashboard ? prefs?.dashboardConfig?.preferences?.backgroundImageUrl : undefined;
   const bgOpacity = isDashboard ? (prefs?.dashboardConfig?.preferences?.backgroundOverlay ?? 1) : 0;
@@ -36,6 +40,14 @@ export function AppLayout() {
   const visibleNavItems = useMemo(
     () => navItems.filter((item) => !hiddenTabs.includes(item.key)),
     [hiddenTabs]
+  );
+  const bottomTabs = useMemo(
+    () => visibleNavItems.filter((item) => BOTTOM_TAB_KEYS.includes(item.key)),
+    [visibleNavItems]
+  );
+  const moreItems = useMemo(
+    () => visibleNavItems.filter((item) => !BOTTOM_TAB_KEYS.includes(item.key)),
+    [visibleNavItems]
   );
   const displayName = user?.username ?? 'User';
   const roleLabel = user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase() : '';
@@ -85,7 +97,8 @@ export function AppLayout() {
             </button>
           </div>
         </div>
-        <nav className={`mx-auto flex gap-2 overflow-x-auto px-4 pb-4 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
+        {/* Desktop nav — hidden on mobile */}
+        <nav className={`mx-auto hidden gap-2 overflow-x-auto px-4 pb-4 md:flex ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
           {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
@@ -102,9 +115,74 @@ export function AppLayout() {
           ))}
         </nav>
       </header>
-      <main className={`mx-auto px-4 py-8 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
+      <main className={`mx-auto px-4 py-8 pb-24 md:pb-8 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
         <Outlet />
       </main>
+
+      {/* Mobile bottom tab bar — visible only on small screens */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-th-border bg-page/95 backdrop-blur md:hidden">
+        {bottomTabs.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.to === '/'}
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors ${
+                isActive ? 'text-accent' : 'text-muted'
+              }`
+            }
+            onClick={() => setMoreOpen(false)}
+          >
+            <span className="text-lg leading-none">{item.icon}</span>
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+
+        {/* More button */}
+        {moreItems.length > 0 && (
+          <div className="relative flex flex-1 flex-col items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              className={`flex w-full flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors ${
+                moreOpen ? 'text-accent' : 'text-muted'
+              }`}
+            >
+              <span className="text-lg leading-none">⋯</span>
+              <span>More</span>
+            </button>
+
+            {/* More drawer — slides up from the bottom tab bar */}
+            {moreOpen && (
+              <>
+                {/* Backdrop */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setMoreOpen(false)}
+                />
+                <div className="absolute bottom-full right-0 z-20 mb-1 min-w-[160px] rounded-card border border-th-border bg-card py-2 shadow-soft">
+                  {moreItems.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.to === '/'}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
+                          isActive ? 'text-accent' : 'text-secondary hover:bg-hover-bg'
+                        }`
+                      }
+                      onClick={() => setMoreOpen(false)}
+                    >
+                      <span>{item.icon}</span>
+                      <span>{item.label}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </nav>
     </div>
   );
 }

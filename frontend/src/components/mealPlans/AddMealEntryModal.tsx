@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { MealPlanEntry, MealType, Recipe } from '../../types/mealPlan';
 import type { CreateMealPlanEntryPayload } from '../../api/mealPlans';
+import { Modal } from '../ui/Modal';
 
 const MEAL_TYPES: { value: MealType; label: string; icon: string }[] = [
   { value: 'BREAKFAST', label: 'Breakfast', icon: '🌅' },
@@ -66,18 +67,13 @@ export function AddMealEntryModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-card bg-card shadow-soft border border-th-border">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-th-border">
-          <h2 className="text-lg font-semibold text-heading">
-            {editingEntry ? 'Edit Meal' : 'Add Meal'}
-          </h2>
-          <button type="button" onClick={onClose} className="text-muted hover:text-heading text-xl leading-none">
-            ✕
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+    <Modal
+      open
+      onClose={onClose}
+      title={editingEntry ? 'Edit Meal' : 'Add Meal'}
+      maxWidth="max-w-md"
+    >
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Day */}
           <div>
             <label className="block text-sm font-medium text-heading mb-1">Day</label>
@@ -194,7 +190,6 @@ export function AddMealEntryModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

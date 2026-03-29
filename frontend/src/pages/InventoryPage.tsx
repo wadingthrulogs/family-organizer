@@ -8,6 +8,9 @@ import {
 } from '../hooks/useInventoryMutations';
 import { exportInventoryTxt } from '../api/inventory';
 import type { InventoryItem } from '../types/inventory';
+import { Modal } from '../components/ui/Modal';
+import { EmptyState } from '../components/ui/EmptyState';
+import { useAnnounce } from '../contexts/AnnouncementContext';
 
 function formatQuantity(item: InventoryItem) {
   const qty = Number.isFinite(item.quantity) ? item.quantity : 1;
@@ -64,6 +67,7 @@ function InventoryPage() {
   const updateItem = useUpdateInventoryItemMutation();
   const deleteItem = useDeleteInventoryItemMutation();
   const bulkAdd = useBulkAddInventoryItemsMutation();
+  const announce = useAnnounce();
 
   const loadingQtyItemId = updateItem.isPending
     ? (updateItem.variables as { itemId: number } | undefined)?.itemId ?? null
@@ -194,6 +198,7 @@ function InventoryPage() {
       notes: form.notes || null,
       dateAdded: form.dateAdded || null,
     });
+    announce(`${form.name} added to inventory.`);
     setForm(emptyForm);
     setComposerOpen(false);
   };
@@ -213,12 +218,14 @@ function InventoryPage() {
         dateAdded: form.dateAdded || null,
       },
     });
+    announce(`${form.name} updated.`);
     setEditingItem(null);
     setForm(emptyForm);
   };
 
   const handleDelete = async (item: InventoryItem) => {
     await deleteItem.mutateAsync(item.id);
+    announce(`${item.name} removed from inventory.`);
     if (editingItem?.id === item.id) {
       setEditingItem(null);
       setForm(emptyForm);
@@ -366,38 +373,21 @@ function InventoryPage() {
         </section>
       )}
 
-      {editingItem && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={handleCancel}
-        >
-          <div
-            className="w-full max-w-lg rounded-card border border-th-border bg-card p-6 shadow-soft"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-heading">Edit {editingItem.name}</h2>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="text-xl leading-none text-muted hover:text-heading"
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-            {updateError && <p className="mb-2 text-xs text-red-600">{updateError}</p>}
-            <InventoryForm
-              form={form}
-              onChange={handleChange}
-              onSubmit={handleSubmitEdit}
-              onCancel={handleCancel}
-              submitLabel="Save changes"
-              isSubmitting={updateItem.isPending}
-            />
-          </div>
-        </div>
-      )}
+      <Modal
+        open={editingItem !== null}
+        onClose={handleCancel}
+        title={editingItem ? `Edit ${editingItem.name}` : ''}
+      >
+        {updateError && <p className="mb-2 text-xs text-red-600">{updateError}</p>}
+        <InventoryForm
+          form={form}
+          onChange={handleChange}
+          onSubmit={handleSubmitEdit}
+          onCancel={handleCancel}
+          submitLabel="Save changes"
+          isSubmitting={updateItem.isPending}
+        />
+      </Modal>
 
       <div className="flex items-center gap-3">
         <input
@@ -457,11 +447,11 @@ function InventoryPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <p className="rounded-card border border-dashed border-th-border bg-hover-bg p-6 text-sm text-muted">
-          {search || activeCategory
-            ? 'No items match your filters.'
-            : 'Inventory is empty. Add items manually or move them from your grocery lists.'}
-        </p>
+        <EmptyState
+          title={search || activeCategory ? 'No items match your filters.' : 'Inventory is empty.'}
+          description={search || activeCategory ? undefined : 'Add items manually or move them from your grocery lists.'}
+          action={!search && !activeCategory ? { label: 'Add item', onClick: handleOpenCreate } : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded-card bg-card shadow-soft">
           <datalist id="category-options">

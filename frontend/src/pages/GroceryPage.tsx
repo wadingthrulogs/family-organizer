@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { EmptyState } from '../components/ui/EmptyState';
 import { useGroceryLists } from '../hooks/useGroceryLists';
 import {
   useCreateGroceryItemMutation,
@@ -422,9 +423,11 @@ function GroceryPage() {
             {isFetching && !isLoading ? <span className="text-xs text-faint">Refreshing…</span> : null}
           </header>
           {lists.length === 0 ? (
-            <p className="rounded-card border border-dashed border-th-border bg-hover-bg p-6 text-sm text-muted">
-              No grocery lists yet. Use the New list button to create one.
-            </p>
+            <EmptyState
+              title="No grocery lists yet."
+              description="Create a list to start tracking your shopping."
+              action={{ label: 'New list', onClick: () => setListComposerOpen(true) }}
+            />
           ) : (
             <div className="space-y-5">
               {lists.map((list) => {

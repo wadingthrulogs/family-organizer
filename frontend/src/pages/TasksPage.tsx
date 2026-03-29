@@ -4,6 +4,8 @@ import { TaskRow } from '../components/tasks/TaskRow';
 import { useCreateTaskMutation } from '../hooks/useTaskMutations';
 import { useTasks } from '../hooks/useTasks';
 import { useAuth } from '../hooks/useAuth';
+import { useAnnounce } from '../contexts/AnnouncementContext';
+import { EmptyState } from '../components/ui/EmptyState';
 
 type FilterTab = 'all' | 'active' | 'done' | 'mine';
 
@@ -40,6 +42,7 @@ export default function TasksPage() {
   const { user } = useAuth();
   const { data, isLoading } = useTasks();
   const createTask = useCreateTaskMutation();
+  const announce = useAnnounce();
 
   const [filter, setFilter] = useState<FilterTab>('all');
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -66,6 +69,7 @@ export default function TasksPage() {
     if (!title) return;
     setQuickAdd('');
     await createTask.mutateAsync({ title });
+    announce(`Task "${title}" added.`);
     inputRef.current?.focus();
   };
 
@@ -123,9 +127,10 @@ export default function TasksPage() {
       {isLoading ? (
         <div className="py-12 text-center text-sm text-muted">Loading tasks…</div>
       ) : groups.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-th-border py-12 text-center text-sm text-muted">
-          {filter === 'mine' ? 'No tasks assigned to you.' : 'No tasks yet — add one above.'}
-        </div>
+        <EmptyState
+          title={filter === 'mine' ? 'No tasks assigned to you.' : 'No tasks yet.'}
+          description={filter === 'mine' ? undefined : 'Add a task using the field above.'}
+        />
       ) : (
         <div className="space-y-6">
           {groups.map((group) => (

@@ -45,8 +45,8 @@ export function AppLayout() {
   const bottomTabKeys =
     prefs?.dashboardConfig?.preferences?.bottomTabKeys ?? DEFAULT_BOTTOM_TAB_KEYS;
   const bottomTabs = useMemo(
-    () => visibleNavItems.filter((item) => bottomTabKeys.includes(item.key)),
-    [visibleNavItems, bottomTabKeys]
+    () => navItems.filter((item) => bottomTabKeys.includes(item.key)),
+    [bottomTabKeys]
   );
   const moreItems = useMemo(
     () => visibleNavItems.filter((item) => !bottomTabKeys.includes(item.key)),

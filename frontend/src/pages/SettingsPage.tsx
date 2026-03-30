@@ -46,7 +46,7 @@ function mapSettingsToFormState(settings?: HouseholdSettings | null): FormState 
 const DEFAULT_BOTTOM_TAB_KEYS = ['dashboard', 'tasks', 'grocery', 'meal-plans'];
 
 const ALL_NAV_TABS = [
-  { key: 'dashboard', label: 'Dashboard', icon: '⊞', locked: true },
+  { key: 'dashboard', label: 'Dashboard', icon: '⊞' },
   { key: 'tasks', label: 'Tasks', icon: '✓' },
   { key: 'grocery', label: 'Grocery', icon: '🛒' },
   { key: 'meal-plans', label: 'Meals', icon: '🍽️' },
@@ -461,7 +461,7 @@ function SettingsPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {ALL_NAV_TABS.map((tab) => {
                 const isSelected = currentKeys.includes(tab.key);
-                const isDisabled = tab.locked || (!isSelected && selectedCount >= 4);
+                const isDisabled = !isSelected && selectedCount >= 4;
                 return (
                   <button
                     key={tab.key}
@@ -476,7 +476,6 @@ function SettingsPage() {
                   >
                     <span>{tab.icon}</span>
                     <span>{tab.label}</span>
-                    {tab.locked && <span className="ml-auto text-xs opacity-50">🔒</span>}
                   </button>
                 );
               })}

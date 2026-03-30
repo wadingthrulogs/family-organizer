@@ -8,7 +8,7 @@ export default function InventoryWidget() {
   const { ref, compact, tiny, height, baseFontSize } = useWidgetSize();
   const items = data?.items ?? [];
   const lowStockCount = items.filter(
-    (i) => i.lowStockThreshold != null && i.quantity <= i.lowStockThreshold,
+    (i) => i.quantity === 0 || (i.lowStockThreshold != null && i.quantity <= i.lowStockThreshold),
   ).length;
 
   const [pendingQtyId, setPendingQtyId] = useState<number | null>(null);
@@ -21,7 +21,7 @@ export default function InventoryWidget() {
   const isSearching = searchText.trim().length > 0;
   const filteredItems = (() => {
     let result = items;
-    if (showLowOnly) result = result.filter((i) => i.lowStockThreshold != null && i.quantity <= i.lowStockThreshold);
+    if (showLowOnly) result = result.filter((i) => i.quantity === 0 || (i.lowStockThreshold != null && i.quantity <= i.lowStockThreshold));
     if (isSearching) result = result.filter((i) => i.name.toLowerCase().includes(searchText.toLowerCase()));
     return result;
   })();
@@ -35,10 +35,26 @@ export default function InventoryWidget() {
     );
   };
 
-  const handleMarkLow = (itemId: number, threshold: number) => {
+  const handleStockCycle = (
+    itemId: number,
+    quantity: number,
+    lowStockThreshold: number | null | undefined,
+  ) => {
+    const isOut = quantity === 0;
+    const isLow = !isOut && lowStockThreshold != null && quantity <= lowStockThreshold;
+
+    let data: { quantity?: number; lowStockThreshold?: number | null };
+    if (isOut) {
+      data = { lowStockThreshold: null };
+    } else if (isLow) {
+      data = { quantity: 0 };
+    } else {
+      data = { lowStockThreshold: Math.max(quantity, 1) };
+    }
+
     setPendingMarkLowId(itemId);
     updateQty.mutate(
-      { itemId, data: { quantity: threshold } },
+      { itemId, data },
       { onSettled: () => setPendingMarkLowId(null) },
     );
   };
@@ -87,6 +103,20 @@ export default function InventoryWidget() {
         <p className="text-[0.85em] text-[var(--color-text-secondary)]">No items.</p>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
+          {/* Show all button when low-stock filter is active */}
+          {showLowOnly && (
+            <div className="shrink-0 flex items-center justify-between">
+              <span className="text-[0.65em] text-amber-700 font-medium">Showing low stock only</span>
+              <button
+                type="button"
+                onClick={() => setShowLowOnly(false)}
+                className="text-[0.65em] text-[var(--color-accent)] hover:underline"
+              >
+                Show all
+              </button>
+            </div>
+          )}
+
           {/* Search input */}
           {showSearch && (
             <div className="relative shrink-0">
@@ -143,16 +173,28 @@ export default function InventoryWidget() {
                         {item.unit && (
                           <span className="text-[0.6em] text-[var(--color-text-secondary)]">{item.unit}</span>
                         )}
-                        {/* Set to min */}
-                        <button
-                          type="button"
-                          disabled={item.lowStockThreshold == null || pendingMarkLowId === item.id || pendingQtyId === item.id}
-                          title={item.lowStockThreshold == null ? 'No threshold set' : `Set qty to threshold (${item.lowStockThreshold})`}
-                          onClick={() => item.lowStockThreshold != null && handleMarkLow(item.id, item.lowStockThreshold)}
-                          className="ml-0.5 rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[0.55em] font-medium text-amber-700 disabled:opacity-40 hover:bg-amber-100"
-                        >
-                          Min
-                        </button>
+                        {/* Stock cycle button: Normal → Low → Out → Normal */}
+                        {(() => {
+                          const isOut = item.quantity === 0;
+                          const isLow = !isOut && item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold;
+                          return (
+                            <button
+                              type="button"
+                              disabled={pendingMarkLowId === item.id || pendingQtyId === item.id}
+                              title={isOut ? 'Clear out-of-stock mark' : isLow ? 'Mark as out of stock' : 'Mark as low stock'}
+                              onClick={() => handleStockCycle(item.id, item.quantity, item.lowStockThreshold)}
+                              className={`ml-0.5 rounded border px-1 py-0.5 text-[0.55em] font-medium disabled:opacity-40 ${
+                                isOut
+                                  ? 'border-red-400 bg-red-100 text-red-800 hover:bg-red-200'
+                                  : isLow
+                                  ? 'border-amber-400 bg-amber-100 text-amber-800 hover:bg-amber-200'
+                                  : 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                              }`}
+                            >
+                              {isOut ? '✕ Out' : isLow ? '✓ Low' : 'Low'}
+                            </button>
+                          );
+                        })()}
                       </div>
                     )}
                   </li>

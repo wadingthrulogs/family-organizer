@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSettings } from '../../hooks/useSettings';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserPreferences } from '../../hooks/useUserPreferences';
@@ -24,6 +24,8 @@ export function AppLayout() {
   const { data: prefs } = useUserPreferences();
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const avatarRef = useRef<HTMLButtonElement>(null);
   const isDashboard = location.pathname === '/';
   const bgImageUrl = isDashboard ? prefs?.dashboardConfig?.preferences?.backgroundImageUrl : undefined;
   const bgOpacity = isDashboard ? (prefs?.dashboardConfig?.preferences?.backgroundOverlay ?? 1) : 0;
@@ -76,23 +78,61 @@ export function AppLayout() {
         />
       )}
       <header className="sticky top-0 z-20 bg-page/90 backdrop-blur border-b border-th-border">
-        <div className={`mx-auto flex items-center justify-between px-4 py-4 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
-          <div>
+        <div className={`mx-auto flex items-center justify-between px-4 py-2 md:py-4 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
+          {/* Date/greeting — hidden on mobile */}
+          <div className="hidden md:block">
             <p className="text-xs uppercase tracking-wide text-muted">Today</p>
             <p className="font-display text-xl text-heading">{formattedDate}</p>
           </div>
+          {/* Mobile: spacer so avatar stays right-aligned */}
+          <div className="md:hidden" />
           <div className="flex items-center gap-4">
-            <div className="text-right">
+            {/* Username + role — hidden on mobile */}
+            <div className="hidden md:block text-right">
               <p className="text-sm font-semibold text-primary">{displayName}</p>
               <p className="text-xs text-muted">{roleLabel} · {householdName}</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-accent text-btn-primary-text flex items-center justify-center font-semibold">
-              {initials}
+            {/* Avatar — tappable on mobile to open account dropdown */}
+            <div className="relative">
+              <button
+                ref={avatarRef}
+                type="button"
+                onClick={() => setAvatarMenuOpen((v) => !v)}
+                className="h-10 w-10 rounded-full bg-accent text-btn-primary-text flex items-center justify-center font-semibold"
+                aria-label="Account menu"
+              >
+                {initials}
+              </button>
+              {/* Mobile account dropdown */}
+              {avatarMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setAvatarMenuOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 z-50 w-56 rounded-card border border-th-border bg-card shadow-soft overflow-hidden md:hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-th-border">
+                      <div className="h-9 w-9 rounded-full bg-accent text-btn-primary-text flex items-center justify-center font-semibold text-sm shrink-0">
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-heading truncate">{displayName}</p>
+                        <p className="text-xs text-muted truncate">{roleLabel} · {householdName}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setAvatarMenuOpen(false); logout(); }}
+                      className="w-full text-left px-4 py-3 text-sm text-secondary hover:bg-hover-bg transition-colors"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
+            {/* Sign out button — desktop only */}
             <button
               type="button"
               onClick={logout}
-              className="rounded-full border border-th-border px-3 py-1.5 text-xs font-medium text-secondary hover:bg-hover-bg"
+              className="hidden md:inline-flex rounded-full border border-th-border px-3 py-1.5 text-xs font-medium text-secondary hover:bg-hover-bg"
             >
               Sign out
             </button>

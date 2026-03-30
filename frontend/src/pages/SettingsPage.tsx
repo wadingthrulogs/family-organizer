@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef, type FormEvent, type ChangeEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSettings, useUpdateSettingsMutation } from '../hooks/useSettings';
+import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
 import {
   useGoogleConnectMutation,
   useGoogleDisconnectMutation,
@@ -42,9 +43,24 @@ function mapSettingsToFormState(settings?: HouseholdSettings | null): FormState 
   };
 }
 
+const DEFAULT_BOTTOM_TAB_KEYS = ['dashboard', 'tasks', 'grocery', 'meal-plans'];
+
+const ALL_NAV_TABS = [
+  { key: 'dashboard', label: 'Dashboard', icon: '⊞', locked: true },
+  { key: 'tasks', label: 'Tasks', icon: '✓' },
+  { key: 'grocery', label: 'Grocery', icon: '🛒' },
+  { key: 'meal-plans', label: 'Meals', icon: '🍽️' },
+  { key: 'chores', label: 'Chores', icon: '🧹' },
+  { key: 'inventory', label: 'Inventory', icon: '📦' },
+  { key: 'calendar', label: 'Calendar', icon: '📅' },
+  { key: 'notifications', label: 'Notifications', icon: '🔔' },
+];
+
 function SettingsPage() {
   const { data, isLoading, isError, error, refetch, isFetching } = useSettings();
   const updateSettings = useUpdateSettingsMutation();
+  const { data: prefs } = useUserPreferences();
+  const updatePrefs = useUpdateUserPreferencesMutation();
   const { user } = useAuth();
   const {
     data: integration,
@@ -375,6 +391,7 @@ function SettingsPage() {
             { key: 'tasks', label: 'Tasks' },
             { key: 'chores', label: 'Chores' },
             { key: 'grocery', label: 'Grocery' },
+            { key: 'meal-plans', label: 'Meals' },
             { key: 'inventory', label: 'Inventory' },
             { key: 'reminders', label: 'Reminders' },
             { key: 'notifications', label: 'Notifications' },
@@ -408,6 +425,65 @@ function SettingsPage() {
             );
           })}
         </div>
+      </section>
+
+      {/* ─── Mobile Bottom Bar ─── */}
+      <section className="mt-10 border-t border-th-border-light pt-6">
+        <div className="mb-4">
+          <h2 className="font-semibold text-heading">Mobile Bottom Bar</h2>
+          <p className="text-sm text-muted">Choose up to 4 tabs shown directly in the bottom navigation bar. All others appear under More.</p>
+        </div>
+        {(() => {
+          const currentKeys: string[] =
+            prefs?.dashboardConfig?.preferences?.bottomTabKeys ?? DEFAULT_BOTTOM_TAB_KEYS;
+          const selectedCount = currentKeys.length;
+
+          const handleToggle = async (key: string) => {
+            const isSelected = currentKeys.includes(key);
+            let newKeys: string[];
+            if (isSelected) {
+              newKeys = currentKeys.filter((k) => k !== key);
+            } else {
+              if (selectedCount >= 4) return;
+              newKeys = [...currentKeys, key];
+            }
+            const existingConfig = prefs?.dashboardConfig ?? { slots: [] };
+            const existingPrefs = existingConfig.preferences ?? {};
+            await updatePrefs.mutateAsync({
+              dashboardConfig: {
+                ...existingConfig,
+                preferences: { ...existingPrefs, bottomTabKeys: newKeys },
+              },
+            });
+          };
+
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {ALL_NAV_TABS.map((tab) => {
+                const isSelected = currentKeys.includes(tab.key);
+                const isDisabled = tab.locked || (!isSelected && selectedCount >= 4);
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => handleToggle(tab.key)}
+                    className={`flex items-center gap-2 rounded-card border px-3 py-2 text-sm text-left transition select-none ${
+                      isSelected
+                        ? 'border-accent bg-accent/10 text-accent'
+                        : 'border-th-border bg-hover-bg text-faint'
+                    } ${isDisabled && !isSelected ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    {tab.locked && <span className="ml-auto text-xs opacity-50">🔒</span>}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
+        <p className="mt-2 text-xs text-faint">{(prefs?.dashboardConfig?.preferences?.bottomTabKeys ?? DEFAULT_BOTTOM_TAB_KEYS).length}/4 selected</p>
       </section>
       </div>{/* end appearance section */}
 

@@ -16,8 +16,7 @@ const navItems = [
   { to: '/settings', label: 'Settings', key: 'settings', icon: '⚙️' },
 ];
 
-// Bottom tab bar always shows these 4 + a "More" button for the rest
-const BOTTOM_TAB_KEYS = ['dashboard', 'tasks', 'grocery', 'meal-plans'];
+const DEFAULT_BOTTOM_TAB_KEYS = ['dashboard', 'tasks', 'grocery', 'meal-plans'];
 
 export function AppLayout() {
   const { data: settings } = useSettings();
@@ -41,13 +40,15 @@ export function AppLayout() {
     () => navItems.filter((item) => !hiddenTabs.includes(item.key)),
     [hiddenTabs]
   );
+  const bottomTabKeys =
+    prefs?.dashboardConfig?.preferences?.bottomTabKeys ?? DEFAULT_BOTTOM_TAB_KEYS;
   const bottomTabs = useMemo(
-    () => visibleNavItems.filter((item) => BOTTOM_TAB_KEYS.includes(item.key)),
-    [visibleNavItems]
+    () => visibleNavItems.filter((item) => bottomTabKeys.includes(item.key)),
+    [visibleNavItems, bottomTabKeys]
   );
   const moreItems = useMemo(
-    () => visibleNavItems.filter((item) => !BOTTOM_TAB_KEYS.includes(item.key)),
-    [visibleNavItems]
+    () => visibleNavItems.filter((item) => !bottomTabKeys.includes(item.key)),
+    [visibleNavItems, bottomTabKeys]
   );
   const displayName = user?.username ?? 'User';
   const roleLabel = user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase() : '';

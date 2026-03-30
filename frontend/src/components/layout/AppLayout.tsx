@@ -71,7 +71,6 @@ export function AppLayout() {
             backgroundImage: `url(${bgImageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            backgroundAttachment: 'fixed',
             opacity: bgOpacity,
             zIndex: 0,
           }}

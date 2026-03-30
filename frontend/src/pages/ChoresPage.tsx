@@ -271,7 +271,7 @@ function ChoresPage() {
                   type="button"
                   onClick={handleFocusPrev}
                   disabled={clampedFocusIndex === 0}
-                  className="flex-1 rounded-lg border border-th-border py-2 text-sm text-muted disabled:opacity-30"
+                  className="flex-1 rounded-lg border border-th-border py-2.5 text-sm text-muted disabled:opacity-30"
                 >
                   ← Prev
                 </button>
@@ -279,7 +279,7 @@ function ChoresPage() {
                   type="button"
                   onClick={handleFocusNext}
                   disabled={clampedFocusIndex >= upcomingAssignments.length - 1}
-                  className="flex-1 rounded-lg border border-th-border py-2 text-sm text-muted disabled:opacity-30"
+                  className="flex-1 rounded-lg border border-th-border py-2.5 text-sm text-muted disabled:opacity-30"
                 >
                   Next →
                 </button>

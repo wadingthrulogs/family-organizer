@@ -464,7 +464,128 @@ function InventoryPage() {
           action={!search && !activeCategory ? { label: 'Add item', onClick: handleOpenCreate } : undefined}
         />
       ) : (
-        <div className="overflow-x-auto rounded-card bg-card shadow-soft">
+        <>
+          {/* Mobile card list */}
+          <ul className="md:hidden space-y-3">
+            {filtered.map((item) => {
+              const low = isLowStock(item);
+              const isDeleting = deleteItem.isPending && deleteItem.variables === item.id;
+              return (
+                <li key={item.id} className="rounded-card border border-th-border bg-card p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-heading">{item.name}</span>
+                        {low && (
+                          <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-700">Low</span>
+                        )}
+                      </div>
+                      {item.category && (
+                        <span className="mt-0.5 inline-block rounded-full bg-hover-bg px-2 py-0.5 text-xs text-muted">{item.category}</span>
+                      )}
+                      {item.notes && (
+                        <p className="mt-0.5 text-xs text-faint truncate">{item.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Decrease quantity"
+                      disabled={loadingQtyItemId === item.id || item.quantity <= 0}
+                      className="flex h-9 w-9 items-center justify-center rounded border border-th-border text-sm text-muted disabled:opacity-40 hover:bg-hover-bg"
+                      onClick={() => updateItem.mutate({ itemId: item.id, data: { quantity: Math.max(0, item.quantity - 1) } })}
+                    >−</button>
+                    <span className={`min-w-[2.5rem] text-center text-sm text-muted ${loadingQtyItemId === item.id ? 'opacity-50' : ''}`}>
+                      {formatQuantity(item)}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Increase quantity"
+                      disabled={loadingQtyItemId === item.id}
+                      className="flex h-9 w-9 items-center justify-center rounded border border-th-border text-sm text-muted disabled:opacity-40 hover:bg-hover-bg"
+                      onClick={() => updateItem.mutate({ itemId: item.id, data: { quantity: item.quantity + 1 } })}
+                    >+</button>
+                    <button
+                      type="button"
+                      className={`ml-auto rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${
+                        low
+                          ? 'border border-amber-300 bg-amber-100 text-amber-700'
+                          : 'border border-th-border text-secondary'
+                      }`}
+                      disabled={updateItem.isPending}
+                      onClick={() => {
+                        const newThreshold = low ? null : Math.max(item.quantity, 1);
+                        updateItem.mutate({ itemId: item.id, data: { lowStockThreshold: newThreshold } });
+                      }}
+                    >
+                      {low ? '✓ Low' : 'Mark low'}
+                    </button>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      className="flex-1 rounded-card border border-th-border py-2.5 text-sm text-center text-secondary"
+                      onClick={() => handleOpenEdit(item)}
+                    >Edit</button>
+                    {groceryLists.length > 0 && (
+                      <div className="relative flex-1">
+                        <button
+                          type="button"
+                          className="w-full rounded-card border border-emerald-300 bg-emerald-50 py-2.5 text-sm text-center text-emerald-700"
+                          onClick={() => setAddToGroceryItemId(addToGroceryItemId === item.id ? null : item.id)}
+                        >+ List</button>
+                        {addToGroceryItemId === item.id && (
+                          <>
+                            <div className="absolute left-0 top-full mt-1 z-20 min-w-[160px] rounded-card border border-th-border bg-card shadow-soft">
+                              {groceryLists.map((list) => (
+                                <button
+                                  key={list.id}
+                                  type="button"
+                                  className="block w-full px-3 py-2 text-left text-xs text-heading hover:bg-hover-bg"
+                                  onClick={async () => {
+                                    await createGroceryItem.mutateAsync({ listId: list.id, data: { name: item.name } });
+                                    setAddToGroceryItemId(null);
+                                    announce(`${item.name} added to ${list.name}.`);
+                                  }}
+                                >{list.name}</button>
+                              ))}
+                            </div>
+                            <div className="fixed inset-0 z-10" onClick={() => setAddToGroceryItemId(null)} />
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {confirmDeleteId === item.id ? (
+                      <div className="flex flex-1 gap-1">
+                        <button
+                          type="button"
+                          className="flex-1 rounded-card border border-red-500 bg-red-500 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+                          disabled={isDeleting}
+                          onClick={() => handleDelete(item)}
+                        >{isDeleting ? 'Removing…' : 'Confirm'}</button>
+                        <button
+                          type="button"
+                          className="rounded-card border border-th-border px-3 py-2.5 text-sm text-muted"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >✕</button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="flex-1 rounded-card border border-red-200 py-2.5 text-sm text-center font-semibold text-red-700 disabled:opacity-40"
+                        disabled={isDeleting}
+                        onClick={() => setConfirmDeleteId(item.id)}
+                      >Remove</button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto rounded-card bg-card shadow-soft">
           <datalist id="category-options">
             {categories.map((cat) => (
               <option key={cat} value={cat} />
@@ -548,7 +669,7 @@ function InventoryPage() {
                           type="button"
                           aria-label="Decrease quantity"
                           disabled={loadingQtyItemId === item.id || item.quantity <= 0}
-                          className="flex h-8 w-8 items-center justify-center rounded border border-th-border text-xs text-muted disabled:opacity-40 hover:bg-hover-bg"
+                          className="flex h-9 w-9 items-center justify-center rounded border border-th-border text-xs text-muted disabled:opacity-40 hover:bg-hover-bg"
                           onClick={() =>
                             updateItem.mutate({ itemId: item.id, data: { quantity: Math.max(0, item.quantity - 1) } })
                           }
@@ -562,7 +683,7 @@ function InventoryPage() {
                           type="button"
                           aria-label="Increase quantity"
                           disabled={loadingQtyItemId === item.id}
-                          className="flex h-8 w-8 items-center justify-center rounded border border-th-border text-xs text-muted disabled:opacity-40 hover:bg-hover-bg"
+                          className="flex h-9 w-9 items-center justify-center rounded border border-th-border text-xs text-muted disabled:opacity-40 hover:bg-hover-bg"
                           onClick={() =>
                             updateItem.mutate({ itemId: item.id, data: { quantity: item.quantity + 1 } })
                           }
@@ -668,7 +789,8 @@ function InventoryPage() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

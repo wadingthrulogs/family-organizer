@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, useEffect, type FormEvent } from 'react';
 import { useInventory } from '../hooks/useInventory';
 import {
   useCreateInventoryItemMutation,
@@ -87,6 +87,15 @@ function InventoryPage() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [exporting, setExporting] = useState(false);
+  const [viewMode, setViewMode] = useState<'normal' | 'compact'>(() => {
+    try { return (localStorage.getItem('inventory-view-mode') as 'normal' | 'compact') ?? 'normal'; }
+    catch { return 'normal'; }
+  });
+  const [sheetItem, setSheetItem] = useState<InventoryItem | null>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem('inventory-view-mode', viewMode); } catch { /* ignore */ }
+  }, [viewMode]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -409,6 +418,18 @@ function InventoryPage() {
           onChange={(e) => setSearch(e.target.value)}
         />
         {isFetching && !isLoading && <span className="text-xs text-faint">Refreshing…</span>}
+        <button
+          type="button"
+          title={viewMode === 'compact' ? 'Switch to normal view' : 'Switch to compact view'}
+          onClick={() => setViewMode((v) => v === 'compact' ? 'normal' : 'compact')}
+          className={`md:hidden shrink-0 rounded-full border px-3 py-2 text-xs font-medium transition ${
+            viewMode === 'compact'
+              ? 'border-accent bg-accent/10 text-accent'
+              : 'border-th-border text-muted'
+          }`}
+        >
+          {viewMode === 'compact' ? '≡ Compact' : '☰ Compact'}
+        </button>
       </div>
 
       {categories.length > 0 && (
@@ -465,8 +486,8 @@ function InventoryPage() {
         />
       ) : (
         <>
-          {/* Mobile card list */}
-          <ul className="md:hidden space-y-3">
+          {/* Mobile card list — normal view */}
+          <ul className={`${viewMode === 'normal' ? 'md:hidden' : 'hidden'} space-y-3`}>
             {filtered.map((item) => {
               const low = isLowStock(item);
               const isDeleting = deleteItem.isPending && deleteItem.variables === item.id;
@@ -583,6 +604,144 @@ function InventoryPage() {
               );
             })}
           </ul>
+
+          {/* Mobile compact list */}
+          <ul className={`${viewMode === 'compact' ? 'md:hidden' : 'hidden'} divide-y divide-th-border-light rounded-card border border-th-border bg-card overflow-hidden`}>
+            {filtered.map((item) => {
+              const low = isLowStock(item);
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-hover-bg"
+                    onClick={() => setSheetItem(item)}
+                  >
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${low ? 'bg-amber-400' : 'bg-transparent border border-th-border'}`} />
+                    <span className="flex-1 truncate text-sm font-medium text-heading">{item.name}</span>
+                    <span className={`shrink-0 text-sm tabular-nums ${low ? 'text-amber-600 font-semibold' : 'text-muted'}`}>
+                      {formatQuantity(item)}
+                    </span>
+                    <span className="shrink-0 text-muted opacity-40">›</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Bottom sheet for compact view actions */}
+          {sheetItem !== null && (() => {
+            const item = sheetItem;
+            const low = isLowStock(item);
+            const isDeleting = deleteItem.isPending && deleteItem.variables === item.id;
+            return (
+              <>
+                <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setSheetItem(null)} />
+                <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-th-border bg-card shadow-soft md:hidden">
+                  {/* Handle */}
+                  <div className="flex justify-center pt-3 pb-1">
+                    <span className="h-1 w-10 rounded-full bg-th-border" />
+                  </div>
+                  {/* Header */}
+                  <div className="flex items-start justify-between px-5 py-3 border-b border-th-border">
+                    <div>
+                      <p className="font-semibold text-heading">{item.name}</p>
+                      {item.category && <p className="text-xs text-muted">{item.category}</p>}
+                    </div>
+                    <button type="button" className="text-muted text-lg leading-none px-1" onClick={() => setSheetItem(null)}>✕</button>
+                  </div>
+                  {/* Qty row */}
+                  <div className="flex items-center gap-3 px-5 py-4">
+                    <button
+                      type="button"
+                      aria-label="Decrease quantity"
+                      disabled={loadingQtyItemId === item.id || item.quantity <= 0}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-th-border text-lg text-muted disabled:opacity-40"
+                      onClick={() => updateItem.mutate({ itemId: item.id, data: { quantity: Math.max(0, item.quantity - 1) } })}
+                    >−</button>
+                    <span className={`flex-1 text-center text-base font-semibold text-heading ${loadingQtyItemId === item.id ? 'opacity-50' : ''}`}>
+                      {formatQuantity(item)}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Increase quantity"
+                      disabled={loadingQtyItemId === item.id}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-th-border text-lg text-muted disabled:opacity-40"
+                      onClick={() => updateItem.mutate({ itemId: item.id, data: { quantity: item.quantity + 1 } })}
+                    >+</button>
+                    <button
+                      type="button"
+                      className={`rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-40 ${
+                        low ? 'border border-amber-300 bg-amber-100 text-amber-700' : 'border border-th-border text-secondary'
+                      }`}
+                      disabled={updateItem.isPending}
+                      onClick={() => {
+                        const newThreshold = low ? null : Math.max(item.quantity, 1);
+                        updateItem.mutate({ itemId: item.id, data: { lowStockThreshold: newThreshold } });
+                      }}
+                    >{low ? '✓ Low' : 'Mark low'}</button>
+                  </div>
+                  {/* Action row */}
+                  <div className="flex gap-2 px-5 pb-6">
+                    <button
+                      type="button"
+                      className="flex-1 rounded-card border border-th-border py-2.5 text-sm text-center text-secondary"
+                      onClick={() => { setSheetItem(null); handleOpenEdit(item); }}
+                    >Edit</button>
+                    {groceryLists.length > 0 && (
+                      <div className="relative flex-1">
+                        <button
+                          type="button"
+                          className="w-full rounded-card border border-emerald-300 bg-emerald-50 py-2.5 text-sm text-center text-emerald-700"
+                          onClick={() => setAddToGroceryItemId(addToGroceryItemId === item.id ? null : item.id)}
+                        >+ List</button>
+                        {addToGroceryItemId === item.id && (
+                          <>
+                            <div className="absolute left-0 top-full mt-1 z-20 min-w-[160px] rounded-card border border-th-border bg-card shadow-soft">
+                              {groceryLists.map((list) => (
+                                <button
+                                  key={list.id}
+                                  type="button"
+                                  className="block w-full px-3 py-2 text-left text-xs text-heading hover:bg-hover-bg"
+                                  onClick={async () => {
+                                    await createGroceryItem.mutateAsync({ listId: list.id, data: { name: item.name } });
+                                    setAddToGroceryItemId(null);
+                                    announce(`${item.name} added to ${list.name}.`);
+                                  }}
+                                >{list.name}</button>
+                              ))}
+                            </div>
+                            <div className="fixed inset-0 z-10" onClick={() => setAddToGroceryItemId(null)} />
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {confirmDeleteId === item.id ? (
+                      <div className="flex flex-1 gap-1">
+                        <button
+                          type="button"
+                          className="flex-1 rounded-card border border-red-500 bg-red-500 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+                          disabled={isDeleting}
+                          onClick={() => { handleDelete(item); setSheetItem(null); }}
+                        >{isDeleting ? 'Removing…' : 'Confirm'}</button>
+                        <button
+                          type="button"
+                          className="rounded-card border border-th-border px-3 py-2.5 text-sm text-muted"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >✕</button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="flex-1 rounded-card border border-red-200 py-2.5 text-sm text-center font-semibold text-red-700 disabled:opacity-40"
+                        disabled={isDeleting}
+                        onClick={() => setConfirmDeleteId(item.id)}
+                      >Remove</button>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto rounded-card bg-card shadow-soft">

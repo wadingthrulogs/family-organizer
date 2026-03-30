@@ -6,18 +6,18 @@ import { useUserPreferences } from '../../hooks/useUserPreferences';
 
 const navItems = [
   { to: '/', label: 'Dashboard', key: 'dashboard', icon: '⊞' },
-  { to: '/calendar', label: 'Calendar', key: 'calendar', icon: '📅' },
   { to: '/tasks', label: 'Tasks', key: 'tasks', icon: '✓' },
-  { to: '/chores', label: 'Chores', key: 'chores', icon: '🧹' },
   { to: '/grocery', label: 'Grocery', key: 'grocery', icon: '🛒' },
+  { to: '/meal-plans', label: 'Meals', key: 'meal-plans', icon: '🍽️' },
+  { to: '/chores', label: 'Chores', key: 'chores', icon: '🧹' },
   { to: '/inventory', label: 'Inventory', key: 'inventory', icon: '📦' },
-  { to: '/meal-plans', label: 'Meal Plan', key: 'meal-plans', icon: '🍽️' },
+  { to: '/calendar', label: 'Calendar', key: 'calendar', icon: '📅' },
   { to: '/notifications', label: 'Notifications', key: 'notifications', icon: '🔔' },
   { to: '/settings', label: 'Settings', key: 'settings', icon: '⚙️' },
 ];
 
 // Bottom tab bar always shows these 4 + a "More" button for the rest
-const BOTTOM_TAB_KEYS = ['dashboard', 'tasks', 'chores', 'grocery'];
+const BOTTOM_TAB_KEYS = ['dashboard', 'tasks', 'grocery', 'meal-plans'];
 
 export function AppLayout() {
   const { data: settings } = useSettings();

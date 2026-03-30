@@ -138,7 +138,7 @@ export default function TasksPage() {
             key={tab.id}
             type="button"
             onClick={() => setFilter(tab.id)}
-            className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-colors ${
+            className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
               filter === tab.id
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-muted hover:text-heading'

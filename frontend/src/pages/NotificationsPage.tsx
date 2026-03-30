@@ -231,7 +231,62 @@ function RemindersContent() {
           No reminders yet. Create one to get notified about tasks, chores, or anything else.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-card bg-card shadow-soft">
+        <>
+          {/* Mobile card list */}
+          <ul className="md:hidden space-y-3">
+            {reminders.map((reminder) => {
+              const channels = channelLabels(reminder.channelMask);
+              const isDeleting = deleteReminder.isPending && deleteReminder.variables === reminder.id;
+              return (
+                <li key={reminder.id} className="rounded-card border border-th-border bg-card p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-heading truncate">{reminder.title}</p>
+                      {reminder.message && (
+                        <p className="text-xs text-faint truncate">{reminder.message}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleEnabled(reminder)}
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold transition ${
+                        reminder.enabled
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-th-border bg-hover-bg text-muted'
+                      }`}
+                    >
+                      {reminder.enabled ? 'Active' : 'Muted'}
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                    <span>⏱ {formatLeadTime(reminder.leadTimeMinutes)}</span>
+                    {channels.length > 0 && <span>🔔 {channels.join(' + ')}</span>}
+                    {reminder.targetType && <span>🎯 {reminder.targetType}</span>}
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      className="flex-1 rounded-card border border-th-border py-2.5 text-sm text-secondary text-center"
+                      onClick={() => handleOpenEdit(reminder)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-1 rounded-card border border-red-200 py-2.5 text-sm font-semibold text-red-700 text-center disabled:opacity-40"
+                      disabled={isDeleting}
+                      onClick={() => handleDelete(reminder)}
+                    >
+                      {isDeleting ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto rounded-card bg-card shadow-soft">
           {isFetching && !isLoading && (
             <div className="px-4 py-2 text-right text-xs text-faint">Refreshing…</div>
           )}
@@ -302,7 +357,8 @@ function RemindersContent() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

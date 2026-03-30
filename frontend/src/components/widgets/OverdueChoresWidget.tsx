@@ -36,7 +36,7 @@ export default function OverdueChoresWidget() {
         {showLink && (
           <a
             href="/chores"
-            className="ml-auto shrink-0 rounded-full border border-red-300 px-2 py-0.5 text-[0.65em] font-semibold text-red-700 hover:bg-red-100 transition-colors"
+            className="ml-auto shrink-0 rounded-full border border-red-300 px-2 py-1 text-[0.65em] font-semibold text-red-700 hover:bg-red-100 transition-colors"
           >
             View
           </a>

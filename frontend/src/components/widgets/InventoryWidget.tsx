@@ -159,7 +159,7 @@ export default function InventoryWidget() {
                           type="button"
                           disabled={pendingQtyId === item.id || pendingMarkLowId === item.id || item.quantity <= 0}
                           onClick={() => handleQtyChange(item.id, item.quantity, -1)}
-                          className="w-4 h-4 flex items-center justify-center rounded text-[0.7em] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] disabled:opacity-40 leading-none"
+                          className="w-5 h-5 flex items-center justify-center rounded text-[0.7em] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] disabled:opacity-40 leading-none"
                         >−</button>
                         <span className="text-[0.65em] text-[var(--color-text-secondary)] min-w-[2ch] text-center tabular-nums">
                           {(pendingQtyId === item.id || pendingMarkLowId === item.id) ? '…' : item.quantity}
@@ -168,7 +168,7 @@ export default function InventoryWidget() {
                           type="button"
                           disabled={pendingQtyId === item.id || pendingMarkLowId === item.id}
                           onClick={() => handleQtyChange(item.id, item.quantity, 1)}
-                          className="w-4 h-4 flex items-center justify-center rounded text-[0.7em] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] disabled:opacity-40 leading-none"
+                          className="w-5 h-5 flex items-center justify-center rounded text-[0.7em] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] disabled:opacity-40 leading-none"
                         >+</button>
                         {item.unit && (
                           <span className="text-[0.6em] text-[var(--color-text-secondary)]">{item.unit}</span>
@@ -183,7 +183,7 @@ export default function InventoryWidget() {
                               disabled={pendingMarkLowId === item.id || pendingQtyId === item.id}
                               title={isOut ? 'Clear out-of-stock mark' : isLow ? 'Mark as out of stock' : 'Mark as low stock'}
                               onClick={() => handleStockCycle(item.id, item.quantity, item.lowStockThreshold)}
-                              className={`ml-0.5 rounded border px-1 py-0.5 text-[0.55em] font-medium disabled:opacity-40 ${
+                              className={`ml-0.5 rounded border px-1.5 py-1 text-[0.55em] font-medium disabled:opacity-40 ${
                                 isOut
                                   ? 'border-red-400 bg-red-100 text-red-800 hover:bg-red-200'
                                   : isLow

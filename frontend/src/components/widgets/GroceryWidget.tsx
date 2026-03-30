@@ -78,7 +78,7 @@ export default function GroceryWidget() {
           <button
             type="submit"
             disabled={!quickAddText.trim() || !selectedListId || addItem.isPending}
-            className="shrink-0 w-5 h-5 flex items-center justify-center rounded bg-[var(--color-accent)] text-white text-[0.8em] font-bold disabled:opacity-40"
+            className="shrink-0 w-6 h-6 flex items-center justify-center rounded bg-[var(--color-accent)] text-white text-[0.8em] font-bold disabled:opacity-40"
           >
             {addItem.isPending ? '…' : addedMsg ? '✓' : '+'}
           </button>

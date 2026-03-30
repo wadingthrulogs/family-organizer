@@ -223,7 +223,7 @@ function EventsCalendar({ events, compact, tiny }: { events: CalendarEvent[]; co
                       {bucket.slice(0, maxEvents).map((ev) => (
                         <div
                           key={ev.id}
-                          className="rounded bg-[var(--color-accent)]/15 px-0.5 py-px text-[0.5em] font-medium text-[var(--color-text)] truncate leading-tight"
+                          className="rounded bg-[var(--color-accent)]/15 px-0.5 py-px text-[0.65em] font-medium text-[var(--color-text)] truncate leading-tight"
                           title={`${new Date(ev.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${ev.title}`}
                         >
                           {ev.title}

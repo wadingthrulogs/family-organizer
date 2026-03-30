@@ -172,7 +172,7 @@ function ChoresPage() {
           <button
             type="button"
             aria-pressed={focusMode}
-            className={`rounded-full border px-4 py-2 text-sm transition ${
+            className={`rounded-full border px-4 py-2.5 text-sm transition ${
               focusMode
                 ? 'border-accent bg-accent/10 text-accent'
                 : 'border-th-border text-muted hover:text-heading'
@@ -182,7 +182,7 @@ function ChoresPage() {
             {focusMode ? '✕ Exit focus' : '⚡ Focus mode'}
           </button>
           <button
-            className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text"
+            className="rounded-full bg-btn-primary px-4 py-2.5 text-sm text-btn-primary-text"
             onClick={() => setComposerOpen((value) => !value)}
           >
             {composerOpen ? 'Close form' : 'Add chore'}

@@ -278,14 +278,14 @@ function CalendarPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 rounded-full border border-th-border px-4 py-2 text-sm text-secondary">
-            <button type="button" onClick={() => handleNavigate(-1)} aria-label="Previous" className="rounded-full px-2 py-1 hover:bg-hover-bg">
+            <button type="button" onClick={() => handleNavigate(-1)} aria-label="Previous" className="rounded-full px-3 py-2 hover:bg-hover-bg">
               ‹
             </button>
             <span>{rangeLabel}</span>
-            <button type="button" onClick={() => handleNavigate(1)} aria-label="Next" className="rounded-full px-2 py-1 hover:bg-hover-bg">
+            <button type="button" onClick={() => handleNavigate(1)} aria-label="Next" className="rounded-full px-3 py-2 hover:bg-hover-bg">
               ›
             </button>
-            <button type="button" onClick={handleToday} className="rounded-full border border-th-border px-3 py-1 text-xs font-semibold">
+            <button type="button" onClick={handleToday} className="rounded-full border border-th-border px-3 py-2 text-xs font-semibold">
               Today
             </button>
           </div>
@@ -293,7 +293,7 @@ function CalendarPage() {
             <button
               key={option.id}
               type="button"
-              className={`rounded-full border px-4 py-2 text-sm font-medium ${
+              className={`rounded-full border px-4 py-2.5 text-sm font-medium ${
                 view === option.id ? 'border-btn-primary bg-btn-primary text-btn-primary-text' : 'border-th-border text-secondary'
               }`}
               onClick={() => setView(option.id)}
@@ -361,7 +361,10 @@ function CalendarPage() {
         <div className="grid gap-2">
           <div className="grid grid-cols-7 text-center text-xs font-semibold uppercase tracking-wide text-faint">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <span key={day}>{day}</span>
+              <span key={day}>
+                <span className="md:hidden">{day[0]}</span>
+                <span className="hidden md:inline">{day}</span>
+              </span>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-2">
@@ -371,7 +374,7 @@ function CalendarPage() {
               return (
                 <div
                   key={key}
-                  className={`h-32 rounded-card border px-2 py-2 text-xs ${inMonth ? 'border-th-border bg-card' : 'border-th-border-light bg-hover-bg text-faint'}`}
+                  className={`min-h-[72px] md:h-32 rounded-card border px-2 py-2 text-xs ${inMonth ? 'border-th-border bg-card' : 'border-th-border-light bg-hover-bg text-faint'}`}
                 >
                   <div className="mb-1 flex items-center justify-between text-[11px] font-semibold">
                     <span>{date.getDate()}</span>

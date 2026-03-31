@@ -186,7 +186,21 @@ To sync Google Calendars, you need a free OAuth 2.0 client from Google Cloud.
      - `https://familyorganizer.tail411eff.ts.net/api/v1/integrations/google/callback` *(Tailscale HTTPS)*
 5. Click **Create** — a dialog will show your **Client ID** and **Client Secret**
 
-### 4. Add the Credentials to `backend/.env`
+### 4. Add Test Users (Required while app is in Testing mode)
+
+By default, Google keeps new OAuth apps in **Testing** mode. In this mode, only explicitly approved email addresses can complete the Google sign-in — anyone else will see an "Access blocked" error.
+
+1. Go to **APIs & Services → OAuth consent screen**
+2. Click the **Audience** tab (previously labelled "Test users")
+3. Under **Test users**, click **+ Add Users**
+4. Enter the Gmail address of each Google account you want to connect (e.g. the family calendar owner's address)
+5. Click **Save**
+
+> **Tip:** You need to add every Google account you plan to link in Family Organizer — not just your own. If a family member wants to sync their personal calendar, add their address here too.
+
+You can leave the app in Testing mode indefinitely for personal/household use — there's no need to go through Google's verification process.
+
+### 5. Add the Credentials to `backend/.env`
 
 Open `backend/.env` and fill in these two lines:
 
@@ -203,7 +217,7 @@ Then restart the app:
 make restart
 ```
 
-### 5. Connect Your Google Account
+### 6. Connect Your Google Account
 
 Log in to Family Organizer → **Settings → Google Calendar** → **Connect Google Account**.
 After authorising, your calendars will appear under **Settings → Google Calendar** to enable sync.

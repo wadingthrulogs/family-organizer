@@ -24,6 +24,35 @@ Optional
 
 ![alt text](family_organizer-1.gif)
 
+---
+
+## Screenshots
+
+### Login & Dashboard
+
+| Login | Dashboard — Desktop | Dashboard — Mobile |
+|-------|--------------------|--------------------|
+| ![Login](docs/screenshots/login.png) | ![Dashboard desktop](docs/screenshots/dashboard-desktop.png) | ![Dashboard mobile](docs/screenshots/dashboard-mobile.png) |
+
+### Tasks · Chores · Grocery
+
+| Tasks | Chores | Grocery |
+|-------|--------|---------|
+| ![Tasks](docs/screenshots/tasks-mobile.png) | ![Chores](docs/screenshots/chores-mobile.png) | ![Grocery](docs/screenshots/grocery-mobile.png) |
+
+### Inventory · Meal Plans · Recipes
+
+| Inventory | Meal Plans | Recipes |
+|-----------|------------|---------|
+| ![Inventory](docs/screenshots/inventory-mobile.png) | ![Meal Plans](docs/screenshots/mealplan-mobile.png) | ![Recipes](docs/screenshots/recipes-mobile.png) |
+
+### Calendar · Settings
+
+| Calendar (Week) | Calendar (Month) | Settings |
+|-----------------|------------------|---------|
+| ![Calendar week](docs/screenshots/calendar-mobile.png) | ![Calendar month](docs/screenshots/calendar-month-mobile.png) | ![Settings](docs/screenshots/settings-mobile.png) |
+
+---
 
 ## Quick Start
 

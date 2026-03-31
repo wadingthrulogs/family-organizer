@@ -22,3 +22,9 @@ yarn-debug.log*
 *.db
 *.db-shm
 *.db-wal
+
+# QA / local scripts
+qa-audit.mjs
+qa-audit-2.mjs
+audit-log*.json
+qa-screenshots/

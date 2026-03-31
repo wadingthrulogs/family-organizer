@@ -29,6 +29,7 @@ export function AppLayout() {
   const isDashboard = location.pathname === '/';
   const bgImageUrl = isDashboard ? prefs?.dashboardConfig?.preferences?.backgroundImageUrl : undefined;
   const bgOpacity = isDashboard ? (prefs?.dashboardConfig?.preferences?.backgroundOverlay ?? 1) : 0;
+  const bgFit = isDashboard ? (prefs?.dashboardConfig?.preferences?.backgroundFit ?? 'cover') : 'cover';
   const formattedDate = useMemo(() => {
     return new Intl.DateTimeFormat(undefined, {
       weekday: 'long',
@@ -69,7 +70,7 @@ export function AppLayout() {
           className="fixed inset-0 pointer-events-none"
           style={{
             backgroundImage: `url(${bgImageUrl})`,
-            backgroundSize: 'cover',
+            backgroundSize: bgFit,
             backgroundPosition: 'center',
             opacity: bgOpacity,
             zIndex: 0,

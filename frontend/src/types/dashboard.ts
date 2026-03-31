@@ -9,6 +9,7 @@ export interface DashboardPreferences {
   hideWidgetBorders?: boolean;
   backgroundImageUrl?: string;
   backgroundOverlay?: number;
+  backgroundFit?: 'cover' | 'contain';
   bottomTabKeys?: string[];
 }
 

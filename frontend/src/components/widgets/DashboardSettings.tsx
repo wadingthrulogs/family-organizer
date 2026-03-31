@@ -14,7 +14,9 @@ interface DashboardSettingsBarProps {
   hideWidgetBorders: boolean;
   onToggleBorders: () => void;
   backgroundImageUrl?: string;
+  backgroundFit?: 'cover' | 'contain';
   onSetBackground: (url: string, overlay?: number) => void;
+  onSetBackgroundFit: (fit: 'cover' | 'contain') => void;
   onClearBackground: () => void;
 }
 
@@ -27,7 +29,9 @@ export default function DashboardSettingsBar({
   hideWidgetBorders,
   onToggleBorders,
   backgroundImageUrl,
+  backgroundFit = 'cover',
   onSetBackground,
+  onSetBackgroundFit,
   onClearBackground,
 }: DashboardSettingsBarProps) {
   const navigate = useNavigate();
@@ -259,6 +263,29 @@ export default function DashboardSettingsBar({
                 }}
                 className="w-full"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs text-[var(--color-text-muted)] mb-1">Image fit</label>
+              <div className="flex rounded-lg border border-[var(--color-border)] overflow-hidden text-xs font-medium">
+                {(['cover', 'contain'] as const).map((fit) => (
+                  <button
+                    key={fit}
+                    type="button"
+                    onClick={() => onSetBackgroundFit(fit)}
+                    className={`flex-1 py-1.5 transition-colors capitalize ${
+                      backgroundFit === fit
+                        ? 'bg-[var(--color-accent)] text-white'
+                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]'
+                    }`}
+                  >
+                    {fit === 'cover' ? 'Fill' : 'Fit'}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                {backgroundFit === 'cover' ? 'Fills the screen — image may be cropped.' : 'Shows full image — may leave space at edges.'}
+              </p>
             </div>
 
             {backgroundImageUrl && (

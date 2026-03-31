@@ -126,6 +126,7 @@ function DashboardPage() {
 
   const hideWidgetBorders = config.preferences?.hideWidgetBorders ?? false;
   const backgroundImageUrl = config.preferences?.backgroundImageUrl;
+  const backgroundFit = config.preferences?.backgroundFit ?? 'cover';
 
   const handleSetBackground = useCallback((url: string, overlay?: number) => {
     setConfig((prev) => {
@@ -136,6 +137,17 @@ function DashboardPage() {
           backgroundImageUrl: url,
           backgroundOverlay: overlay ?? prev.preferences?.backgroundOverlay ?? 0.4,
         },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleSetBackgroundFit = useCallback((fit: 'cover' | 'contain') => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: { ...prev.preferences, backgroundFit: fit },
       };
       persistConfig(next);
       return next;
@@ -186,7 +198,9 @@ function DashboardPage() {
         hideWidgetBorders={hideWidgetBorders}
         onToggleBorders={handleToggleBorders}
         backgroundImageUrl={backgroundImageUrl}
+        backgroundFit={backgroundFit}
         onSetBackground={handleSetBackground}
+        onSetBackgroundFit={handleSetBackgroundFit}
         onClearBackground={handleClearBackground}
       />
 

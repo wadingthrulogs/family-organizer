@@ -4,6 +4,7 @@
 | Entity | Description |
 | --- | --- |
 | `users` | Household accounts with role, profile info, and authentication credentials. |
+| `user_preferences` | Per-user UI preferences: theme, dashboard widget layout & config (JSON), hidden tabs. |
 | `user_secrets` | Encrypted blobs for arbitrary per-user secrets (not used for OAuth tokens — see `google_accounts`). |
 | `google_accounts` | Connected Google accounts per user; stores `encrypted_refresh_token` directly. |
 | `linked_calendars` | Mapping of Google calendars to household members, including color and sync metadata. |
@@ -11,6 +12,7 @@
 | `tasks` | User-defined tasks with due dates, recurrence rules, and status. |
 | `task_recurrences` | Normalized recurrence definitions shared across tasks. |
 | `task_assignments` | Many-to-many bridge between tasks and users with per-assignee state. |
+| `task_status_changes` | Append-only audit log of every task status transition (from/to status, changed by, timestamp). |
 | `chores` | Chore templates describing frequency, eligible members, rewards, etc. |
 | `chore_assignments` | Generated chore instances tied to a date window and specific member. |
 | `grocery_lists` | Named lists (Weekly, Costco) with metadata (store, preset). |

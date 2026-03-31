@@ -136,6 +136,9 @@
 ### GET /inventory/export
 - Returns text file download.
 
+### GET /inventory/:id
+- Returns a single inventory item by ID.
+
 ### POST /inventory
 - Body: `{ name, category?, quantity?, unit?, lowStockThreshold?, notes?, dateAdded? }`
 
@@ -239,6 +242,11 @@
 
 ### DELETE /meal-plans/recipes/:recipeId
 - Hard delete (204).
+
+### POST /meal-plans/recipes/bulk
+- Body: `{ text }` — paste one or more recipes as plain text (first line = title, remaining lines = ingredients), or upload a JSON array.
+- Parses and creates multiple recipes in one request.
+- Response: `{ created: number, recipes: Recipe[] }`
 
 ### GET /meal-plans/recipes/:recipeId/inventory-check
 - Query: `?servings` (default: recipe's default servings)

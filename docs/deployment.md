@@ -103,6 +103,8 @@ All variables live in `backend/.env`. The `docker-compose.yml` mounts this as `e
 | `SQLITE_PATH` | Yes | Absolute path to SQLite file in container | `/data/app.db` |
 | `ENCRYPTION_KEY` | Yes | Base64-encoded 32-byte key for encrypting OAuth tokens | *(generated)* |
 | `TZ` | No | Container timezone | `America/New_York` |
+| `SESSION_SECURE` | No | Set `true` to mark session cookies as Secure (required for HTTPS/Tailscale deployments) | `true` |
+| `WEBHOOK_URL` | Optional | Webhook URL for notification delivery | `https://hooks.example.com/...` |
 | `GOOGLE_CLIENT_ID` | Optional | Google OAuth app client ID | `123....apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | Optional | Google OAuth app client secret | `GOCSPX-...` |
 | `GOOGLE_REDIRECT_URL` | Optional | Must match Google Console exactly | `https://family.local/api/v1/integrations/google/callback` |

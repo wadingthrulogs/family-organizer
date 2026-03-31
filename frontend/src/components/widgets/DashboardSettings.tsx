@@ -153,7 +153,7 @@ export default function DashboardSettingsBar({
             ➕ Add widget
           </button>
           {pickerOpen && (
-            <div className="absolute left-0 top-full mt-2 z-50 w-56 rounded-xl border border-[var(--color-border)] bg-card shadow-lg py-1">
+            <div className="absolute left-0 top-full mt-2 z-50 w-56 max-h-64 overflow-y-auto rounded-xl border border-[var(--color-border)] bg-card shadow-lg py-1">
               {widgets.map((w) => {
                 const placed = placedIds.has(w.id);
                 return (
@@ -218,7 +218,7 @@ export default function DashboardSettingsBar({
         </button>
 
         {bgPickerOpen && (
-          <div className="absolute left-0 top-full mt-2 z-50 w-64 rounded-xl border border-[var(--color-border)] bg-card shadow-lg p-4 space-y-3">
+          <div className="absolute left-0 top-full mt-2 z-50 w-64 max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto rounded-xl border border-[var(--color-border)] bg-card shadow-lg p-4 space-y-3">
             {backgroundImageUrl && (
               <div
                 className="w-full h-20 rounded-lg bg-cover bg-center border border-[var(--color-border)]"

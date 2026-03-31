@@ -424,7 +424,7 @@ export function RecipesTab({
                           🛒 Add missing to grocery ▾
                         </button>
                         {showGroceryDropdown === recipe.id && (
-                          <div className="absolute left-0 top-full mt-1 z-20 rounded-card bg-card border border-th-border shadow-soft min-w-[180px]">
+                          <div className="absolute left-0 top-full mt-1 z-20 rounded-card bg-card border border-th-border shadow-soft min-w-[180px] max-h-48 overflow-y-auto">
                             {groceryLists.map((list) => (
                               <button
                                 key={list.id}

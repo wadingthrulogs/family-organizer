@@ -558,7 +558,7 @@ function InventoryPage() {
                         >+ List</button>
                         {addToGroceryItemId === item.id && (
                           <>
-                            <div className="absolute left-0 top-full mt-1 z-20 min-w-[160px] rounded-card border border-th-border bg-card shadow-soft">
+                            <div className="absolute left-0 top-full mt-1 z-20 min-w-[160px] max-h-48 overflow-y-auto rounded-card border border-th-border bg-card shadow-soft">
                               {groceryLists.map((list) => (
                                 <button
                                   key={list.id}
@@ -696,7 +696,7 @@ function InventoryPage() {
                         >+ List</button>
                         {addToGroceryItemId === item.id && (
                           <>
-                            <div className="absolute left-0 top-full mt-1 z-20 min-w-[160px] rounded-card border border-th-border bg-card shadow-soft">
+                            <div className="absolute left-0 bottom-full mb-1 z-[60] min-w-[160px] max-h-48 overflow-y-auto rounded-card border border-th-border bg-card shadow-soft">
                               {groceryLists.map((list) => (
                                 <button
                                   key={list.id}
@@ -710,7 +710,7 @@ function InventoryPage() {
                                 >{list.name}</button>
                               ))}
                             </div>
-                            <div className="fixed inset-0 z-10" onClick={() => setAddToGroceryItemId(null)} />
+                            <div className="fixed inset-0 z-[55]" onClick={() => setAddToGroceryItemId(null)} />
                           </>
                         )}
                       </div>
@@ -885,7 +885,7 @@ function InventoryPage() {
                             </button>
                             {addToGroceryItemId === item.id && (
                               <>
-                                <div className="absolute right-0 top-full mt-1 z-20 min-w-[160px] rounded-card border border-th-border bg-card shadow-soft">
+                                <div className="absolute right-0 top-full mt-1 z-20 min-w-[160px] max-h-48 overflow-y-auto rounded-card border border-th-border bg-card shadow-soft">
                                   {groceryLists.map((list) => (
                                     <button
                                       key={list.id}

@@ -220,7 +220,7 @@ export default function MealPlanPage() {
                 </p>
               )}
               {showGroceryDropdown && (
-                <div className="absolute right-0 top-full mt-1 z-20 rounded-card bg-card border border-th-border shadow-soft min-w-[180px]">
+                <div className="absolute right-0 top-full mt-1 z-20 rounded-card bg-card border border-th-border shadow-soft min-w-[180px] max-h-48 overflow-y-auto">
                   {groceryLists.map((list) => (
                     <button
                       key={list.id}

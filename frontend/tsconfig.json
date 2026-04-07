@@ -10,8 +10,9 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
+    "types": ["vite/client"],
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx"

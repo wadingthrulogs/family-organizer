@@ -11,6 +11,8 @@ import {
   type MoveFromGroceryPayload,
   type MoveFromGroceryListPayload,
 } from '../api/inventory';
+import type { ApiListResponse } from '../api/client';
+import type { InventoryItem } from '../types/inventory';
 
 export function useCreateInventoryItemMutation() {
   const queryClient = useQueryClient();
@@ -29,7 +31,34 @@ export function useUpdateInventoryItemMutation() {
   return useMutation({
     mutationFn: ({ itemId, data }: { itemId: number; data: UpdateInventoryItemPayload }) =>
       updateInventoryItem(itemId, data),
-    onSuccess: () => {
+
+    onMutate: async ({ itemId, data }) => {
+      await queryClient.cancelQueries({ queryKey: ['inventory'] });
+      const previous = queryClient.getQueriesData<ApiListResponse<InventoryItem>>({ queryKey: ['inventory'] });
+      queryClient.setQueriesData<ApiListResponse<InventoryItem>>(
+        { queryKey: ['inventory'] },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((item) =>
+              item.id === itemId ? { ...item, ...data } : item
+            ),
+          };
+        }
+      );
+      return { previous };
+    },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        for (const [queryKey, value] of context.previous) {
+          queryClient.setQueryData(queryKey, value);
+        }
+      }
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },
   });

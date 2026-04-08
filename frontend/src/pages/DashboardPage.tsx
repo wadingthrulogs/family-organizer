@@ -9,41 +9,7 @@ import { getWidget } from '../components/widgets/widgetRegistry';
 import type { DashboardWidgetSlot, DashboardConfig } from '../types/dashboard';
 import { loadDashboardConfig, saveDashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
 import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
-
-/** Build layouts for every responsive breakpoint from the stored lg slots. */
-function getResponsiveLayouts(slots: DashboardWidgetSlot[]) {
-  const lgLayouts = slots.map((s) => s.layout);
-
-  // Sort by reading order (top-to-bottom, left-to-right) for mobile stacking
-  const sorted = [...slots].sort((a, b) =>
-    a.layout.y !== b.layout.y ? a.layout.y - b.layout.y : a.layout.x - b.layout.x,
-  );
-
-  // Stack all widgets in a single full-width column
-  const stacked = (cols: number): Layout[] => {
-    let y = 0;
-    return sorted.map((slot) => {
-      const item = { ...slot.layout, x: 0, y, w: cols };
-      y += slot.layout.h;
-      return item;
-    });
-  };
-
-  // Scale lg (12 cols) proportionally to md (8 cols), clamped to fit
-  const mdLayouts = lgLayouts.map((l) => {
-    const x = Math.min(Math.round((l.x / 12) * 8), 7);
-    const w = Math.max(1, Math.min(Math.round((l.w / 12) * 8), 8 - x));
-    return { ...l, x, w };
-  });
-
-  return {
-    lg: lgLayouts,
-    md: mdLayouts,
-    sm: stacked(4),
-    xs: stacked(2),
-    xxs: stacked(1),
-  };
-}
+import { getResponsiveLayouts } from '../lib/dashboardLayouts';
 
 function DashboardPage() {
   const [config, setConfig] = useState<DashboardConfig>(loadDashboardConfig);
@@ -245,13 +211,14 @@ function DashboardPage() {
               <div key={slot.layout.i} className="relative h-full">
                 {editMode && (
                   <>
-                    <div className="widget-drag-handle absolute top-2 left-2 z-10 cursor-grab rounded-md bg-black/20 px-1.5 py-0.5 text-xs text-white backdrop-blur-sm select-none">
+                    <div className="widget-drag-handle absolute top-2 left-2 z-10 cursor-grab rounded-md bg-black/20 px-3 py-2 text-xs text-white backdrop-blur-sm select-none" style={{ touchAction: 'none' }}>
                       ⠿
                     </div>
                     <button
                       type="button"
                       onClick={() => handleRemoveWidget(slot.layout.i)}
-                      className="absolute top-2 right-2 z-10 rounded-full bg-red-500/80 w-6 h-6 flex items-center justify-center text-white text-xs font-bold backdrop-blur-sm hover:bg-red-600 transition-colors"
+                      aria-label="Remove widget"
+                      className="absolute top-2 right-2 z-10 rounded-full bg-red-500/80 w-10 h-10 flex items-center justify-center text-white text-sm font-bold backdrop-blur-sm hover:bg-red-600 transition-colors"
                     >
                       ✕
                     </button>

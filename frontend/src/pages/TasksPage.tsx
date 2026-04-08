@@ -120,6 +120,7 @@ export default function TasksPage() {
           value={quickAdd}
           onChange={(e) => setQuickAdd(e.target.value)}
           placeholder="+ Add a task and press Enter..."
+          enterKeyHint="send"
           className="flex-1 rounded-lg border border-th-border bg-input-bg px-4 py-2.5 text-sm shadow-soft outline-none focus:border-accent focus:ring-1 focus:ring-accent"
         />
         <button
@@ -138,7 +139,7 @@ export default function TasksPage() {
             key={tab.id}
             type="button"
             onClick={() => setFilter(tab.id)}
-            className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 rounded-md py-2.5 text-sm font-medium transition-colors ${
               filter === tab.id
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-muted hover:text-heading'

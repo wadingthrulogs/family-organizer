@@ -267,7 +267,7 @@ function SettingsPage() {
       {mobileSectionKey !== null && (
         <button
           type="button"
-          className="mb-5 flex items-center gap-1 text-sm text-muted md:hidden"
+          className="mb-5 flex items-center gap-1 py-3 pr-4 text-sm text-muted md:hidden"
           onClick={() => setMobileSectionKey(null)}
         >
           ‹ Back to Settings

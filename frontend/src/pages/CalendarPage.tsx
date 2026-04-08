@@ -315,27 +315,30 @@ function CalendarPage() {
               ))}
             </select>
           )}
-          <button
-            type="button"
-            className={`rounded-full border px-3 py-2 text-xs font-medium ${showOverlay.tasks ? 'border-violet-400 bg-violet-100 text-violet-700' : 'border-th-border text-muted'}`}
-            onClick={() => setShowOverlay((o) => ({ ...o, tasks: !o.tasks }))}
-          >
-            📋 Tasks
-          </button>
-          <button
-            type="button"
-            className={`rounded-full border px-3 py-2 text-xs font-medium ${showOverlay.chores ? 'border-amber-400 bg-amber-100 text-amber-700' : 'border-th-border text-muted'}`}
-            onClick={() => setShowOverlay((o) => ({ ...o, chores: !o.chores }))}
-          >
-            🧹 Chores
-          </button>
-          <button
-            type="button"
-            className={`rounded-full border px-3 py-2 text-xs font-medium ${showOverlay.meals ? 'border-green-400 bg-green-100 text-green-700' : 'border-th-border text-muted'}`}
-            onClick={() => setShowOverlay((o) => ({ ...o, meals: !o.meals }))}
-          >
-            🍽️ Meals
-          </button>
+          {/* Overlay toggles — own full row on mobile, inline on desktop */}
+          <div className="flex w-full flex-wrap gap-2 md:w-auto md:contents">
+            <button
+              type="button"
+              className={`rounded-full border px-3 py-2 text-xs font-medium ${showOverlay.tasks ? 'border-violet-400 bg-violet-100 text-violet-700' : 'border-th-border text-muted'}`}
+              onClick={() => setShowOverlay((o) => ({ ...o, tasks: !o.tasks }))}
+            >
+              📋 Tasks
+            </button>
+            <button
+              type="button"
+              className={`rounded-full border px-3 py-2 text-xs font-medium ${showOverlay.chores ? 'border-amber-400 bg-amber-100 text-amber-700' : 'border-th-border text-muted'}`}
+              onClick={() => setShowOverlay((o) => ({ ...o, chores: !o.chores }))}
+            >
+              🧹 Chores
+            </button>
+            <button
+              type="button"
+              className={`rounded-full border px-3 py-2 text-xs font-medium ${showOverlay.meals ? 'border-green-400 bg-green-100 text-green-700' : 'border-th-border text-muted'}`}
+              onClick={() => setShowOverlay((o) => ({ ...o, meals: !o.meals }))}
+            >
+              🍽️ Meals
+            </button>
+          </div>
         </div>
       </header>
 

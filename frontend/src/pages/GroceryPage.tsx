@@ -258,7 +258,7 @@ function GroceryPage() {
           <h1 className="font-display text-2xl text-heading">Grocery Lists</h1>
           <p className="text-sm text-muted">Mobile shopping mode with live sync and presets.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             className="rounded-full border border-th-border px-4 py-2 text-sm text-primary disabled:opacity-40"

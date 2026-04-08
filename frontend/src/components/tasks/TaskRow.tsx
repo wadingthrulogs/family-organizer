@@ -81,7 +81,7 @@ export function TaskRow({ task, expanded, onToggleExpand }: Props) {
         <button
           type="button"
           onClick={handleCheck}
-          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${
+          className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${
             isDone
               ? 'border-accent bg-accent'
               : 'border-th-border hover:border-accent'

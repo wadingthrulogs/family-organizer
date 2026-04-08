@@ -249,7 +249,7 @@ function RemindersContent() {
                     <button
                       type="button"
                       onClick={() => handleToggleEnabled(reminder)}
-                      className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold transition ${
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                         reminder.enabled
                           ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                           : 'border-th-border bg-hover-bg text-muted'
@@ -564,45 +564,69 @@ function NotificationsContent() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-th-border text-left text-xs font-semibold uppercase tracking-wide text-muted">
-                  <th className="px-3 py-2">Channel</th>
-                  <th className="px-3 py-2">Title</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Reminder</th>
-                  <th className="px-3 py-2">Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-th-border-light">
-                {log.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-hover-bg/50">
-                    <td className="px-3 py-3">
-                      <span className="text-lg" title={entry.channel}>
-                        {CHANNEL_ICONS[entry.channel] ?? '📢'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <p className="font-medium text-heading">{entry.title}</p>
-                      {entry.body && (
-                        <p className="text-xs text-muted truncate max-w-xs">{entry.body}</p>
-                      )}
-                    </td>
-                    <td className="px-3 py-3">
-                      <StatusBadge status={entry.status} />
-                    </td>
-                    <td className="px-3 py-3 text-muted">
-                      {entry.reminder?.title ?? '—'}
-                    </td>
-                    <td className="px-3 py-3 text-xs text-muted">
+          <>
+            {/* Mobile card list */}
+            <ul className="divide-y divide-th-border-light rounded-card border border-th-border bg-card md:hidden">
+              {log.map((entry) => (
+                <li key={entry.id} className="flex items-start gap-3 px-4 py-3">
+                  <span className="text-xl shrink-0" title={entry.channel}>
+                    {CHANNEL_ICONS[entry.channel] ?? '📢'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-heading">{entry.title}</p>
+                    {entry.body && (
+                      <p className="truncate text-xs text-muted">{entry.body}</p>
+                    )}
+                    <p className="mt-0.5 text-xs text-faint">
+                      {entry.reminder?.title && <span className="mr-2">{entry.reminder.title}</span>}
                       {formatDisplayDateTime(entry.sentAt ?? entry.createdAt)}
-                    </td>
+                    </p>
+                  </div>
+                  <StatusBadge status={entry.status} />
+                </li>
+              ))}
+            </ul>
+            {/* Desktop table */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-th-border text-left text-xs font-semibold uppercase tracking-wide text-muted">
+                    <th className="px-3 py-2">Channel</th>
+                    <th className="px-3 py-2">Title</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2">Reminder</th>
+                    <th className="px-3 py-2">Time</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-th-border-light">
+                  {log.map((entry) => (
+                    <tr key={entry.id} className="hover:bg-hover-bg/50">
+                      <td className="px-3 py-3">
+                        <span className="text-lg" title={entry.channel}>
+                          {CHANNEL_ICONS[entry.channel] ?? '📢'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <p className="font-medium text-heading">{entry.title}</p>
+                        {entry.body && (
+                          <p className="text-xs text-muted truncate max-w-xs">{entry.body}</p>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <StatusBadge status={entry.status} />
+                      </td>
+                      <td className="px-3 py-3 text-muted">
+                        {entry.reminder?.title ?? '—'}
+                      </td>
+                      <td className="px-3 py-3 text-xs text-muted">
+                        {formatDisplayDateTime(entry.sentAt ?? entry.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
     </div>
@@ -702,7 +726,7 @@ function ReminderForm({
         Channels
         <div className="flex gap-3">
           {Object.entries(CHANNEL_FLAGS).map(([label, flag]) => (
-            <label key={flag} className="flex items-center gap-2 text-sm font-normal text-secondary">
+            <label key={flag} className="flex cursor-pointer items-center gap-2 py-2 text-sm font-normal text-secondary">
               <input
                 type="checkbox"
                 checked={Boolean(form.channelMask & flag)}
@@ -717,6 +741,7 @@ function ReminderForm({
         Lead time (minutes)
         <input
           type="number"
+          inputMode="numeric"
           min="0"
           max="1440"
           className="rounded-card border border-th-border px-3 py-2"

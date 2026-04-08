@@ -156,12 +156,12 @@ export function AppLayout() {
           ))}
         </nav>
       </header>
-      <main className={`mx-auto px-4 py-8 pb-24 md:pb-8 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
+      <main className={`mx-auto px-4 py-8 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
         <Outlet />
       </main>
 
       {/* Mobile bottom tab bar — visible only on small screens */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-th-border bg-page/95 backdrop-blur md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-th-border bg-page/95 backdrop-blur md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {bottomTabs.map((item) => (
           <NavLink
             key={item.to}
@@ -198,10 +198,10 @@ export function AppLayout() {
               <>
                 {/* Backdrop */}
                 <div
-                  className="fixed inset-0 z-10"
+                  className="fixed inset-0 z-40"
                   onClick={() => setMoreOpen(false)}
                 />
-                <div className="absolute bottom-full right-0 z-20 mb-1 min-w-[160px] rounded-card border border-th-border bg-card py-2 shadow-soft">
+                <div className="absolute bottom-full right-0 z-50 mb-1 min-w-[160px] rounded-card border border-th-border bg-card py-2 shadow-soft">
                   {moreItems.map((item) => (
                     <NavLink
                       key={item.to}

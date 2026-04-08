@@ -335,8 +335,8 @@ function ChoresPage() {
                 <div className="space-y-1">
                   {streaks[chore.id].map((s) => (
                     <div key={s.userId} className="flex items-center justify-between text-xs text-muted">
-                      <span className="font-medium text-secondary">{s.username}</span>
-                      <div className="flex gap-3">
+                      <span className="min-w-0 truncate font-medium text-secondary">{s.username}</span>
+                      <div className="flex shrink-0 gap-3">
                         <span title="Current streak">🔥 {s.currentStreak}</span>
                         <span title="Longest streak">🏆 {s.longestStreak}</span>
                         <span title="Total completed">✅ {s.totalCompleted}</span>

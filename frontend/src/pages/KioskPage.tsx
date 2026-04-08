@@ -10,6 +10,7 @@ import { getWidget } from '../components/widgets/widgetRegistry';
 import type { DashboardConfig } from '../types/dashboard';
 import { loadDashboardConfig, saveDashboardConfig } from '../types/dashboard';
 import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
+import { getResponsiveLayouts } from '../lib/dashboardLayouts';
 
 const AUTO_REFRESH_MS = 60_000; // 1 minute
 const CURSOR_HIDE_MS = 5_000;  // 5 seconds
@@ -133,6 +134,7 @@ function KioskPage() {
   return (
     <div
       className={`min-h-screen w-full bg-page p-4 ${cursorHidden ? 'cursor-hidden' : ''}`}
+      style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
     >
       {bgImageUrl && (
         <div
@@ -151,9 +153,10 @@ function KioskPage() {
       <button
         type="button"
         onClick={() => navigate('/')}
-        className={`fixed top-4 right-4 z-50 rounded-full bg-black/30 px-4 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/50 transition-all ${
+        className={`fixed right-4 z-50 rounded-full bg-black/30 px-4 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/50 transition-all ${
           showExit ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
+        style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
       >
         ✕ Exit
       </button>
@@ -162,11 +165,12 @@ function KioskPage() {
       <button
         type="button"
         onClick={() => setEditMode((v) => !v)}
-        className={`fixed top-4 left-4 z-50 rounded-full px-4 py-2 text-sm backdrop-blur-sm transition-all ${
+        className={`fixed left-4 z-50 rounded-full px-4 py-2 text-sm backdrop-blur-sm transition-all ${
           editMode
             ? 'bg-[var(--color-accent)] text-white opacity-100'
             : `bg-black/30 text-white hover:bg-black/50 ${showExit ? 'opacity-100' : 'opacity-0 pointer-events-none'}`
         }`}
+        style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
       >
         {editMode ? '✓ Done editing' : '✏️ Edit layout'}
       </button>
@@ -202,7 +206,7 @@ function KioskPage() {
             <ResponsiveGridLayout
               className="dashboard-grid"
               width={width}
-              layouts={{ lg: config.slots.map((s) => s.layout) }}
+              layouts={getResponsiveLayouts(config.slots)}
               cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }}
               rowHeight={120}
               isDraggable={editMode}

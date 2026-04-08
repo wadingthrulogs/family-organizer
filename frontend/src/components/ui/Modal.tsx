@@ -52,7 +52,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
   return (
     <dialog
       ref={dialogRef}
-      className={`w-full ${maxWidth} rounded-card border border-th-border bg-card shadow-soft`}
+      className={`w-full ${maxWidth} rounded-card border border-th-border bg-card shadow-soft max-h-[90dvh] overflow-y-auto`}
       onClick={handleBackdropClick}
     >
       <div className="p-6">

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, type FormEvent } from 'react';
+import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react';
 import { useInventory } from '../hooks/useInventory';
 import {
   useCreateInventoryItemMutation,
@@ -92,6 +92,13 @@ function InventoryPage() {
     catch { return 'normal'; }
   });
   const [sheetItem, setSheetItem] = useState<InventoryItem | null>(null);
+  const composerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (composerOpen) {
+      composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [composerOpen]);
 
   useEffect(() => {
     try { localStorage.setItem('inventory-view-mode', viewMode); } catch { /* ignore */ }
@@ -284,7 +291,7 @@ function InventoryPage() {
           <h1 className="font-display text-2xl text-heading">Inventory</h1>
           <p className="text-sm text-muted">Track what you have at home. Move items here from your grocery lists.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             className={`rounded-full border px-4 py-2 text-sm transition ${
@@ -336,7 +343,7 @@ function InventoryPage() {
       </section>
 
       {composerOpen && (
-        <section className="rounded-card border border-th-border bg-card p-5 shadow-soft">
+        <section ref={composerRef} className="rounded-card border border-th-border bg-card p-5 shadow-soft">
           <h2 className="mb-3 font-semibold text-heading">Add to inventory</h2>
           {createError && <p className="mb-2 text-xs text-red-600">{createError}</p>}
           <InventoryForm
@@ -412,6 +419,8 @@ function InventoryPage() {
       <div className="flex items-center gap-3">
         <input
           type="text"
+          inputMode="search"
+          enterKeyHint="search"
           className="flex-1 rounded-card border border-th-border px-3 py-2 text-sm"
           placeholder="Search inventory…"
           value={search}
@@ -428,7 +437,7 @@ function InventoryPage() {
               : 'border-th-border text-muted'
           }`}
         >
-          {viewMode === 'compact' ? '≡ Compact' : '☰ Compact'}
+          {viewMode === 'compact' ? '☰ Normal' : '≡ Compact'}
         </button>
       </div>
 
@@ -437,7 +446,7 @@ function InventoryPage() {
           <button
             type="button"
             onClick={() => setActiveCategory(null)}
-            className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
+            className={`min-h-[44px] rounded-full border px-3 py-2 text-xs font-medium transition ${
               activeCategory === null
                 ? 'border-accent bg-accent/10 text-accent'
                 : 'border-th-border text-muted hover:bg-hover-bg'
@@ -450,7 +459,7 @@ function InventoryPage() {
               key={cat}
               type="button"
               onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-              className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
+              className={`min-h-[44px] rounded-full border px-3 py-2 text-xs font-medium transition ${
                 activeCategory === cat
                   ? 'border-accent bg-accent/10 text-accent'
                   : 'border-th-border text-muted hover:bg-hover-bg'
@@ -587,7 +596,8 @@ function InventoryPage() {
                         >{isDeleting ? 'Removing…' : 'Confirm'}</button>
                         <button
                           type="button"
-                          className="rounded-card border border-th-border px-3 py-2.5 text-sm text-muted"
+                          className="min-w-[44px] rounded-card border border-th-border px-3 py-2.5 text-sm text-muted"
+                          aria-label="Cancel"
                           onClick={() => setConfirmDeleteId(null)}
                         >✕</button>
                       </div>
@@ -621,7 +631,7 @@ function InventoryPage() {
                     <span className={`shrink-0 text-sm tabular-nums ${low ? 'text-amber-600 font-semibold' : 'text-muted'}`}>
                       {formatQuantity(item)}
                     </span>
-                    <span className="shrink-0 text-muted opacity-40">›</span>
+                    <span className="shrink-0 text-muted opacity-40" aria-hidden="true">›</span>
                   </button>
                 </li>
               );
@@ -630,13 +640,13 @@ function InventoryPage() {
 
           {/* Bottom sheet for compact view actions */}
           {sheetItem !== null && (() => {
-            const item = sheetItem;
+            const item = items.find((i) => i.id === sheetItem.id) ?? sheetItem;
             const low = isLowStock(item);
             const isDeleting = deleteItem.isPending && deleteItem.variables === item.id;
             return (
               <>
                 <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setSheetItem(null)} />
-                <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-th-border bg-card shadow-soft md:hidden">
+                <div role="dialog" aria-modal="true" aria-labelledby="sheet-item-title" className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-th-border bg-card shadow-soft md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
                   {/* Handle */}
                   <div className="flex justify-center pt-3 pb-1">
                     <span className="h-1 w-10 rounded-full bg-th-border" />
@@ -644,10 +654,10 @@ function InventoryPage() {
                   {/* Header */}
                   <div className="flex items-start justify-between px-5 py-3 border-b border-th-border">
                     <div>
-                      <p className="font-semibold text-heading">{item.name}</p>
+                      <p id="sheet-item-title" className="font-semibold text-heading">{item.name}</p>
                       {item.category && <p className="text-xs text-muted">{item.category}</p>}
                     </div>
-                    <button type="button" className="text-muted text-lg leading-none px-1" onClick={() => setSheetItem(null)}>✕</button>
+                    <button type="button" className="text-muted text-lg leading-none px-2 py-1" aria-label="Close" onClick={() => setSheetItem(null)}>✕</button>
                   </div>
                   {/* Qty row */}
                   <div className="flex items-center gap-3 px-5 py-4">
@@ -670,7 +680,7 @@ function InventoryPage() {
                     >+</button>
                     <button
                       type="button"
-                      className={`rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-40 ${
+                      className={`min-h-[44px] rounded-full px-3 py-2.5 text-xs font-semibold disabled:opacity-40 ${
                         low ? 'border border-amber-300 bg-amber-100 text-amber-700' : 'border border-th-border text-secondary'
                       }`}
                       disabled={updateItem.isPending}
@@ -725,7 +735,8 @@ function InventoryPage() {
                         >{isDeleting ? 'Removing…' : 'Confirm'}</button>
                         <button
                           type="button"
-                          className="rounded-card border border-th-border px-3 py-2.5 text-sm text-muted"
+                          className="min-w-[44px] rounded-card border border-th-border px-3 py-2.5 text-sm text-muted"
+                          aria-label="Cancel"
                           onClick={() => setConfirmDeleteId(null)}
                         >✕</button>
                       </div>
@@ -997,6 +1008,7 @@ function InventoryForm({
         Quantity
         <input
           type="number"
+          inputMode="decimal"
           min="0"
           step="any"
           className="rounded-card border border-th-border px-3 py-2"
@@ -1017,6 +1029,7 @@ function InventoryForm({
         Low stock threshold
         <input
           type="number"
+          inputMode="decimal"
           min="0"
           step="any"
           className="rounded-card border border-th-border px-3 py-2"

@@ -54,7 +54,7 @@ function EventsToday({ events }: { events: CalendarEvent[] }) {
           className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-[0.8em] py-[0.5em]"
         >
           <span className="font-medium text-[var(--color-text)] truncate text-[0.9em]">
-            {new Date(ev.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{' '}
+            {ev.allDay ? null : `${new Date(ev.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} `}
             {ev.title}
           </span>
           {ev.location && (
@@ -266,17 +266,22 @@ export default function EventsWidget() {
   const { data: mealEntriesData } = useMealPlanCalendar(mealStart, mealEnd);
 
   const mealEmoji: Record<string, string> = { BREAKFAST: '🌅', LUNCH: '🥗', DINNER: '🍽️', SNACK: '🍎' };
+  const mealLocalHour: Record<string, string> = { BREAKFAST: 'T08:00:00', LUNCH: 'T12:00:00', DINNER: 'T18:00:00', SNACK: 'T15:00:00' };
   const events: CalendarEvent[] = useMemo(() => {
     const base: CalendarEvent[] = eventsData?.items ?? [];
-    const meals: CalendarEvent[] = (mealEntriesData?.items ?? []).map((entry) => ({
-      id: -30000 - entry.id,
-      title: `${mealEmoji[entry.mealType] ?? '🍽️'} ${entry.title}`,
-      startAt: entry.actualDate + 'T12:00:00Z',
-      endAt: entry.actualDate + 'T12:00:00Z',
-      allDay: true,
-      timezone: 'UTC',
-      attendees: [],
-    }));
+    const meals: CalendarEvent[] = (mealEntriesData?.items ?? []).map((entry) => {
+      const localTime = mealLocalHour[entry.mealType] ?? 'T12:00:00';
+      const startAt = entry.actualDate + localTime;
+      return {
+        id: -30000 - entry.id,
+        title: `${mealEmoji[entry.mealType] ?? '🍽️'} ${entry.title}`,
+        startAt,
+        endAt: startAt,
+        allDay: true,
+        timezone: 'local',
+        attendees: [],
+      };
+    });
     return [...base, ...meals];
   }, [eventsData, mealEntriesData]);
 

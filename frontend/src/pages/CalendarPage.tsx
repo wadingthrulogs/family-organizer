@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useCalendarEvents } from '../hooks/useCalendarEvents';
+import { useCalendarEvents, useSyncGoogleCalendarsMutation } from '../hooks/useCalendarEvents';
 import { useMealPlanCalendar } from '../hooks/useMealPlans';
 import { fetchLinkedCalendars } from '../api/calendar';
 import { fetchTasks } from '../api/tasks';
@@ -131,6 +131,7 @@ function CalendarPage() {
     staleTime: 60_000,
   });
   const linkedCalendars = calendarsData?.items ?? [];
+  const syncMutation = useSyncGoogleCalendarsMutation();
 
   // Fetch tasks and chores for overlay
   const { data: tasksData } = useQuery({
@@ -213,15 +214,16 @@ function CalendarPage() {
     // Meal plan entries
     if (showOverlay.meals) {
       const mealEmoji: Record<string, string> = { BREAKFAST: '🌅', LUNCH: '🥗', DINNER: '🍽️', SNACK: '🍎' };
+      const mealLocalHour: Record<string, string> = { BREAKFAST: 'T08:00:00', LUNCH: 'T12:00:00', DINNER: 'T18:00:00', SNACK: 'T15:00:00' };
       for (const entry of (mealEntriesData?.items ?? [])) {
-        const iso = entry.actualDate + 'T12:00:00Z';
+        const startAt = entry.actualDate + (mealLocalHour[entry.mealType] ?? 'T12:00:00');
         items.push({
           id: -30000 - entry.id,
           title: `${mealEmoji[entry.mealType] ?? '🍽️'} ${entry.title}`,
-          startAt: iso,
-          endAt: iso,
+          startAt,
+          endAt: startAt,
           allDay: true,
-          timezone: 'UTC',
+          timezone: 'local',
           description: entry.notes ?? null,
           overlaySource: 'mealplan',
           attendees: [],
@@ -314,6 +316,17 @@ function CalendarPage() {
                 </option>
               ))}
             </select>
+          )}
+          {linkedCalendars.length > 0 && (
+            <button
+              type="button"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="rounded-full border border-th-border px-3 py-2 text-xs font-medium text-secondary disabled:opacity-50"
+              title="Sync Google Calendar"
+            >
+              {syncMutation.isPending ? '⟳ Syncing…' : syncMutation.isSuccess ? '✓ Synced' : '⟳ Sync'}
+            </button>
           )}
           {/* Overlay toggles — own full row on mobile, inline on desktop */}
           <div className="flex w-full flex-wrap gap-2 md:w-auto md:contents">

@@ -199,10 +199,12 @@ function DashboardPage() {
             rowHeight={120}
             dragConfig={{ enabled: editMode, handle: editMode ? '.widget-drag-handle' : undefined }}
             resizeConfig={{ enabled: editMode, handles: editMode ? ['se'] : [] }}
-            compactType="vertical"
+            compactType={null}
+            preventCollision={true}
             margin={[16, 16]}
             onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
-            onLayoutChange={handleLayoutChange}
+            onDragStop={handleLayoutChange}
+            onResizeStop={handleLayoutChange}
           >
           {config.slots.map((slot) => {
             const def = getWidget(slot.widgetId);

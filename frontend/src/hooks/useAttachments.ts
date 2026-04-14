@@ -6,7 +6,6 @@ export function useAttachments(entityType: string, entityId: number | null) {
     queryKey: ['attachments', entityType, entityId],
     queryFn: () => fetchAttachments(entityType, entityId!),
     enabled: entityId !== null,
-    staleTime: 30_000,
   });
 }
 

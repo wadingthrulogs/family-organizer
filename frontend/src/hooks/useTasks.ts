@@ -5,6 +5,5 @@ export function useTasks() {
   return useQuery({
     queryKey: ['tasks'],
     queryFn: fetchTasks,
-    staleTime: 30_000,
   });
 }

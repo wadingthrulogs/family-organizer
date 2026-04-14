@@ -5,7 +5,6 @@ export function useMealPlans() {
   return useQuery({
     queryKey: ['mealPlans'],
     queryFn: fetchMealPlans,
-    staleTime: 30_000,
   });
 }
 
@@ -21,6 +20,5 @@ export function useMealPlanCalendar(start: string, end: string) {
   return useQuery({
     queryKey: ['mealPlanCalendar', start, end],
     queryFn: () => fetchMealPlanEntriesInRange(start, end),
-    staleTime: 30_000,
   });
 }

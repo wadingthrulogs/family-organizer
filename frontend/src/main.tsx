@@ -40,7 +40,20 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-const queryClient = new QueryClient();
+// QueryClient defaults tuned for the Pi 5 kiosk (perf-audit-2026-04 §5).
+// refetchOnWindowFocus is disabled because a 24/7 wall display never
+// "loses focus" in any meaningful way — any virtual keyboard, alert, or
+// touch-drag-dismiss used to trigger full refetch cascades.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: 'always',
+      staleTime: 30_000,
+      gcTime: 10 * 60_000,
+    },
+  },
+});
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

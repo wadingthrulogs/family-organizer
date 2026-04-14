@@ -12,8 +12,22 @@ import { loadDashboardConfig, saveDashboardConfig } from '../types/dashboard';
 import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
 import { getResponsiveLayouts } from '../lib/dashboardLayouts';
 
-const AUTO_REFRESH_MS = 60_000; // 1 minute
+const AUTO_REFRESH_MS = 120_000; // 2 minutes — family kiosks don't need 60s freshness
 const CURSOR_HIDE_MS = 5_000;  // 5 seconds
+
+// Targeted invalidation keys for the kiosk auto-refresh tick. We deliberately
+// skip ∞-staleTime data (settings, userPreferences, googleIntegration,
+// linkedCalendars) and self-polling queries (weather already has its own 5m
+// refetchInterval). See perf-audit-2026-04 §3.
+const KIOSK_REFRESH_KEYS = [
+  ['tasks'],
+  ['chores'],
+  ['calendarEvents'],
+  ['groceryLists'],
+  ['inventory'],
+  ['reminders'],
+  ['mealPlanCalendar'],
+] as const;
 
 function KioskPage() {
   const navigate = useNavigate();
@@ -50,10 +64,15 @@ function KioskPage() {
     config.slots.reduce((max, s) => Math.max(max, s.layout.y + s.layout.h), 0) + 2
   );
 
-  // Auto-refresh all queries periodically
+  // Auto-refresh only the widget-backing queries, not every query in cache.
+  // Previous behavior (queryClient.invalidateQueries() with no args) wiped
+  // settings/prefs/google integration too, causing 1,440 full-cache refetches
+  // per day. See perf-audit-2026-04 §3.
   useEffect(() => {
     const interval = setInterval(() => {
-      queryClient.invalidateQueries();
+      KIOSK_REFRESH_KEYS.forEach((key) => {
+        queryClient.invalidateQueries({ queryKey: key as unknown as readonly unknown[] });
+      });
     }, AUTO_REFRESH_MS);
     return () => clearInterval(interval);
   }, [queryClient]);

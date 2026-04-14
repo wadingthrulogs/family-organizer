@@ -81,72 +81,100 @@ function EventsToday({ events, width }: { events: CalendarEvent[]; width: number
   );
 }
 
-/* ─── Week ─── */
-function EventsWeek({ events, width }: { events: CalendarEvent[]; width: number }) {
-  const visibleDays = width > 500 ? 7 : width > 300 ? 5 : width > 180 ? 3 : 2;
+/* ─── Week (agenda list) ─── */
+function EventsWeek({ events }: { events: CalendarEvent[] }) {
   const days = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const arr: Date[] = [];
-    for (let i = 0; i < visibleDays; i++) {
+    for (let i = 0; i < 7; i++) {
       const d = new Date(today);
       d.setDate(d.getDate() + i);
       arr.push(d);
     }
     return arr;
-  }, [visibleDays]);
+  }, []);
 
   const eventMap = useMemo(() => buildEventMap(events), [events]);
+  const todayStr = new Date().toDateString();
+  const MAX_EVENTS_PER_DAY = 4;
 
   return (
-    <div className={`grid gap-1.5 flex-1 min-h-0`} style={{ gridTemplateColumns: `repeat(${visibleDays}, minmax(0, 1fr))` }}>
-      {days.map((day) => {
-        const dateKey = day.toDateString();
-        const bucket = eventMap.get(dateKey) ?? [];
-        const isToday = day.toDateString() === new Date().toDateString();
-        return (
-          <div
-            key={dateKey}
-            className={`rounded-xl border p-1.5 flex flex-col min-h-0 overflow-hidden ${
-              isToday
-                ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/5'
-                : 'border-[var(--color-border)] bg-[var(--color-bg)]'
-            }`}
-          >
-            <div className="flex flex-col items-center mb-1 shrink-0">
-              <p className={`text-[0.95em] font-bold uppercase tracking-wide ${
-                isToday ? 'text-[var(--color-accent)]' : 'text-[var(--color-text)]'
-              }`}>
-                {day.toLocaleDateString(undefined, { weekday: 'short' })}
-              </p>
-              <span className={`text-[0.8em] mt-0.5 ${
-                isToday
-                  ? 'inline-flex items-center justify-center w-[1.8em] h-[1.8em] rounded-full bg-[var(--color-accent)] text-white font-bold'
-                  : 'text-[var(--color-text-secondary)]'
-              }`}>
-                {day.getDate()}
-              </span>
-            </div>
-            <div className="flex-1 space-y-0.5 overflow-y-auto min-h-0">
-              {bucket.length === 0 ? (
-                <p className="text-[0.85em] text-[var(--color-text-secondary)] text-center mt-1">—</p>
-              ) : (
-                bucket.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="rounded-lg border-l-[3px] border-[var(--color-accent)] bg-[var(--color-accent)]/10 px-2 py-1 text-[0.8em] leading-tight"
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="divide-y divide-[var(--color-border)]/60">
+        {days.map((day) => {
+          const dateKey = day.toDateString();
+          const bucket = eventMap.get(dateKey) ?? [];
+          const isToday = dateKey === todayStr;
+
+          // Collapse empty days except today
+          if (bucket.length === 0 && !isToday) return null;
+
+          const visible = bucket.slice(0, MAX_EVENTS_PER_DAY);
+          const overflow = bucket.length - visible.length;
+
+          return (
+            <div
+              key={dateKey}
+              className={`flex items-start gap-[0.5em] py-[0.5em] ${
+                isToday ? 'bg-[var(--color-accent)]/5 rounded-lg px-[0.5em]' : ''
+              }`}
+            >
+              <div className="w-[4.5em] shrink-0 pt-[0.1em]">
+                <p
+                  className={`text-[1em] font-bold uppercase tracking-wide leading-tight ${
+                    isToday ? 'text-[var(--color-accent)]' : 'text-[var(--color-text)]'
+                  }`}
+                >
+                  {day.toLocaleDateString(undefined, { weekday: 'short' })}
+                </p>
+                <p
+                  className={`text-[0.85em] font-semibold tabular-nums leading-tight ${
+                    isToday ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'
+                  }`}
+                >
+                  {day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </p>
+              </div>
+
+              <div className="flex-1 min-w-0 flex flex-col gap-[0.3em]">
+                {visible.length === 0 ? (
+                  <p className="text-[0.9em] italic text-[var(--color-text-secondary)] py-[0.25em]">
+                    Nothing on today
+                  </p>
+                ) : (
+                  visible.map((ev) => (
+                    <div
+                      key={ev.id}
+                      className="flex items-baseline gap-[0.6em] border-l-[0.25em] border-[var(--color-accent)] pl-[0.5em] min-h-[2.2em]"
+                    >
+                      <span className="w-[3.5em] shrink-0 font-mono text-[0.8em] text-[var(--color-text-secondary)] tabular-nums">
+                        {ev.allDay
+                          ? 'all day'
+                          : new Date(ev.startAt).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                      </span>
+                      <span className="flex-1 min-w-0 text-[1em] font-semibold text-[var(--color-text)] line-clamp-2 break-words leading-snug">
+                        {ev.title}
+                      </span>
+                    </div>
+                  ))
+                )}
+                {overflow > 0 && (
+                  <a
+                    href="/calendar"
+                    className="text-[0.85em] font-medium text-[var(--color-accent)] hover:underline pl-[0.75em]"
                   >
-                    <span className="font-medium text-[var(--color-text)] truncate block">
-                      {ev.allDay ? '' : `${new Date(ev.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} `}
-                      {ev.title}
-                    </span>
-                  </div>
-                ))
-              )}
+                    +{overflow} more →
+                  </a>
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -333,7 +361,7 @@ export default function EventsWidget() {
 
       <div className="flex-1 min-h-0 flex flex-col">
         {range === 'day' && <EventsToday events={events} width={width} />}
-        {range === 'week' && <EventsWeek events={events} width={width} />}
+        {range === 'week' && <EventsWeek events={events} />}
         {range === '30days' && <EventsCalendar events={events} compact={compact} tiny={tiny} />}
       </div>
 

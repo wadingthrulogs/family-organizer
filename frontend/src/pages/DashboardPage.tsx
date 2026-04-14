@@ -1,5 +1,5 @@
 import { useState, Suspense, useCallback, useEffect, useRef } from 'react';
-import { ResponsiveGridLayout, useContainerWidth } from 'react-grid-layout';
+import { ResponsiveGridLayout, useContainerWidth, noCompactor } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -199,8 +199,7 @@ function DashboardPage() {
             rowHeight={120}
             dragConfig={{ enabled: editMode, handle: editMode ? '.widget-drag-handle' : undefined }}
             resizeConfig={{ enabled: editMode, handles: editMode ? ['se'] : [] }}
-            compactType={null}
-            preventCollision={true}
+            compactor={noCompactor}
             margin={[16, 16]}
             onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
             onDragStop={handleLayoutChange}

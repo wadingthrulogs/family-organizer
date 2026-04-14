@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ResponsiveGridLayout, useContainerWidth } from 'react-grid-layout';
+import { ResponsiveGridLayout, useContainerWidth, noCompactor } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -25,11 +25,18 @@ function KioskPage() {
   const { width, mounted, containerRef } = useContainerWidth();
   const { data: prefs } = useUserPreferences();
   const updatePrefs = useUpdateUserPreferencesMutation();
+  const serverSynced = useRef(false);
+  const editModeRef = useRef(editMode);
+  useEffect(() => { editModeRef.current = editMode; }, [editMode]);
 
-  // Sync from server when preferences load
+  // Sync from server when preferences load (once per mount, so the 60s
+  // auto-refresh doesn't clobber an in-progress local edit).
   useEffect(() => {
-    if (prefs?.dashboardConfig?.slots?.length) {
-      setConfig(prefs.dashboardConfig);
+    if (prefs?.dashboardConfig && !serverSynced.current) {
+      serverSynced.current = true;
+      if (prefs.dashboardConfig.slots?.length) {
+        setConfig(prefs.dashboardConfig);
+      }
     }
   }, [prefs?.dashboardConfig]);
 
@@ -116,7 +123,7 @@ function KioskPage() {
   }, []);
 
   const handleLayoutChange = useCallback((newLayout: Layout[]) => {
-    if (!editMode) return;
+    if (!editModeRef.current) return;
     setConfig((prev) => {
       const next: DashboardConfig = {
         ...prev,
@@ -129,7 +136,18 @@ function KioskPage() {
       persistConfig(next);
       return next;
     });
-  }, [editMode, persistConfig]);
+  }, [persistConfig]);
+
+  const handleRemoveWidget = useCallback((slotKey: string) => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        slots: prev.slots.filter((s) => s.layout.i !== slotKey),
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
 
   return (
     <div
@@ -153,7 +171,7 @@ function KioskPage() {
       <button
         type="button"
         onClick={() => navigate('/')}
-        className={`fixed right-4 z-50 rounded-full bg-black/30 px-4 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/50 transition-all ${
+        className={`fixed right-4 z-50 inline-flex items-center min-h-[48px] rounded-full bg-black/30 px-5 text-base text-white backdrop-blur-sm hover:bg-black/50 transition-all touch-manipulation active:scale-95 ${
           showExit ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
@@ -165,7 +183,7 @@ function KioskPage() {
       <button
         type="button"
         onClick={() => setEditMode((v) => !v)}
-        className={`fixed left-4 z-50 rounded-full px-4 py-2 text-sm backdrop-blur-sm transition-all ${
+        className={`fixed left-4 z-50 inline-flex items-center min-h-[48px] rounded-full px-5 text-base backdrop-blur-sm transition-all touch-manipulation active:scale-95 ${
           editMode
             ? 'bg-[var(--color-accent)] text-white opacity-100'
             : `bg-black/30 text-white hover:bg-black/50 ${showExit ? 'opacity-100' : 'opacity-0 pointer-events-none'}`
@@ -197,7 +215,7 @@ function KioskPage() {
               {Array.from({ length: 12 * numGridRows }).map((_, i) => (
                 <div
                   key={i}
-                  style={{ border: '1px dashed rgba(128,128,128,0.2)', borderRadius: '8px' }}
+                  style={{ border: '1px dashed rgba(128,128,128,0.4)', borderRadius: '8px' }}
                 />
               ))}
             </div>
@@ -207,15 +225,15 @@ function KioskPage() {
               className="dashboard-grid"
               width={width}
               layouts={getResponsiveLayouts(config.slots)}
+              breakpoints={{ lg: 1280, md: 996, sm: 768, xs: 480, xxs: 0 }}
               cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }}
               rowHeight={120}
-              isDraggable={editMode}
-              isResizable={editMode}
-              resizeHandles={editMode ? ['se'] : []}
-              compactType="vertical"
-              draggableHandle=".widget-drag-handle"
+              dragConfig={{ enabled: editMode, handle: editMode ? '.widget-drag-handle' : undefined }}
+              resizeConfig={{ enabled: editMode, handles: editMode ? ['se', 'sw', 'ne', 'nw'] : [] }}
+              compactor={noCompactor}
               margin={[16, 16]}
-              onLayoutChange={handleLayoutChange}
+              onDragStop={handleLayoutChange}
+              onResizeStop={handleLayoutChange}
             >
             {config.slots.map((slot) => {
               const def = getWidget(slot.widgetId);
@@ -223,9 +241,19 @@ function KioskPage() {
               return (
                 <div key={slot.layout.i} className="relative h-full">
                   {editMode && (
-                    <div className="widget-drag-handle absolute top-2 left-2 z-10 cursor-grab rounded-md bg-black/20 px-1.5 py-0.5 text-xs text-white backdrop-blur-sm select-none">
-                      ⠿
-                    </div>
+                    <>
+                      <div className="widget-drag-handle absolute top-2 left-2 z-10 cursor-grab rounded-xl bg-black/30 w-12 h-12 flex items-center justify-center text-white text-2xl backdrop-blur-sm select-none" style={{ touchAction: 'none' }}>
+                        ⠿
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveWidget(slot.layout.i)}
+                        aria-label="Remove widget"
+                        className="absolute top-2 right-2 z-10 rounded-full bg-red-500/90 w-12 h-12 flex items-center justify-center text-white text-xl font-bold backdrop-blur-sm hover:bg-red-600 transition-colors touch-manipulation active:scale-95"
+                      >
+                        ✕
+                      </button>
+                    </>
                   )}
                   <Suspense
                     fallback={

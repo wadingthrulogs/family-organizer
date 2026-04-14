@@ -86,19 +86,13 @@ export function useWidgetSize(): WidgetSize & { ref: React.RefCallback<HTMLEleme
     };
   }, []);
 
-  // Real-time remeasure during pointer drag (covers RGL resize handle drags
-  // which outpace ResizeObserver's async delivery).
-  useEffect(() => {
-    const onPointerMove = () => {
-      if (!nodeRef.current) return;
-      const { offsetWidth: w, offsetHeight: h } = nodeRef.current;
-      setSize((prev) =>
-        prev.width !== w || prev.height !== h ? { width: w, height: h } : prev
-      );
-    };
-    document.addEventListener('pointermove', onPointerMove);
-    return () => document.removeEventListener('pointermove', onPointerMove);
-  }, []);
+  // NOTE: A global `pointermove` listener used to live here as a
+  // belt-and-suspenders remeasure for react-grid-layout drag/resize lag.
+  // It forced a layout read (offsetWidth/offsetHeight) on every mouse move —
+  // with 10 dashboard widgets, that was ~10 reflows per pointer event and
+  // the #1 CPU hog on the Pi 5 kiosk. Removed per perf-audit-2026-04 §1.
+  // ResizeObserver above handles the real case; RGL's onDragStop / onResizeStop
+  // provide a final settle on DashboardPage / KioskPage.
 
   const compact = size.width < 200 || size.height < 160;
   const tiny = size.width < 140 || size.height < 100;

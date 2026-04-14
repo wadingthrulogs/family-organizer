@@ -7,7 +7,7 @@ export interface WidgetSize {
   compact: boolean;
   /** true when width < 140 or height < 100 */
   tiny: boolean;
-  /** Dynamic base font-size (8-22px) derived from widget dimensions */
+  /** Dynamic base font-size (14-32px) derived from widget dimensions */
   baseFontSize: number;
 }
 
@@ -103,9 +103,9 @@ export function useWidgetSize(): WidgetSize & { ref: React.RefCallback<HTMLEleme
   const compact = size.width < 200 || size.height < 160;
   const tiny = size.width < 140 || size.height < 100;
   // Weighted average favoring width (60/40) so wide-but-short widgets
-  // don't get crushed. Clamp between 8-22px for readability.
+  // don't get crushed. Clamp between 14-32px for touch-kiosk readability.
   const raw = (size.width * 0.6 + size.height * 0.4) * 0.05;
-  const baseFontSize = Math.max(8, Math.min(22, raw));
+  const baseFontSize = Math.max(14, Math.min(32, raw));
 
   return { ...size, compact, tiny, baseFontSize, ref };
 }

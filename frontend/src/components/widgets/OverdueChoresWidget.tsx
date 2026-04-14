@@ -1,9 +1,11 @@
 import { useChores } from '../../hooks/useChores';
+import { useUpdateAssignmentMutation } from '../../hooks/useChoreMutations';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
 
 export default function OverdueChoresWidget() {
   const { data: choresData } = useChores();
-  const { ref, compact, tiny, height, baseFontSize } = useWidgetSize();
+  const { ref, tiny, height, baseFontSize } = useWidgetSize();
+  const updateAssignment = useUpdateAssignmentMutation();
   const chores = choresData?.items ?? [];
 
   const nowMs = Date.now();
@@ -17,37 +19,66 @@ export default function OverdueChoresWidget() {
 
   if (overdueChoreAssignments.length === 0) {
     return (
-      <div ref={ref} style={{ fontSize: baseFontSize }} className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-3 h-full overflow-hidden flex items-center justify-center">
-        <p className="text-[var(--color-text-secondary)] text-[0.9em]">✅ {!tiny && 'No overdue chores!'}</p>
+      <div
+        ref={ref}
+        style={{ fontSize: baseFontSize }}
+        className="rounded-2xl border-2 border-emerald-400 bg-emerald-50/40 dark:bg-emerald-900/20 p-3 h-full overflow-hidden flex flex-col items-center justify-center text-center gap-2"
+      >
+        <span className="text-[2.5em]">✨</span>
+        <p className="text-[1em] font-semibold text-emerald-600 dark:text-emerald-400">
+          All caught up!
+        </p>
       </div>
     );
   }
 
-  const showLink = !compact;
-  const showList = height > 80;
+  const showList = height > 180;
 
   return (
-    <div ref={ref} style={{ fontSize: baseFontSize }} className="rounded-2xl border border-red-300 bg-red-50/80 p-3 h-full overflow-hidden flex flex-col">
-      <div className="flex items-center gap-2 shrink-0">
-        <span className="text-[1.1em]">⚠️</span>
-        <h3 className="font-semibold text-red-700 text-[1em]">
-          {overdueChoreAssignments.length} Overdue{!tiny && (overdueChoreAssignments.length > 1 ? ' Chores' : ' Chore')}
-        </h3>
-        {showLink && (
+    <div
+      ref={ref}
+      style={{ fontSize: baseFontSize }}
+      className="rounded-2xl border-4 border-red-500 bg-red-500/10 p-4 h-full overflow-hidden flex flex-col"
+    >
+      <div className="flex items-center gap-3 mb-3 shrink-0">
+        <span className="text-[2.5em] leading-none">⚠️</span>
+        <div className="min-w-0">
+          <p className="text-[2.5em] font-black text-red-500 leading-none tabular-nums">
+            {overdueChoreAssignments.length}
+          </p>
+          <p className="text-[0.95em] font-semibold text-red-500 uppercase tracking-wide">
+            Overdue
+          </p>
+        </div>
+        {!tiny && (
           <a
             href="/chores"
-            className="ml-auto shrink-0 rounded-full border border-red-300 px-2 py-1 text-[0.65em] font-semibold text-red-700 hover:bg-red-100 transition-colors"
+            className="ml-auto inline-flex items-center min-h-[44px] px-4 text-[0.9em] font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-colors touch-manipulation shrink-0"
           >
             View
           </a>
         )}
       </div>
       {showList && (
-        <ul className="mt-1.5 space-y-0.5 flex-1 min-h-0 overflow-y-auto">
-          {overdueChoreAssignments.map((a, i) => (
-            <li key={i} className="text-red-600 flex items-center gap-1.5 text-[0.8em]">
-              <span className="w-1 h-1 rounded-full bg-red-400 shrink-0" />
-              <span className="truncate">{a.choreTitle}</span>
+        <ul className="flex-1 min-h-0 overflow-y-auto space-y-2">
+          {overdueChoreAssignments.map((a) => (
+            <li
+              key={a.id}
+              className="flex items-center gap-3 min-h-[48px] rounded-xl bg-white/70 dark:bg-black/30 px-3 py-2"
+            >
+              <span className="flex-1 text-[0.95em] text-[var(--color-text)] truncate">
+                {a.choreTitle}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  updateAssignment.mutate({ assignmentId: a.id, data: { state: 'COMPLETED' } })
+                }
+                disabled={updateAssignment.isPending}
+                className="shrink-0 min-h-[44px] px-3 text-[0.85em] font-medium rounded-lg bg-red-500 text-white hover:bg-red-600 active:scale-95 touch-manipulation disabled:opacity-50"
+              >
+                Resolve
+              </button>
             </li>
           ))}
         </ul>

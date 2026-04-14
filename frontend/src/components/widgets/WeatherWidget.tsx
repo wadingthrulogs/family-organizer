@@ -1,4 +1,3 @@
-import React from 'react';
 import { useWeather } from '../../hooks/useWeather';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
 
@@ -57,73 +56,65 @@ export default function WeatherWidget() {
   const unitSymbol = data.units === 'metric' ? '°C' : '°F';
   const windUnit = data.units === 'metric' ? 'm/s' : 'mph';
 
-  // Layout decisions based on actual pixel dimensions
-  const isWide = width > 280;
   const isTall = height > 200;
-  const showForecast = height > 100 || width > 250;
-  const forecastCount = width > 400 ? 5 : width > 250 ? 5 : width > 140 ? 3 : 3;
-  const forecastHorizontal = height < 160 && width > 250;
-  const showDetails = isTall && width > 160;
+  const showForecast = height > 120 && width > 180;
+  const forecastCount = width > 400 ? 5 : width > 250 ? 4 : 3;
+  const showDetails = isTall && width > 180;
 
-  // Match ClockWidget scaling for the temperature text
-  const tempFontSize = Math.max(14, Math.min(72, width * 0.12, height * 0.3));
+  // Temperature hero font
+  const tempFontSize = Math.max(16, Math.min(72, width * 0.14, height * 0.32));
 
   return (
-    <div ref={ref} style={{ fontSize: baseFontSize }} className="rounded-2xl p-2 bg-[var(--color-card)] border border-[var(--color-border)] h-full overflow-hidden flex flex-col gap-0.5">
+    <div ref={ref} style={{ fontSize: baseFontSize }} className="rounded-2xl p-3 bg-[var(--color-card)] border border-[var(--color-border)] h-full overflow-hidden flex flex-col gap-2">
 
       {/* ── Current conditions row ── */}
-      <div className={`flex items-center gap-1 shrink-0 ${forecastHorizontal ? '' : 'justify-center'}`}>
-        <span style={{ fontSize: `${tempFontSize * 0.7}px` }} className="leading-none shrink-0">{weatherEmoji(data.current.icon)}</span>
-        <div className="min-w-0">
-          <div className="flex items-baseline gap-1">
-            <span
-              style={{ fontSize: `${tempFontSize}px` }}
-              className="font-bold text-[var(--color-text)] leading-none"
-            >
-              {data.current.temp}{unitSymbol}
-            </span>
-            {!tiny && (
-              <span className="text-[0.6em] text-[var(--color-text-secondary)] capitalize truncate">
-                {data.current.description}
-              </span>
-            )}
-          </div>
+      <div className="flex items-center gap-3 shrink-0">
+        <span style={{ fontSize: `${tempFontSize * 0.85}px` }} className="leading-none shrink-0">
+          {weatherEmoji(data.current.icon)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <span
+            style={{ fontSize: `${tempFontSize}px`, fontVariantNumeric: 'tabular-nums' }}
+            className="font-bold text-[var(--color-text)] leading-none block"
+          >
+            {data.current.temp}{unitSymbol}
+          </span>
           {!tiny && (
-            <p className="text-[0.55em] text-[var(--color-text-secondary)] truncate leading-tight">
+            <p className="text-[0.9em] text-[var(--color-text-secondary)] capitalize truncate mt-1">
+              {data.current.description}
+            </p>
+          )}
+          {!tiny && (
+            <p className="text-[0.85em] text-[var(--color-text-secondary)] truncate">
               {data.location} · H:{data.current.high}° L:{data.current.low}°
             </p>
           )}
         </div>
-        {/* Inline details when wide enough but not tall enough for separate row */}
-        {isWide && !isTall && !tiny && (
-          <div className="ml-auto text-right text-[0.55em] text-[var(--color-text-secondary)] shrink-0 leading-snug">
-            <p>Feels {data.current.feelsLike}{unitSymbol}</p>
-            <p>💧{data.current.humidity}% 💨{data.current.windSpeed}{windUnit}</p>
-          </div>
-        )}
       </div>
 
-      {/* ── Detail chips (when tall) ── */}
+      {/* ── Detail chips (when tall enough) ── */}
       {showDetails && (
-        <div className="flex flex-wrap gap-x-2 gap-y-0.5 shrink-0 text-[0.55em] text-[var(--color-text-secondary)] justify-center">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 shrink-0 text-[0.9em] text-[var(--color-text-secondary)] justify-center">
           <span>Feels {data.current.feelsLike}{unitSymbol}</span>
           <span>💧 {data.current.humidity}%</span>
           <span>💨 {data.current.windSpeed} {windUnit}</span>
         </div>
       )}
 
-      {/* ── Forecast ── */}
+      {/* ── Forecast tiles ── */}
       {showForecast && (
-        <div className={`flex-1 min-h-0 flex ${forecastHorizontal ? 'items-center' : 'flex-col justify-end'}`}>
-          {!forecastHorizontal && <div className="border-t border-[var(--color-border)] mb-1" />}
-          <div className="grid text-center w-full"
-            style={{ gridTemplateColumns: `repeat(${forecastCount}, minmax(0, 1fr))`, gap: '2px' }}
-          >
+        <div className="flex-1 min-h-0 flex flex-col justify-end">
+          <div className="grid w-full gap-2" style={{ gridTemplateColumns: `repeat(${forecastCount}, minmax(0, 1fr))` }}>
             {data.daily.slice(0, forecastCount).map((d) => (
-              <div key={d.date} className="flex flex-col items-center py-0.5">
-                <span className="text-[0.55em] font-medium text-[var(--color-text-secondary)] leading-none">{dayLabel(d.date)}</span>
-                <span className="text-[0.9em] leading-tight my-px">{weatherEmoji(d.icon)}</span>
-                <span className="text-[0.55em] text-[var(--color-text)] leading-none">
+              <div
+                key={d.date}
+                className="flex flex-col items-center gap-1 rounded-lg border border-[var(--color-border)]/50 bg-[var(--color-bg)]/60 p-2"
+              >
+                <span className="text-[0.85em] font-medium text-[var(--color-text-secondary)] leading-none">
+                  {dayLabel(d.date)}
+                </span>
+                <span className="text-[1.4em] leading-none">{weatherEmoji(d.icon)}</span>
+                <span className="text-[0.85em] text-[var(--color-text)] leading-none tabular-nums">
                   <span className="font-semibold">{d.high}°</span>
                   <span className="text-[var(--color-text-secondary)]"> {d.low}°</span>
                 </span>

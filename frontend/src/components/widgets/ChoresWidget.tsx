@@ -1,9 +1,12 @@
 import { useChores } from '../../hooks/useChores';
+import { useUpdateAssignmentMutation } from '../../hooks/useChoreMutations';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
+import type { ChoreAssignmentState } from '../../types/chore';
 
 export default function ChoresWidget() {
   const { data: choresData } = useChores();
   const { ref, compact, tiny, height, baseFontSize } = useWidgetSize();
+  const updateAssignment = useUpdateAssignmentMutation();
   const chores = choresData?.items ?? [];
   const pendingChores = chores.filter((c) => c.active);
 
@@ -24,15 +27,18 @@ export default function ChoresWidget() {
   return (
     <div ref={ref} style={{ fontSize: baseFontSize }} className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-3 h-full overflow-hidden flex flex-col">
       {showHeader && (
-        <div className="flex items-center justify-between mb-2 shrink-0">
-          <h2 className="font-semibold text-[var(--color-text)] text-[1.2em]">
+        <div className="flex items-center justify-between mb-3 shrink-0 gap-2">
+          <h2 className="font-semibold text-[var(--color-text)] text-[1.3em]">
             🧹 {!tiny && 'Chores'}{' '}
-            <span className="font-normal text-[var(--color-text-secondary)] text-[0.7em]">
+            <span className="font-normal text-[var(--color-text-secondary)] text-[0.9em]">
               ({pendingChores.length})
             </span>
           </h2>
           {showLink && (
-            <a href="/chores" className="text-[0.7em] text-[var(--color-accent)] hover:underline shrink-0">
+            <a
+              href="/chores"
+              className="inline-flex items-center min-h-[44px] px-3 text-[0.9em] font-medium text-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent)]/10 transition-colors touch-manipulation shrink-0"
+            >
               View →
             </a>
           )}
@@ -40,51 +46,73 @@ export default function ChoresWidget() {
       )}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {pendingChores.length > 0 ? (
-          <ul className="space-y-1 pr-0.5">
+          <ul className="space-y-2 pr-0.5">
             {pendingChores.map((c) => {
               const isOverdue = overdueIds.has(c.id);
               const currentAssignment = (c.assignments ?? [])
                 .filter((a) => a.state === 'PENDING' || a.state === 'IN_PROGRESS')
                 .sort((a, b) => new Date(a.windowStart).getTime() - new Date(b.windowStart).getTime())[0];
+
+              const nextState: ChoreAssignmentState | null =
+                currentAssignment?.state === 'PENDING'
+                  ? 'IN_PROGRESS'
+                  : currentAssignment?.state === 'IN_PROGRESS'
+                  ? 'COMPLETED'
+                  : null;
+              const actionLabel =
+                currentAssignment?.state === 'PENDING'
+                  ? 'Start'
+                  : currentAssignment?.state === 'IN_PROGRESS'
+                  ? 'Done'
+                  : null;
+
               return (
                 <li
                   key={c.id}
-                  className={`flex items-center gap-1.5 rounded-lg border ${compact ? 'px-2 py-1' : 'px-3 py-2'} ${
+                  className={`flex items-center gap-3 min-h-[56px] rounded-xl border px-4 py-3 ${
                     isOverdue
-                      ? 'border-red-300 bg-red-50/60'
+                      ? 'border-2 border-red-500 bg-red-500/10'
                       : 'border-[var(--color-border)] bg-[var(--color-bg)]'
                   }`}
                 >
-                  <span className="flex-1 text-[var(--color-text)] truncate text-[0.9em]">
+                  <span className="flex-1 text-[var(--color-text)] truncate text-[1em]">
                     {c.title}
                   </span>
                   {currentAssignment?.assignee && !tiny && (
-                    <span className="shrink-0 flex items-center gap-0.5 text-[0.6em] text-[var(--color-text-secondary)]">
-                      <span
-                        className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
-                        style={{ backgroundColor: currentAssignment.assignee.colorHex ?? '#94a3b8' }}
-                      />
-                      {!compact && (
-                        <span className="max-w-[5em] truncate">
-                          {currentAssignment.assignee.username}
-                        </span>
-                      )}
-                    </span>
-                  )}
-                  {!tiny && (
-                    <span className="shrink-0 text-[0.6em] text-[var(--color-text-secondary)] capitalize">
-                      {c.frequency.toLowerCase()}
+                    <span
+                      className="shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[0.8em] font-medium text-white max-w-[7em] truncate"
+                      style={{ backgroundColor: currentAssignment.assignee.colorHex ?? '#94a3b8' }}
+                    >
+                      {currentAssignment.assignee.username}
                     </span>
                   )}
                   {isOverdue && !tiny && (
-                    <span className="shrink-0 text-[0.6em] font-semibold text-red-500">Overdue</span>
+                    <span className="shrink-0 text-[0.85em] font-semibold text-red-500">Overdue</span>
+                  )}
+                  {nextState && currentAssignment && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateAssignment.mutate({
+                          assignmentId: currentAssignment.id,
+                          data: { state: nextState },
+                        })
+                      }
+                      disabled={updateAssignment.isPending}
+                      className="shrink-0 min-h-[44px] px-4 text-[0.9em] rounded-xl font-medium bg-[var(--color-accent)] text-white hover:opacity-80 active:scale-95 touch-manipulation disabled:opacity-50"
+                    >
+                      {actionLabel}
+                    </button>
                   )}
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="text-[0.85em] text-[var(--color-text-secondary)]">All caught up! 🎉</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 h-full">
+            <span className="text-[2em]">✨</span>
+            <p className="text-[1em] text-[var(--color-text-secondary)]">All caught up!</p>
+          </div>
         )}
       </div>
     </div>

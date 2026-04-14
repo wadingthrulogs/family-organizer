@@ -44,7 +44,12 @@ function EventsToday({ events, width }: { events: CalendarEvent[]; width: number
     (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
   );
   if (sorted.length === 0)
-    return <p className="text-[var(--color-text-secondary)] text-[0.9em]">No events today.</p>;
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
+        <span className="text-[2em]">🗓️</span>
+        <p className="text-[1em] text-[var(--color-text-secondary)]">Nothing on today.</p>
+      </div>
+    );
 
   const cols = width > 900 ? 2 : 1;
   return (
@@ -66,7 +71,7 @@ function EventsToday({ events, width }: { events: CalendarEvent[]; width: number
             {ev.title}
           </span>
           {ev.location && (
-            <span className="text-[0.75em] text-[var(--color-text-secondary)] truncate max-w-[30%] shrink-0">
+            <span className="text-[0.85em] text-[var(--color-text-secondary)] truncate max-w-[30%] shrink-0">
               {ev.location}
             </span>
           )}
@@ -124,7 +129,7 @@ function EventsWeek({ events, width }: { events: CalendarEvent[]; width: number 
             </div>
             <div className="flex-1 space-y-0.5 overflow-y-auto min-h-0">
               {bucket.length === 0 ? (
-                <p className="text-[0.55em] text-[var(--color-text-secondary)] text-center mt-1">—</p>
+                <p className="text-[0.85em] text-[var(--color-text-secondary)] text-center mt-1">—</p>
               ) : (
                 bucket.map((ev) => (
                   <div
@@ -196,7 +201,7 @@ function EventsCalendar({ events, compact, tiny }: { events: CalendarEvent[]; co
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
             <div
               key={i}
-              className="text-[0.55em] font-semibold text-[var(--color-text-secondary)] text-center py-0.5 uppercase"
+              className="text-[0.85em] font-semibold text-[var(--color-text-secondary)] text-center py-0.5 uppercase"
             >
               {d}
             </div>
@@ -240,7 +245,7 @@ function EventsCalendar({ events, compact, tiny }: { events: CalendarEvent[]; co
                         </div>
                       ))}
                       {bucket.length > maxEvents && (
-                        <p className="text-[0.45em] text-[var(--color-text-secondary)] pl-0.5">
+                        <p className="text-[0.75em] text-[var(--color-text-secondary)] pl-0.5">
                           +{bucket.length - maxEvents}
                         </p>
                       )}
@@ -313,8 +318,7 @@ export default function EventsWidget() {
               <button
                 key={btn.value}
                 onClick={() => setRange(btn.value)}
-                style={{ touchAction: 'manipulation' }}
-                className={`min-h-[48px] px-5 text-[0.85em] rounded-xl font-medium transition-colors touch-manipulation ${
+                className={`min-h-[48px] px-5 text-[0.9em] rounded-xl font-medium transition-colors touch-manipulation active:scale-95 ${
                   range === btn.value
                     ? 'bg-[var(--color-accent)] text-white'
                     : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border)]'
@@ -337,8 +341,7 @@ export default function EventsWidget() {
         <div className="mt-3 flex justify-end shrink-0">
           <a
             href="/calendar"
-            style={{ touchAction: 'manipulation' }}
-            className="inline-flex items-center justify-center min-h-[44px] px-4 text-[0.85em] font-medium text-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent)]/10 transition-colors touch-manipulation"
+            className="inline-flex items-center justify-center min-h-[44px] px-4 text-[0.9em] font-medium text-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent)]/10 transition-colors touch-manipulation"
           >
             View full calendar →
           </a>

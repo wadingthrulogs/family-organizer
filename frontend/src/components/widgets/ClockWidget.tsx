@@ -21,23 +21,24 @@ export default function ClockWidget() {
 
   const showDate = height > 100;
 
-  // Scale time font relative to available space — constrained by both axes
-  // so the string fits whether the widget is tall-and-narrow or wide-and-short.
-  const timeFontSize = Math.max(14, Math.min(width * 0.14, height * 0.45));
+  // Reserve ~40px of vertical space for the date row so the time never
+  // overflows it. Constrain by both axes so the string fits whether the
+  // widget is tall-and-narrow or wide-and-short.
+  const timeFontSize = Math.max(14, Math.min(width * 0.14, (height - 40) * 0.5));
 
   return (
     <div ref={ref} style={{ fontSize: baseFontSize }} className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-2 text-center flex flex-col items-center justify-center h-full overflow-hidden">
       <span
-        style={{ fontSize: `${timeFontSize}px` }}
+        style={{ fontSize: `${timeFontSize}px`, fontVariantNumeric: 'tabular-nums' }}
         className="font-bold text-[var(--color-text)] font-mono tracking-wide leading-none"
       >
         {timeStr}
       </span>
       {showDate && (
-        <span className="text-[0.75em] text-[var(--color-text-secondary)] mt-1 leading-tight truncate">
+        <span className="text-[1.1em] font-medium text-[var(--color-text-secondary)] mt-2 leading-tight truncate">
           {now.toLocaleDateString(undefined, compact
             ? { month: 'short', day: 'numeric' }
-            : { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }
+            : { weekday: 'long', month: 'long', day: 'numeric' }
           )}
         </span>
       )}

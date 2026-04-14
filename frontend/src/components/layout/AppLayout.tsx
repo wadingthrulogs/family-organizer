@@ -78,7 +78,7 @@ export function AppLayout() {
         />
       )}
       <header className="sticky top-0 z-20 bg-page/90 backdrop-blur border-b border-th-border">
-        <div className={`mx-auto flex items-center justify-between px-4 py-2 md:py-4 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
+        <div className={`mx-auto flex items-center justify-between px-4 py-2 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
           {/* Date/greeting — hidden on mobile */}
           <div className="hidden md:block">
             <p className="text-xs uppercase tracking-wide text-muted">Today</p>
@@ -98,7 +98,7 @@ export function AppLayout() {
                 ref={avatarRef}
                 type="button"
                 onClick={() => setAvatarMenuOpen((v) => !v)}
-                className="h-10 w-10 rounded-full bg-accent text-btn-primary-text flex items-center justify-center font-semibold"
+                className="h-12 w-12 rounded-full bg-accent text-btn-primary-text flex items-center justify-center font-semibold touch-manipulation"
                 aria-label="Account menu"
               >
                 {initials}
@@ -132,20 +132,20 @@ export function AppLayout() {
             <button
               type="button"
               onClick={logout}
-              className="hidden md:inline-flex rounded-full border border-th-border px-3 py-1.5 text-xs font-medium text-secondary hover:bg-hover-bg"
+              className="hidden md:inline-flex items-center min-h-[44px] rounded-full border border-th-border px-4 text-sm font-medium text-secondary hover:bg-hover-bg touch-manipulation"
             >
               Sign out
             </button>
           </div>
         </div>
         {/* Desktop nav — hidden on mobile */}
-        <nav className={`mx-auto hidden gap-2 overflow-x-auto px-4 pb-4 md:flex ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
+        <nav className={`mx-auto hidden gap-2 overflow-x-auto px-4 pb-2 md:flex ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
           {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `shrink-0 rounded-full px-4 py-2 text-sm font-medium ${
+                `inline-flex items-center shrink-0 min-h-[48px] rounded-full px-5 text-[0.95em] font-medium touch-manipulation ${
                   isActive ? 'bg-nav-active text-nav-active-text' : 'bg-nav-pill text-nav-pill-text'
                 }`
               }
@@ -156,7 +156,7 @@ export function AppLayout() {
           ))}
         </nav>
       </header>
-      <main className={`mx-auto px-4 py-8 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
+      <main className={`mx-auto px-4 py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-4 ${isDashboard ? 'max-w-[1800px]' : 'max-w-6xl'}`}>
         <Outlet />
       </main>
 

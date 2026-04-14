@@ -4,7 +4,7 @@ import type { Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
-import DashboardSettingsBar from '../components/widgets/DashboardSettings';
+import { DashboardSettingsSheet } from '../components/widgets/DashboardSettings';
 import { getWidget } from '../components/widgets/widgetRegistry';
 import type { DashboardWidgetSlot, DashboardConfig } from '../types/dashboard';
 import { loadDashboardConfig, saveDashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
@@ -14,6 +14,7 @@ import { getResponsiveLayouts } from '../lib/dashboardLayouts';
 function DashboardPage() {
   const [config, setConfig] = useState<DashboardConfig>(loadDashboardConfig);
   const [editMode, setEditMode] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const { width, mounted, containerRef } = useContainerWidth();
   const { data: prefs } = useUserPreferences();
@@ -154,21 +155,33 @@ function DashboardPage() {
   }, [persistConfig]);
 
   return (
-    <div className="space-y-4">
-      <DashboardSettingsBar
-        config={config}
-        editMode={editMode}
-        onToggleEdit={() => setEditMode((v) => !v)}
-        onAddWidget={handleAddWidget}
-        onReset={handleReset}
-        hideWidgetBorders={hideWidgetBorders}
-        onToggleBorders={handleToggleBorders}
-        backgroundImageUrl={backgroundImageUrl}
-        backgroundFit={backgroundFit}
-        onSetBackground={handleSetBackground}
-        onSetBackgroundFit={handleSetBackgroundFit}
-        onClearBackground={handleClearBackground}
-      />
+    <div>
+      <button
+        type="button"
+        onClick={() => setSettingsOpen(true)}
+        aria-label="Dashboard settings"
+        className="fixed bottom-24 right-6 md:bottom-6 z-30 h-14 w-14 rounded-full bg-[var(--color-accent)] text-white shadow-lg flex items-center justify-center text-2xl hover:opacity-90 active:scale-95 touch-manipulation"
+      >
+        ⚙
+      </button>
+
+      {settingsOpen && (
+        <DashboardSettingsSheet
+          config={config}
+          editMode={editMode}
+          onToggleEdit={() => setEditMode((v) => !v)}
+          onAddWidget={handleAddWidget}
+          onReset={handleReset}
+          hideWidgetBorders={hideWidgetBorders}
+          onToggleBorders={handleToggleBorders}
+          backgroundImageUrl={backgroundImageUrl}
+          backgroundFit={backgroundFit}
+          onSetBackground={handleSetBackground}
+          onSetBackgroundFit={handleSetBackgroundFit}
+          onClearBackground={handleClearBackground}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
       <div ref={containerRef} className={`relative ${hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
         {mounted && editMode && (
@@ -185,7 +198,7 @@ function DashboardPage() {
             {Array.from({ length: 12 * numGridRows }).map((_, i) => (
               <div
                 key={i}
-                style={{ border: '1px dashed rgba(128,128,128,0.2)', borderRadius: '8px' }}
+                style={{ border: '1px dashed rgba(128,128,128,0.4)', borderRadius: '8px' }}
               />
             ))}
           </div>
@@ -195,10 +208,11 @@ function DashboardPage() {
             className="dashboard-grid"
             width={width}
             layouts={getResponsiveLayouts(config.slots)}
+            breakpoints={{ lg: 1280, md: 996, sm: 768, xs: 480, xxs: 0 }}
             cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }}
             rowHeight={120}
             dragConfig={{ enabled: editMode, handle: editMode ? '.widget-drag-handle' : undefined }}
-            resizeConfig={{ enabled: editMode, handles: editMode ? ['se'] : [] }}
+            resizeConfig={{ enabled: editMode, handles: editMode ? ['se', 'sw', 'ne', 'nw'] : [] }}
             compactor={noCompactor}
             margin={[16, 16]}
             onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
@@ -212,14 +226,14 @@ function DashboardPage() {
               <div key={slot.layout.i} className="relative h-full">
                 {editMode && (
                   <>
-                    <div className="widget-drag-handle absolute top-2 left-2 z-10 cursor-grab rounded-md bg-black/20 px-3 py-2 text-xs text-white backdrop-blur-sm select-none" style={{ touchAction: 'none' }}>
+                    <div className="widget-drag-handle absolute top-2 left-2 z-10 cursor-grab rounded-xl bg-black/30 w-12 h-12 flex items-center justify-center text-white text-2xl backdrop-blur-sm select-none" style={{ touchAction: 'none' }}>
                       ⠿
                     </div>
                     <button
                       type="button"
                       onClick={() => handleRemoveWidget(slot.layout.i)}
                       aria-label="Remove widget"
-                      className="absolute top-2 right-2 z-10 rounded-full bg-red-500/80 w-10 h-10 flex items-center justify-center text-white text-sm font-bold backdrop-blur-sm hover:bg-red-600 transition-colors"
+                      className="absolute top-2 right-2 z-10 rounded-full bg-red-500/90 w-12 h-12 flex items-center justify-center text-white text-xl font-bold backdrop-blur-sm hover:bg-red-600 transition-colors touch-manipulation active:scale-95"
                     >
                       ✕
                     </button>

@@ -45,7 +45,7 @@ const registry: WidgetDef[] = [
     label: 'Events',
     icon: '📅',
     component: lazy(() => import('./EventsWidget')),
-    defaultW: 12, defaultH: 3, minW: 1, minH: 1,
+    defaultW: 12, defaultH: 4, minW: 3, minH: 2,
   },
   {
     id: 'overdueChores',

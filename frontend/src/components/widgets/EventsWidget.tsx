@@ -39,26 +39,34 @@ function buildEventMap(events: CalendarEvent[]) {
 }
 
 /* ─── Today ─── */
-function EventsToday({ events }: { events: CalendarEvent[] }) {
+function EventsToday({ events, width }: { events: CalendarEvent[]; width: number }) {
   const sorted = [...events].sort(
     (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
   );
   if (sorted.length === 0)
     return <p className="text-[var(--color-text-secondary)] text-[0.9em]">No events today.</p>;
 
+  const cols = width > 900 ? 2 : 1;
   return (
-    <ul className="space-y-1 flex-1 min-h-0 overflow-y-auto">
+    <ul
+      className="grid gap-2 flex-1 min-h-0 overflow-y-auto"
+      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+    >
       {sorted.map((ev) => (
         <li
           key={ev.id}
-          className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-[0.8em] py-[0.5em]"
+          className="flex items-center gap-3 min-h-[56px] rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2"
         >
-          <span className="font-medium text-[var(--color-text)] truncate text-[0.9em]">
-            {ev.allDay ? null : `${new Date(ev.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} `}
+          {!ev.allDay && (
+            <span className="font-mono text-[0.85em] text-[var(--color-text-secondary)] w-[70px] shrink-0 text-right">
+              {new Date(ev.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          <span className="font-medium text-[var(--color-text)] truncate text-[1em] flex-1">
             {ev.title}
           </span>
           {ev.location && (
-            <span className="text-[0.6em] text-[var(--color-text-secondary)] truncate max-w-[100px] shrink-0 ml-1">
+            <span className="text-[0.75em] text-[var(--color-text-secondary)] truncate max-w-[30%] shrink-0">
               {ev.location}
             </span>
           )}
@@ -100,15 +108,20 @@ function EventsWeek({ events, width }: { events: CalendarEvent[]; width: number 
                 : 'border-[var(--color-border)] bg-[var(--color-bg)]'
             }`}
           >
-            <p
-              className={`text-[0.6em] font-semibold text-center mb-1 shrink-0 ${
-                isToday ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'
-              }`}
-            >
-              {day.toLocaleDateString(undefined, { weekday: 'short' })}
-              <br />
-              <span className="font-bold text-[var(--color-text)] text-[1.8em]">{day.getDate()}</span>
-            </p>
+            <div className="flex flex-col items-center mb-1 shrink-0">
+              <p className={`text-[0.95em] font-bold uppercase tracking-wide ${
+                isToday ? 'text-[var(--color-accent)]' : 'text-[var(--color-text)]'
+              }`}>
+                {day.toLocaleDateString(undefined, { weekday: 'short' })}
+              </p>
+              <span className={`text-[0.8em] mt-0.5 ${
+                isToday
+                  ? 'inline-flex items-center justify-center w-[1.8em] h-[1.8em] rounded-full bg-[var(--color-accent)] text-white font-bold'
+                  : 'text-[var(--color-text-secondary)]'
+              }`}>
+                {day.getDate()}
+              </span>
+            </div>
             <div className="flex-1 space-y-0.5 overflow-y-auto min-h-0">
               {bucket.length === 0 ? (
                 <p className="text-[0.55em] text-[var(--color-text-secondary)] text-center mt-1">—</p>
@@ -116,14 +129,11 @@ function EventsWeek({ events, width }: { events: CalendarEvent[]; width: number 
                 bucket.map((ev) => (
                   <div
                     key={ev.id}
-                    className="rounded-lg bg-[var(--color-accent)]/10 px-1.5 py-0.5 text-[0.6em] leading-tight"
+                    className="rounded-lg border-l-[3px] border-[var(--color-accent)] bg-[var(--color-accent)]/10 px-2 py-1 text-[0.8em] leading-tight"
                   >
-                    <span className="font-medium text-[var(--color-text)] truncate block">{ev.title}</span>
-                    <span className="text-[var(--color-text-secondary)]">
-                      {new Date(ev.startAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                    <span className="font-medium text-[var(--color-text)] truncate block">
+                      {ev.allDay ? '' : `${new Date(ev.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} `}
+                      {ev.title}
                     </span>
                   </div>
                 ))
@@ -212,7 +222,7 @@ function EventsCalendar({ events, compact, tiny }: { events: CalendarEvent[]; co
                   } ${!isCurrentMonth ? 'opacity-40' : ''}`}
                 >
                   <p
-                    className={`text-[0.6em] font-semibold mb-0 ${
+                    className={`text-[0.8em] font-semibold mb-0 ${
                       isToday ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'
                     }`}
                   >
@@ -223,7 +233,7 @@ function EventsCalendar({ events, compact, tiny }: { events: CalendarEvent[]; co
                       {bucket.slice(0, maxEvents).map((ev) => (
                         <div
                           key={ev.id}
-                          className="rounded bg-[var(--color-accent)]/15 px-0.5 py-px text-[0.65em] font-medium text-[var(--color-text)] truncate leading-tight"
+                          className="rounded bg-[var(--color-accent)]/15 px-0.5 py-px text-[0.8em] font-medium text-[var(--color-text)] truncate leading-tight"
                           title={`${new Date(ev.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${ev.title}`}
                         >
                           {ev.title}
@@ -303,7 +313,8 @@ export default function EventsWidget() {
               <button
                 key={btn.value}
                 onClick={() => setRange(btn.value)}
-                className={`px-[0.6em] py-[0.2em] text-[0.7em] rounded-lg font-medium transition-colors ${
+                style={{ touchAction: 'manipulation' }}
+                className={`min-h-[48px] px-5 text-[0.85em] rounded-xl font-medium transition-colors touch-manipulation ${
                   range === btn.value
                     ? 'bg-[var(--color-accent)] text-white'
                     : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border)]'
@@ -317,14 +328,18 @@ export default function EventsWidget() {
       )}
 
       <div className="flex-1 min-h-0 flex flex-col">
-        {range === 'day' && <EventsToday events={events} />}
+        {range === 'day' && <EventsToday events={events} width={width} />}
         {range === 'week' && <EventsWeek events={events} width={width} />}
         {range === '30days' && <EventsCalendar events={events} compact={compact} tiny={tiny} />}
       </div>
 
       {!compact && (
-        <div className="mt-3 text-right shrink-0">
-          <a href="/calendar" className="text-[0.8em] text-[var(--color-accent)] hover:underline">
+        <div className="mt-3 flex justify-end shrink-0">
+          <a
+            href="/calendar"
+            style={{ touchAction: 'manipulation' }}
+            className="inline-flex items-center justify-center min-h-[44px] px-4 text-[0.85em] font-medium text-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent)]/10 transition-colors touch-manipulation"
+          >
             View full calendar →
           </a>
         </div>

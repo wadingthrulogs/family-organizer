@@ -55,6 +55,11 @@ const queryClient = new QueryClient({
   },
 });
 
+// NOTE: React.StrictMode double-invokes effects in development only —
+// production builds strip it entirely. The Pi 5 kiosk MUST serve the
+// built `dist/` bundle via a static server (nginx/caddy), NOT `npm run
+// dev`, otherwise every effect (including per-widget observers) runs
+// twice. See perf-audit-2026-04 §10.
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <ErrorBoundary>

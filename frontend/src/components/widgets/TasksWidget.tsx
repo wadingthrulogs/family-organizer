@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { fetchUsers, type UserListItem } from '../../api/auth';
 import { useTasks } from '../../hooks/useTasks';
+import { useUsers } from '../../hooks/useUsers';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
 import { useCreateTaskMutation, useUpdateTaskMutation } from '../../hooks/useTaskMutations';
 import { formatRelativeDate } from '../../lib/dates';
 
 export default function TasksWidget() {
   const { data: tasksData } = useTasks();
+  const { data: usersData } = useUsers();
   const { ref, compact, tiny, height, baseFontSize } = useWidgetSize();
   const updateTask = useUpdateTaskMutation();
   const createTask = useCreateTaskMutation();
@@ -18,12 +19,8 @@ export default function TasksWidget() {
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newAssigneeIds, setNewAssigneeIds] = useState<number[]>([]);
-  const [users, setUsers] = useState<UserListItem[]>([]);
+  const users = usersData?.items ?? [];
   const titleInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    fetchUsers().then((r) => setUsers(r.items)).catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (showAdd) {

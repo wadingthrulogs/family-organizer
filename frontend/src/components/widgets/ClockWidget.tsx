@@ -1,20 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
 
-function useClock() {
+// Tick at 1Hz only when we're actually rendering seconds; otherwise the
+// 30s cadence is more than enough to keep the minute display accurate and
+// saves ~28k re-renders per widget per day. See perf-audit-2026-04 §4.
+function useClock(showSeconds: boolean) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
+    const ms = showSeconds ? 1000 : 30_000;
+    const id = setInterval(() => setNow(new Date()), ms);
     return () => clearInterval(id);
-  }, []);
+  }, [showSeconds]);
   return now;
 }
 
 export default function ClockWidget() {
-  const now = useClock();
   const { ref, width, height, compact, tiny, baseFontSize } = useWidgetSize();
-
   const showSeconds = !tiny;
+  const now = useClock(showSeconds);
   const timeStr = showSeconds
     ? now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

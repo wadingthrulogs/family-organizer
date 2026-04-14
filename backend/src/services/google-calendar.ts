@@ -280,57 +280,29 @@ async function syncCalendarEvents(api: calendar_v3.Calendar, calendar: LinkedCal
   const lookbackMs = 1000 * 60 * 60 * 24 * 30;
   const timeMin = new Date(Date.now() - lookbackMs).toISOString();
   let pageToken: string | undefined;
-  let syncToken = calendar.syncToken || undefined;
-  let latestSyncToken: string | undefined;
 
   while (true) {
-    try {
-      const response = await api.events.list({
-        calendarId: calendar.googleId,
-        singleEvents: true,
-        showDeleted: true,
-        maxResults: 250,
-        pageToken,
-        ...(syncToken ? { syncToken } : { timeMin }),
-      });
+    const response = await api.events.list({
+      calendarId: calendar.googleId,
+      singleEvents: true,
+      showDeleted: true,
+      maxResults: 250,
+      timeMin,
+      pageToken,
+    });
 
-      for (const event of response.data.items ?? []) {
-        await upsertFamilyEvent(calendar.id, event);
-      }
-
-      pageToken = response.data.nextPageToken ?? undefined;
-      if (!pageToken && response.data.nextSyncToken) {
-        latestSyncToken = response.data.nextSyncToken;
-      }
-
-      if (!pageToken) {
-        break;
-      }
-    } catch (error) {
-      if (isSyncTokenExpired(error)) {
-        syncToken = undefined;
-        pageToken = undefined;
-        continue;
-      }
-      throw error;
+    for (const event of response.data.items ?? []) {
+      await upsertFamilyEvent(calendar.id, event);
     }
+
+    pageToken = response.data.nextPageToken ?? undefined;
+    if (!pageToken) break;
   }
 
   await prisma.linkedCalendar.update({
     where: { id: calendar.id },
-    data: {
-      lastSyncedAt: new Date(),
-      ...(latestSyncToken ? { syncToken: latestSyncToken } : {}),
-    },
+    data: { lastSyncedAt: new Date() },
   });
-}
-
-function isSyncTokenExpired(error: unknown) {
-  if (!error || typeof error !== 'object') {
-    return false;
-  }
-  const maybeCode = (error as { code?: number }).code;
-  return maybeCode === 410;
 }
 
 async function upsertFamilyEvent(linkedCalendarId: number, event: calendar_v3.Schema$Event) {

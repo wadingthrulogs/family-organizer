@@ -278,30 +278,60 @@ export async function syncGoogleEvents(userId: number, client: OAuth2Client) {
 
 async function syncCalendarEvents(api: calendar_v3.Calendar, calendar: LinkedCalendar) {
   const lookbackMs = 1000 * 60 * 60 * 24 * 30;
-  const timeMin = new Date(Date.now() - lookbackMs).toISOString();
   let pageToken: string | undefined;
+  let nextSyncToken: string | undefined;
 
-  while (true) {
-    const response = await api.events.list({
-      calendarId: calendar.googleId,
-      singleEvents: true,
-      showDeleted: true,
-      maxResults: 250,
-      timeMin,
-      pageToken,
-    });
+  const useIncremental = Boolean(calendar.syncToken);
+  const baseParams: calendar_v3.Params$Resource$Events$List = useIncremental
+    ? {
+        calendarId: calendar.googleId,
+        syncToken: calendar.syncToken!,
+        singleEvents: true,
+        showDeleted: true,
+      }
+    : {
+        calendarId: calendar.googleId,
+        timeMin: new Date(Date.now() - lookbackMs).toISOString(),
+        singleEvents: true,
+        showDeleted: true,
+        maxResults: 250,
+      };
 
-    for (const event of response.data.items ?? []) {
-      await upsertFamilyEvent(calendar.id, event);
+  try {
+    while (true) {
+      const response = await api.events.list({ ...baseParams, pageToken });
+
+      for (const event of response.data.items ?? []) {
+        await upsertFamilyEvent(calendar.id, event);
+      }
+
+      pageToken = response.data.nextPageToken ?? undefined;
+      if (!pageToken) {
+        nextSyncToken = response.data.nextSyncToken ?? undefined;
+        break;
+      }
     }
-
-    pageToken = response.data.nextPageToken ?? undefined;
-    if (!pageToken) break;
+  } catch (err: unknown) {
+    const status =
+      (err as { code?: number }).code ??
+      (err as { response?: { status?: number } }).response?.status;
+    if (useIncremental && status === 410) {
+      logger.warn('Google syncToken expired, clearing for full resync next run', { calendarId: calendar.id });
+      await prisma.linkedCalendar.update({
+        where: { id: calendar.id },
+        data: { syncToken: null, lastSyncedAt: new Date() },
+      });
+      return;
+    }
+    throw err;
   }
 
   await prisma.linkedCalendar.update({
     where: { id: calendar.id },
-    data: { lastSyncedAt: new Date() },
+    data: {
+      lastSyncedAt: new Date(),
+      ...(nextSyncToken ? { syncToken: nextSyncToken } : {}),
+    },
   });
 }
 

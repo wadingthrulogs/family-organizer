@@ -33,7 +33,7 @@ export default function GroceryWidget() {
   const showQuickAdd = !compact && lists.length > 0;
 
   return (
-    <div ref={ref} style={{ fontSize: baseFontSize }} className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-3 h-full overflow-hidden flex flex-col">
+    <div ref={ref} style={{ fontSize: baseFontSize * 0.6 }} className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-3 h-full overflow-hidden flex flex-col">
       {showHeader && (
         <div className="flex items-center justify-between mb-3 shrink-0 gap-2">
           <h2 className="font-semibold text-[var(--color-text)] text-[1.3em]">

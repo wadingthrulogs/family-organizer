@@ -335,7 +335,7 @@ export default function EventsWidget() {
   ];
 
   return (
-    <div ref={ref} style={{ fontSize: baseFontSize }} className={`rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] ${compact ? 'p-2' : 'p-5'} h-full overflow-hidden flex flex-col`}>
+    <div ref={ref} style={{ fontSize: baseFontSize * 0.6 }} className={`rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] ${compact ? 'p-2' : 'p-5'} h-full overflow-hidden flex flex-col`}>
       {height > 80 && (
         <div className={`${compact ? 'mb-1' : 'mb-4'} flex items-center justify-between flex-wrap gap-1 shrink-0`}>
           {!tiny && (

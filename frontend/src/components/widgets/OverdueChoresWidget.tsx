@@ -21,7 +21,7 @@ export default function OverdueChoresWidget() {
     return (
       <div
         ref={ref}
-        style={{ fontSize: baseFontSize }}
+        style={{ fontSize: baseFontSize * 0.6 }}
         className="rounded-2xl border-2 border-emerald-400 bg-emerald-50/40 dark:bg-emerald-900/20 p-3 h-full overflow-hidden flex flex-col items-center justify-center text-center gap-2"
       >
         <span className="text-[2.5em]">✨</span>
@@ -37,7 +37,7 @@ export default function OverdueChoresWidget() {
   return (
     <div
       ref={ref}
-      style={{ fontSize: baseFontSize }}
+      style={{ fontSize: baseFontSize * 0.6 }}
       className="rounded-2xl border-4 border-red-500 bg-red-500/10 p-4 h-full overflow-hidden flex flex-col"
     >
       <div className="flex items-center gap-3 mb-3 shrink-0">

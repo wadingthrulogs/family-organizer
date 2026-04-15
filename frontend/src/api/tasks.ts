@@ -21,8 +21,14 @@ export interface CreateTaskPayload {
 
 export type UpdateTaskPayload = Partial<Omit<CreateTaskPayload, 'recurrence'>>;
 
-export async function fetchTasks() {
-  const { data } = await api.get<ApiListResponse<Task>>('/tasks');
+export interface FetchTasksParams {
+  cursor?: number;
+  limit?: number;
+  status?: TaskStatus;
+}
+
+export async function fetchTasks(params: FetchTasksParams = {}) {
+  const { data } = await api.get<ApiListResponse<Task>>('/tasks', { params });
   return data;
 }
 

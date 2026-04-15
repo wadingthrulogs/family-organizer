@@ -4,6 +4,7 @@ import { logger } from '../lib/logger.js';
 import { isMailerReady, sendMail } from '../lib/mailer.js';
 
 import { runBackgroundCalendarSync } from './background-sync.js';
+import { runTaskRetention } from './task-retention.js';
 
 /* ─── Channel bit flags (must match frontend CHANNEL_FLAGS) ─── */
 const CH = { PUSH: 1, EMAIL: 2, WEBHOOK: 4 } as const;
@@ -533,6 +534,7 @@ export async function sendDigestNotifications(): Promise<number> {
 /* ─── Ticker: runs all periodic jobs ─── */
 let tickerInterval: ReturnType<typeof setInterval> | null = null;
 let digestLastRun = '';
+let retentionLastRun = '';
 
 export function startNotificationTicker(intervalMs = 60_000) {
   if (tickerInterval) return;
@@ -571,6 +573,15 @@ export function startNotificationTicker(intervalMs = 60_000) {
         digestLastRun = today;
         const digestCount = await sendDigestNotifications();
         logger.info('Daily digest sent', { digestCount });
+      }
+
+      // 5. Daily task retention sweep at 3 AM (idempotent by day).
+      // Runs in a quiet window so the UI never shows a row vanishing during use.
+      if (hour === 3 && retentionLastRun !== today) {
+        retentionLastRun = today;
+        runTaskRetention()
+          .then((r) => logger.info('Task retention completed', { ...r }))
+          .catch((err) => logger.error('Task retention failed', { err: String(err) }));
       }
     } catch (err) {
       logger.error('Notification ticker error', { error: String(err) });

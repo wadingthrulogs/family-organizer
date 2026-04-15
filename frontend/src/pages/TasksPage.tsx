@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Task } from '../types/task';
 import { TaskRow } from '../components/tasks/TaskRow';
 import { useCreateTaskMutation, useUpdateTaskMutation } from '../hooks/useTaskMutations';
@@ -30,7 +30,7 @@ function groupTasks(tasks: Task[]): DateGroup[] {
 
 export default function TasksPage() {
   const { user } = useAuth();
-  const { data, isLoading } = useTasks();
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useTasks();
   const createTask = useCreateTaskMutation();
   const announce = useAnnounce();
 
@@ -41,8 +41,28 @@ export default function TasksPage() {
   const [focusMode, setFocusMode] = useState(false);
   const [focusIndex, setFocusIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  const allTasks: Task[] = data?.items ?? [];
+  const allTasks: Task[] = useMemo(
+    () => data?.pages.flatMap((p) => p.items) ?? [],
+    [data]
+  );
+
+  // Auto-fetch the next page when the sentinel scrolls into view.
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !hasNextPage) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const focusItems = useMemo(
     () => allTasks.filter((t) => t.status !== 'DONE' && t.status !== 'ARCHIVED'),
@@ -269,6 +289,12 @@ export default function TasksPage() {
               </div>
             </section>
           ))}
+
+          {hasNextPage && (
+            <div ref={loadMoreRef} className="py-6 text-center text-sm text-muted">
+              {isFetchingNextPage ? 'Loading more…' : ' '}
+            </div>
+          )}
         </div>
       )}
 

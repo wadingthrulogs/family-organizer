@@ -22,6 +22,12 @@ const patchHouseholdSchema = z.object({
   theme:            z.string().trim().max(40).optional(),
   weatherLocation:  z.string().trim().max(200).optional(),
   weatherUnits:     z.enum(['imperial', 'metric']).optional(),
+  taskRetention:    z.object({
+                      archiveDays:    z.coerce.number().int().min(1).max(3650),
+                      hardDeleteDays: z.coerce.number().int().min(1).max(3650),
+                    }).refine((v) => v.hardDeleteDays > v.archiveDays, {
+                      message: 'hardDeleteDays must be greater than archiveDays',
+                    }).optional(),
   googleClientId:      z.string().trim().max(200).nullable().optional(),
   googleClientSecret:  z.string().trim().max(200).nullable().optional(),
   appBaseUrl:          z.string().trim().url().max(200).nullable().optional(),
@@ -44,6 +50,7 @@ const DEFAULTS: Record<string, unknown> = {
   theme: 'default',
   weatherLocation: '',
   weatherUnits: 'imperial',
+  taskRetention: { archiveDays: 30, hardDeleteDays: 90 },
 };
 
 // Keys that are encrypted at rest — GET returns a boolean *Set flag, never plaintext

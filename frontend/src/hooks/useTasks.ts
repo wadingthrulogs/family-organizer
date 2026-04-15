@@ -1,9 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { fetchTasks } from '../api/tasks';
 
+const PAGE_SIZE = 50;
+
 export function useTasks() {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['tasks'],
-    queryFn: fetchTasks,
+    queryFn: ({ pageParam }) => fetchTasks({ cursor: pageParam, limit: PAGE_SIZE }),
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 }

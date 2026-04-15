@@ -3,11 +3,32 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/require-auth.js';
+import { requireRole } from '../middleware/require-role.js';
 import { prisma } from '../lib/prisma.js';
+import { runTaskRetention } from '../services/task-retention.js';
 import { asyncHandler } from '../utils/async-handler.js';
 
 export const tasksRouter = Router();
 tasksRouter.use(requireAuth);
+
+const cleanupBodySchema = z.object({
+  dryRun: z.boolean().optional(),
+});
+
+/* ─── Admin: manual retention cleanup ─── */
+// Note: defined BEFORE the /:taskId routes so 'cleanup' isn't parsed as a taskId.
+tasksRouter.post(
+  '/cleanup',
+  requireRole('ADMIN'),
+  asyncHandler(async (req, res) => {
+    const { dryRun } = cleanupBodySchema.parse(req.body ?? {});
+    const result = await runTaskRetention({ dryRun });
+    if (result.error) {
+      return res.status(500).json({ error: { code: 'RETENTION_FAILED', message: result.error } });
+    }
+    res.json({ data: result });
+  })
+);
 
 const TASK_STATUSES = ['OPEN', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'ARCHIVED'] as const;
 const taskStatusSchema = z.enum(TASK_STATUSES);

@@ -71,20 +71,50 @@ export async function runTaskRetention(opts: { dryRun?: boolean } = {}): Promise
       },
       select: {
         id: true,
+        recurrenceId: true,
         recurrence: { select: { until: true, count: true } },
       },
     });
 
-    const recurrenceStillActive = (rec: { until: Date | null; count: number | null } | null) => {
-      if (!rec) return false;
-      // Any task with a recurrence row is treated as part of an ongoing chain
-      // unless the chain has a hard `until` date that is in the past.
-      if (rec.until === null) return true;
-      return rec.until.getTime() > now;
+    // For recurring DONE tasks, find which recurrence chains have a
+    // newer non-DONE instance. Those completed instances are SAFE to
+    // archive — they're history of an ongoing chain. Recurring tasks
+    // with no successor are kept until either a successor appears or
+    // the chain hits its `until`.
+    const recurringIds = archiveCandidates
+      .map((t) => t.recurrenceId)
+      .filter((id): id is number => id !== null);
+    const successorRows = recurringIds.length
+      ? await prisma.task.findMany({
+          where: {
+            recurrenceId: { in: recurringIds },
+            deletedAt: null,
+            status: { not: 'DONE' },
+          },
+          select: { recurrenceId: true },
+        })
+      : [];
+    const recurrencesWithSuccessor = new Set(
+      successorRows.map((r) => r.recurrenceId).filter((id): id is number => id !== null),
+    );
+
+    const recurrenceChainExpired = (rec: { until: Date | null } | null) => {
+      if (!rec) return true;
+      if (rec.until === null) return false;
+      return rec.until.getTime() <= now;
     };
 
     const archiveIds = archiveCandidates
-      .filter((t) => !recurrenceStillActive(t.recurrence))
+      .filter((t) => {
+        // Non-recurring tasks always archive.
+        if (t.recurrenceId === null) return true;
+        // Recurring task whose chain has expired: archive.
+        if (recurrenceChainExpired(t.recurrence)) return true;
+        // Recurring task whose chain has spawned a successor: archive history.
+        if (recurrencesWithSuccessor.has(t.recurrenceId)) return true;
+        // Otherwise leave it — it's the latest instance of an ongoing chain.
+        return false;
+      })
       .map((t) => t.id);
 
     // ─── Stage 2: identify soft-deleted tasks eligible for hard delete ───

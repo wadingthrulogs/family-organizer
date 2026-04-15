@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/require-auth.js';
 import { requireRole } from '../middleware/require-role.js';
 import { prisma } from '../lib/prisma.js';
+import { spawnNextInstance } from '../services/task-recurrence.js';
 import { runTaskRetention } from '../services/task-retention.js';
 import { asyncHandler } from '../utils/async-handler.js';
 
@@ -57,6 +58,15 @@ const createTaskSchema = z.object({
   }).nullable().optional(),
 });
 
+const recurrenceSchema = z.object({
+  frequency: z.enum(['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'YEARLY']),
+  interval: z.coerce.number().int().min(1).max(365).default(1),
+  byDay: z.string().nullable().optional(),
+  byMonthDay: z.string().nullable().optional(),
+  until: z.string().datetime().nullable().optional(),
+  count: z.coerce.number().int().positive().nullable().optional(),
+});
+
 const updateTaskSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(2000).nullable().optional(),
@@ -65,6 +75,8 @@ const updateTaskSchema = z.object({
   status: taskStatusSchema.optional(),
   labels: z.string().trim().max(500).nullable().optional(),
   assigneeUserIds: z.array(z.coerce.number().int().positive()).optional(),
+  // null clears the recurrence; an object upserts it.
+  recurrence: recurrenceSchema.nullable().optional(),
 });
 
 const taskIdParamsSchema = z.object({
@@ -215,6 +227,56 @@ tasksRouter.patch(
           data: payload.assigneeUserIds.map((userId) => ({ taskId, userId, status: 'OPEN' })),
         });
       }
+    }
+
+    // Sync recurrence when provided. null clears it; an object upserts.
+    if (payload.recurrence !== undefined) {
+      if (payload.recurrence === null) {
+        if (task.recurrenceId) {
+          await prisma.task.update({ where: { id: taskId }, data: { recurrenceId: null } });
+          // Best-effort cleanup of the now-orphan recurrence row. The retention
+          // sweep would catch it eventually, but no reason to leave dangling
+          // state behind a user-visible action.
+          await prisma.taskRecurrence
+            .delete({ where: { id: task.recurrenceId } })
+            .catch(() => undefined);
+        }
+      } else if (task.recurrenceId) {
+        await prisma.taskRecurrence.update({
+          where: { id: task.recurrenceId },
+          data: {
+            frequency: payload.recurrence.frequency,
+            interval: payload.recurrence.interval,
+            byDay: payload.recurrence.byDay ?? null,
+            byMonthDay: payload.recurrence.byMonthDay ?? null,
+            until: payload.recurrence.until ? new Date(payload.recurrence.until) : null,
+            count: payload.recurrence.count ?? null,
+          },
+        });
+      } else {
+        const rec = await prisma.taskRecurrence.create({
+          data: {
+            frequency: payload.recurrence.frequency,
+            interval: payload.recurrence.interval,
+            byDay: payload.recurrence.byDay ?? null,
+            byMonthDay: payload.recurrence.byMonthDay ?? null,
+            until: payload.recurrence.until ? new Date(payload.recurrence.until) : null,
+            count: payload.recurrence.count ?? null,
+          },
+        });
+        await prisma.task.update({ where: { id: taskId }, data: { recurrenceId: rec.id } });
+      }
+    }
+
+    // If the task just transitioned to DONE and is recurring, spawn the next
+    // instance. Best-effort — failures are logged in the service and do not
+    // fail the patch (the user already saw their checkbox click succeed).
+    if (
+      payload.status === 'DONE' &&
+      task.status !== 'DONE' &&
+      task.recurrenceId !== null
+    ) {
+      await spawnNextInstance(taskId);
     }
 
     const updated = await prisma.task.findUnique({

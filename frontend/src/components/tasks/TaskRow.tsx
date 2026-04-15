@@ -98,6 +98,15 @@ export function TaskRow({ task, expanded, onToggleExpand }: Props) {
 
         {/* Title */}
         <span className={`min-w-0 flex-1 truncate text-sm font-medium ${isDone ? 'text-muted line-through' : 'text-heading'}`}>
+          {task.recurrence && (
+            <span
+              className="mr-1 text-xs"
+              title={`Repeats ${task.recurrence.frequency.toLowerCase()}${task.recurrence.interval > 1 ? ` × ${task.recurrence.interval}` : ''}`}
+              aria-label="Recurring task"
+            >
+              🔁
+            </span>
+          )}
           {task.title}
         </span>
 

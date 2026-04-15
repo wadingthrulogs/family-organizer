@@ -73,13 +73,19 @@ function formatTimeRange(event: CalendarItem) {
   return `${formatter.format(new Date(event.startAt))} – ${formatter.format(new Date(event.endAt))}`;
 }
 
-function dateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
+function dateKey(date: Date, allDay = false): string {
+  if (allDay) {
+    return date.toISOString().slice(0, 10);
+  }
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function groupEventsByDate(events: CalendarItem[]) {
   return events.reduce<Record<string, CalendarItem[]>>((acc, event) => {
-    const key = dateKey(new Date(event.startAt));
+    const key = dateKey(new Date(event.startAt), event.allDay);
     if (!acc[key]) {
       acc[key] = [];
     }

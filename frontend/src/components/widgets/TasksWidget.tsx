@@ -11,7 +11,7 @@ export default function TasksWidget() {
   const { ref, compact, tiny, height, baseFontSize } = useWidgetSize();
   const updateTask = useUpdateTaskMutation();
   const createTask = useCreateTaskMutation();
-  const tasks = tasksData?.items ?? [];
+  const tasks = tasksData?.pages.flatMap((p) => p.items) ?? [];
   const pendingTasks = tasks.filter(
     (t) => t.status !== 'DONE' && t.status !== 'ARCHIVED' && !t.deletedAt,
   );

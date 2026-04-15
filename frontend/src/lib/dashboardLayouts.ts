@@ -1,9 +1,16 @@
 import type { Layout } from 'react-grid-layout';
 import type { DashboardWidgetSlot } from '../types/dashboard';
+import { getWidget } from '../components/widgets/widgetRegistry';
 
 /** Build layouts for every responsive breakpoint from the stored lg slots. */
 export function getResponsiveLayouts(slots: DashboardWidgetSlot[]) {
-  const lgLayouts = slots.map((s) => s.layout);
+  // Refresh per-slot minW/minH from the registry on every render so that
+  // saved layouts immediately benefit when a widget's mins are tightened —
+  // no migration of stored data needed.
+  const lgLayouts = slots.map((s) => {
+    const def = getWidget(s.widgetId);
+    return def ? { ...s.layout, minW: def.minW, minH: def.minH } : s.layout;
+  });
 
   // Sort by reading order (top-to-bottom, left-to-right) for mobile stacking
   const sorted = [...slots].sort((a, b) =>

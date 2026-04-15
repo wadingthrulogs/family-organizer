@@ -11,17 +11,32 @@ import { loadDashboardConfig, saveDashboardConfig, DEFAULT_DASHBOARD_CONFIG } fr
 import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
 import { getResponsiveLayouts } from '../lib/dashboardLayouts';
 
+interface RecentlyRemoved {
+  slot: DashboardWidgetSlot;
+  index: number;
+}
+
+const UNDO_TIMEOUT_MS = 5000;
+
 function DashboardPage() {
   const [config, setConfig] = useState<DashboardConfig>(loadDashboardConfig);
   const [editMode, setEditMode] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
+  const [isInteracting, setIsInteracting] = useState(false);
+  const [recentlyRemoved, setRecentlyRemoved] = useState<RecentlyRemoved | null>(null);
   const { width, mounted, containerRef } = useContainerWidth();
   const { data: prefs } = useUserPreferences();
   const updatePrefs = useUpdateUserPreferencesMutation();
   const serverSynced = useRef(false);
   const editModeRef = useRef(editMode);
+  const undoTimerRef = useRef<number | null>(null);
   useEffect(() => { editModeRef.current = editMode; }, [editMode]);
+  useEffect(() => () => {
+    if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
+  }, []);
+
+  const isDraggable = editMode && currentBreakpoint === 'lg';
 
   // When server preferences load, use server dashboard config (server wins)
   useEffect(() => {
@@ -80,9 +95,45 @@ function DashboardPage() {
 
   const handleRemoveWidget = useCallback((slotKey: string) => {
     setConfig((prev) => {
-      const next: DashboardConfig = { ...prev, slots: prev.slots.filter((s) => s.layout.i !== slotKey) };
+      const index = prev.slots.findIndex((s) => s.layout.i === slotKey);
+      if (index === -1) return prev;
+      const removed = prev.slots[index];
+      const next: DashboardConfig = { ...prev, slots: prev.slots.filter((_, i) => i !== index) };
       persistConfig(next);
+      setRecentlyRemoved({ slot: removed, index });
+      if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = window.setTimeout(() => setRecentlyRemoved(null), UNDO_TIMEOUT_MS);
       return next;
+    });
+  }, [persistConfig]);
+
+  const handleDragStart = useCallback(() => setIsInteracting(true), []);
+  const handleResizeStart = useCallback(() => setIsInteracting(true), []);
+  const handleDragStop = useCallback((newLayout: Layout[]) => {
+    setIsInteracting(false);
+    handleLayoutChange(newLayout);
+  }, [handleLayoutChange]);
+  const handleResizeStop = useCallback((newLayout: Layout[]) => {
+    setIsInteracting(false);
+    handleLayoutChange(newLayout);
+  }, [handleLayoutChange]);
+
+  const handleUndoRemove = useCallback(() => {
+    setRecentlyRemoved((current) => {
+      if (!current) return null;
+      setConfig((prev) => {
+        const slots = [...prev.slots];
+        const insertAt = Math.min(current.index, slots.length);
+        slots.splice(insertAt, 0, current.slot);
+        const next: DashboardConfig = { ...prev, slots };
+        persistConfig(next);
+        return next;
+      });
+      if (undoTimerRef.current) {
+        window.clearTimeout(undoTimerRef.current);
+        undoTimerRef.current = null;
+      }
+      return null;
     });
   }, [persistConfig]);
 
@@ -184,7 +235,7 @@ function DashboardPage() {
       )}
 
       <div ref={containerRef} className={`relative ${hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
-        {mounted && editMode && (
+        {mounted && editMode && isInteracting && (
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
@@ -192,13 +243,14 @@ function DashboardPage() {
               gridTemplateColumns: 'repeat(12, 1fr)',
               gridAutoRows: '120px',
               gap: '16px',
-              zIndex: 0,
+              zIndex: 40,
+              opacity: 0.55,
             }}
           >
             {Array.from({ length: 12 * numGridRows }).map((_, i) => (
               <div
                 key={i}
-                style={{ border: '1px dashed rgba(128,128,128,0.4)', borderRadius: '8px' }}
+                style={{ border: '1px dashed var(--color-accent, #6366f1)', borderRadius: '8px' }}
               />
             ))}
           </div>
@@ -211,47 +263,86 @@ function DashboardPage() {
             breakpoints={{ lg: 1280, md: 996, sm: 768, xs: 480, xxs: 0 }}
             cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }}
             rowHeight={120}
-            dragConfig={{ enabled: editMode, handle: editMode ? '.widget-drag-handle' : undefined }}
-            resizeConfig={{ enabled: editMode, handles: editMode ? ['se', 'sw', 'ne', 'nw'] : [] }}
+            dragConfig={{ enabled: isDraggable, handle: isDraggable ? '.widget-drag-handle' : undefined }}
+            resizeConfig={{ enabled: isDraggable, handles: isDraggable ? ['se', 'sw', 'ne', 'nw', 'e', 'w', 's', 'n'] : [] }}
             compactor={noCompactor}
+            preventCollision={true}
             margin={[16, 16]}
             onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
-            onDragStop={handleLayoutChange}
-            onResizeStop={handleLayoutChange}
+            onDragStart={handleDragStart}
+            onResizeStart={handleResizeStart}
+            onDragStop={handleDragStop}
+            onResizeStop={handleResizeStop}
           >
           {config.slots.map((slot) => {
             const def = getWidget(slot.widgetId);
             const Widget = def?.component;
             return (
               <div key={slot.layout.i} className="relative h-full">
-                {editMode && (
-                  <>
-                    <div className="widget-drag-handle absolute top-2 left-2 z-10 cursor-grab rounded-xl bg-black/30 w-12 h-12 flex items-center justify-center text-white text-2xl backdrop-blur-sm select-none" style={{ touchAction: 'none' }}>
-                      ⠿
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveWidget(slot.layout.i)}
-                      aria-label="Remove widget"
-                      className="absolute top-2 right-2 z-10 rounded-full bg-red-500/90 w-12 h-12 flex items-center justify-center text-white text-xl font-bold backdrop-blur-sm hover:bg-red-600 transition-colors touch-manipulation active:scale-95"
+                {isDraggable ? (
+                  <div className="flex flex-col h-full">
+                    <div
+                      className="widget-drag-handle flex items-center gap-2 px-3 py-2 bg-[var(--color-accent)] text-white rounded-t-2xl text-sm select-none shrink-0"
+                      style={{ touchAction: 'none' }}
                     >
-                      ✕
-                    </button>
-                  </>
+                      <span className="text-base leading-none" aria-hidden>⠿</span>
+                      <span className="flex-1 truncate font-semibold">{def?.label ?? slot.widgetId}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveWidget(slot.layout.i); }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        aria-label={`Remove ${def?.label ?? 'widget'}`}
+                        className="rounded-full bg-white/20 hover:bg-red-500 w-8 h-8 flex items-center justify-center text-white text-base font-bold transition-colors touch-manipulation active:scale-95"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="flex-1 min-h-0">
+                      <Suspense
+                        fallback={
+                          <div className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-5 animate-pulse h-full" />
+                        }
+                      >
+                        {Widget ? <Widget /> : <EmptySlot />}
+                      </Suspense>
+                    </div>
+                  </div>
+                ) : (
+                  <Suspense
+                    fallback={
+                      <div className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-5 animate-pulse h-full" />
+                    }
+                  >
+                    {Widget ? <Widget /> : <EmptySlot />}
+                  </Suspense>
                 )}
-                <Suspense
-                  fallback={
-                    <div className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-5 animate-pulse h-full" />
-                  }
-                >
-                  {Widget ? <Widget /> : <EmptySlot />}
-                </Suspense>
               </div>
             );
           })}
           </ResponsiveGridLayout>
         )}
       </div>
+
+      {recentlyRemoved && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-6 z-50 flex items-center gap-3 rounded-full bg-[var(--color-card)] border border-[var(--color-border)] shadow-xl px-5 py-3 animate-in slide-in-from-bottom-4">
+          <span className="text-sm text-[var(--color-text)]">
+            Removed <strong>{getWidget(recentlyRemoved.slot.widgetId)?.label ?? 'widget'}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={handleUndoRemove}
+            className="min-h-[40px] px-4 rounded-full bg-[var(--color-accent)] text-white text-sm font-semibold hover:opacity-90 active:scale-95 touch-manipulation"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+      {editMode && currentBreakpoint !== 'lg' && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-6 z-40 rounded-full bg-amber-500/95 text-white px-5 py-2 text-sm font-medium shadow-lg">
+          Switch to a wider screen to rearrange widgets
+        </div>
+      )}
 
       {config.slots.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-[var(--color-border)] p-12 text-center">

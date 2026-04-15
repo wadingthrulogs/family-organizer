@@ -639,9 +639,75 @@ input, select, textarea {
   border-radius: 10px;
 }
 
-.dashboard-grid .react-resizable-handle::after {
-  border-color: var(--color-text-muted, #999) !important;
+/* Larger touch-friendly resize handles in edit mode. RGL ships a tiny ~20px
+ * triangle by default which is far below the 44px touch target floor. We
+ * widen the hit area, hide the default triangle, and draw an accent-colored
+ * pill at each handle's edge so users can clearly see where to grab. */
+.dashboard-grid .react-resizable-handle {
+  width: 28px !important;
+  height: 28px !important;
+  background-image: none !important;
+  padding: 0 !important;
 }
+
+.dashboard-grid .react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  background: var(--color-accent, #6366f1);
+  border-radius: 999px;
+  border: none !important;
+  opacity: 0.85;
+}
+
+/* Corner handles — small dot */
+.dashboard-grid .react-resizable-handle-se::after,
+.dashboard-grid .react-resizable-handle-sw::after,
+.dashboard-grid .react-resizable-handle-ne::after,
+.dashboard-grid .react-resizable-handle-nw::after {
+  width: 10px;
+  height: 10px;
+  right: 6px;
+  bottom: 6px;
+  top: auto;
+  left: auto;
+}
+.dashboard-grid .react-resizable-handle-sw::after { left: 6px; right: auto; }
+.dashboard-grid .react-resizable-handle-ne::after { top: 6px; bottom: auto; }
+.dashboard-grid .react-resizable-handle-nw::after { top: 6px; left: 6px; bottom: auto; right: auto; }
+
+/* Edge handles — short pill centered on the edge */
+.dashboard-grid .react-resizable-handle-e,
+.dashboard-grid .react-resizable-handle-w {
+  top: 50% !important;
+  transform: translateY(-50%);
+  height: 56px !important;
+  cursor: ew-resize;
+}
+.dashboard-grid .react-resizable-handle-n,
+.dashboard-grid .react-resizable-handle-s {
+  left: 50% !important;
+  transform: translateX(-50%);
+  width: 56px !important;
+  cursor: ns-resize;
+}
+.dashboard-grid .react-resizable-handle-e::after,
+.dashboard-grid .react-resizable-handle-w::after {
+  width: 4px;
+  height: 36px;
+  top: 50%;
+  margin-top: -18px;
+}
+.dashboard-grid .react-resizable-handle-e::after { right: 4px; }
+.dashboard-grid .react-resizable-handle-w::after { left: 4px; }
+.dashboard-grid .react-resizable-handle-n::after,
+.dashboard-grid .react-resizable-handle-s::after {
+  width: 36px;
+  height: 4px;
+  left: 50%;
+  margin-left: -18px;
+}
+.dashboard-grid .react-resizable-handle-n::after { top: 4px; }
+.dashboard-grid .react-resizable-handle-s::after { bottom: 4px; }
 
 .widget-drag-handle {
   cursor: grab;

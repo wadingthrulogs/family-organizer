@@ -81,7 +81,7 @@ export function TaskRow({ task, expanded, onToggleExpand }: Props) {
         <button
           type="button"
           onClick={handleCheck}
-          className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${
+          className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md border-2 transition-colors touch-manipulation active:scale-95 ${
             isDone
               ? 'border-accent bg-accent'
               : 'border-th-border hover:border-accent'
@@ -90,14 +90,14 @@ export function TaskRow({ task, expanded, onToggleExpand }: Props) {
           aria-label={isDone ? 'Mark open' : 'Mark done'}
         >
           {isDone && (
-            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
             </svg>
           )}
         </button>
 
         {/* Title */}
-        <span className={`flex-1 text-sm font-medium ${isDone ? 'text-muted line-through' : 'text-heading'}`}>
+        <span className={`min-w-0 flex-1 truncate text-sm font-medium ${isDone ? 'text-muted line-through' : 'text-heading'}`}>
           {task.title}
         </span>
 
@@ -138,12 +138,12 @@ export function TaskRow({ task, expanded, onToggleExpand }: Props) {
           />
           <div className="flex justify-start">
             {confirmDelete ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-red-600">Delete this task?</span>
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="rounded-full bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+                  className="min-h-[44px] rounded-full bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700 touch-manipulation active:scale-95"
                   disabled={deleteTask.isPending}
                 >
                   {deleteTask.isPending ? 'Deleting…' : 'Yes, delete'}
@@ -151,7 +151,7 @@ export function TaskRow({ task, expanded, onToggleExpand }: Props) {
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
-                  className="rounded-full border border-th-border px-3 py-1 text-xs"
+                  className="min-h-[44px] rounded-full border border-th-border px-4 text-sm touch-manipulation active:scale-95"
                 >
                   Cancel
                 </button>
@@ -160,7 +160,7 @@ export function TaskRow({ task, expanded, onToggleExpand }: Props) {
               <button
                 type="button"
                 onClick={handleDelete}
-                className="text-xs text-muted transition-colors hover:text-red-600"
+                className="min-h-[44px] rounded-full border border-th-border px-4 text-sm text-muted transition-colors hover:border-red-600 hover:text-red-600 touch-manipulation active:scale-95"
               >
                 Delete task
               </button>

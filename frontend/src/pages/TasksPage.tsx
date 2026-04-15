@@ -86,6 +86,13 @@ export default function TasksPage() {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  const handleFabAdd = () => {
+    inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Wait for the smooth scroll to settle before focusing — focusing first
+    // can cancel the scroll on some mobile browsers.
+    window.setTimeout(() => inputRef.current?.focus(), 350);
+  };
+
   const tabs: { id: FilterTab; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'active', label: 'Active' },
@@ -94,14 +101,14 @@ export default function TasksPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-4 pb-28 md:p-6 md:pb-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl text-heading">Tasks</h1>
         <button
           type="button"
           aria-pressed={focusMode}
-          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+          className={`min-h-[44px] rounded-full border px-4 text-sm font-medium transition touch-manipulation active:scale-95 ${
             focusMode
               ? 'border-accent bg-accent/10 text-accent'
               : 'border-th-border text-muted hover:text-heading'
@@ -121,12 +128,12 @@ export default function TasksPage() {
           onChange={(e) => setQuickAdd(e.target.value)}
           placeholder="+ Add a task and press Enter..."
           enterKeyHint="send"
-          className="flex-1 rounded-lg border border-th-border bg-input-bg px-4 py-2.5 text-sm shadow-soft outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+          className="min-h-[44px] flex-1 rounded-lg border border-th-border bg-input-bg px-4 text-sm shadow-soft outline-none focus:border-accent focus:ring-1 focus:ring-accent"
         />
         <button
           type="submit"
           disabled={!quickAdd.trim() || createTask.isPending}
-          className="rounded-lg bg-btn-primary px-4 py-2.5 text-sm font-medium text-btn-primary-text disabled:opacity-50"
+          className="min-h-[44px] rounded-lg bg-btn-primary px-5 text-sm font-medium text-btn-primary-text disabled:opacity-50 touch-manipulation active:scale-95"
         >
           {createTask.isPending ? 'Adding…' : 'Add'}
         </button>
@@ -139,7 +146,7 @@ export default function TasksPage() {
             key={tab.id}
             type="button"
             onClick={() => setFilter(tab.id)}
-            className={`flex-1 rounded-md py-2.5 text-sm font-medium transition-colors ${
+            className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors touch-manipulation ${
               filter === tab.id
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-muted hover:text-heading'
@@ -198,7 +205,7 @@ export default function TasksPage() {
                   type="button"
                   onClick={handleFocusPrev}
                   disabled={clampedFocusIndex === 0}
-                  className="flex-1 rounded-lg border border-th-border py-2.5 text-sm text-secondary disabled:opacity-30"
+                  className="min-h-[44px] flex-1 rounded-lg border border-th-border text-sm text-secondary disabled:opacity-30 touch-manipulation active:scale-95"
                 >
                   ← Prev
                 </button>
@@ -206,7 +213,7 @@ export default function TasksPage() {
                   type="button"
                   onClick={handleFocusSkip}
                   disabled={clampedFocusIndex >= focusItems.length - 1}
-                  className="flex-1 rounded-lg border border-th-border py-2.5 text-sm text-secondary disabled:opacity-30"
+                  className="min-h-[44px] flex-1 rounded-lg border border-th-border text-sm text-secondary disabled:opacity-30 touch-manipulation active:scale-95"
                 >
                   Skip →
                 </button>
@@ -220,7 +227,7 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={() => setFocusMode(false)}
-                className="mt-4 rounded-full border border-th-border px-4 py-2 text-sm text-muted"
+                className="mt-4 min-h-[44px] rounded-full border border-th-border px-4 text-sm text-muted touch-manipulation active:scale-95"
               >
                 Exit focus mode
               </button>
@@ -264,6 +271,18 @@ export default function TasksPage() {
           ))}
         </div>
       )}
+
+      {/* Mobile-only FAB to jump back to quick-add. Hidden on md+ where
+       * the input is always near the top of the visible area. */}
+      <button
+        type="button"
+        onClick={handleFabAdd}
+        aria-label="Add a task"
+        className="fixed bottom-24 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white text-3xl shadow-lg hover:opacity-90 active:scale-95 touch-manipulation md:hidden"
+        style={{ bottom: 'max(6rem, calc(env(safe-area-inset-bottom) + 5rem))' }}
+      >
+        +
+      </button>
     </div>
   );
 }

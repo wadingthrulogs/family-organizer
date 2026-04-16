@@ -1,4 +1,4 @@
-import { useState, Suspense, useCallback, useEffect, useRef } from 'react';
+import { useState, Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ResponsiveGridLayout, useContainerWidth, noCompactor } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -37,6 +37,7 @@ function DashboardPage() {
   }, []);
 
   const isDraggable = editMode && currentBreakpoint === 'lg';
+  const layouts = useMemo(() => getResponsiveLayouts(config.slots), [config.slots]);
 
   // When server preferences load, use server dashboard config (server wins)
   useEffect(() => {
@@ -259,7 +260,7 @@ function DashboardPage() {
           <ResponsiveGridLayout
             className="dashboard-grid"
             width={width}
-            layouts={getResponsiveLayouts(config.slots)}
+            layouts={layouts}
             breakpoints={{ lg: 1280, md: 996, sm: 768, xs: 480, xxs: 0 }}
             cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }}
             rowHeight={120}

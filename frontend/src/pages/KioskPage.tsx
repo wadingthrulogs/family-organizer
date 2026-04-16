@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ResponsiveGridLayout, useContainerWidth, noCompactor } from 'react-grid-layout';
@@ -58,6 +58,7 @@ function KioskPage() {
   }, []);
 
   const isDraggable = editMode && currentBreakpoint === 'lg';
+  const layouts = useMemo(() => getResponsiveLayouts(config.slots), [config.slots]);
 
   // Sync from server when preferences load (once per mount, so the 60s
   // auto-refresh doesn't clobber an in-progress local edit).
@@ -297,7 +298,7 @@ function KioskPage() {
             <ResponsiveGridLayout
               className="dashboard-grid"
               width={width}
-              layouts={getResponsiveLayouts(config.slots)}
+              layouts={layouts}
               breakpoints={{ lg: 1280, md: 996, sm: 768, xs: 480, xxs: 0 }}
               cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }}
               rowHeight={120}

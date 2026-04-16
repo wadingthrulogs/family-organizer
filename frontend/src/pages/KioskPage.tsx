@@ -272,7 +272,7 @@ function KioskPage() {
           </p>
         </div>
       ) : (
-        <div ref={containerRef} className={`relative w-full ${config.preferences?.hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
+        <div ref={containerRef} className={`relative w-full overflow-x-hidden ${config.preferences?.hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
           {mounted && editMode && isInteracting && (
             <div
               className="absolute inset-0 pointer-events-none"

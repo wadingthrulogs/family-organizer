@@ -234,7 +234,7 @@ function DashboardPage() {
         />
       )}
 
-      <div ref={containerRef} className={`relative ${hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
+      <div ref={containerRef} className={`relative overflow-x-hidden ${hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
         {mounted && editMode && isInteracting && (
           <div
             className="absolute inset-0 pointer-events-none"

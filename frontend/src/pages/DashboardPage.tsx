@@ -22,8 +22,6 @@ function DashboardPage() {
   const [config, setConfig] = useState<DashboardConfig>(loadDashboardConfig);
   const [editMode, setEditMode] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
-  const [isInteracting, setIsInteracting] = useState(false);
   const [recentlyRemoved, setRecentlyRemoved] = useState<RecentlyRemoved | null>(null);
   const { width, mounted, containerRef } = useContainerWidth();
   const { data: prefs } = useUserPreferences();
@@ -35,9 +33,6 @@ function DashboardPage() {
   useEffect(() => () => {
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
   }, []);
-
-  const isDraggable = editMode && currentBreakpoint === 'lg';
-  const handleBreakpointChange = useCallback((bp: string) => setCurrentBreakpoint(bp), []);
 
   // When server preferences load, use server dashboard config (server wins)
   useEffect(() => {
@@ -63,10 +58,11 @@ function DashboardPage() {
       // Only persist when the user is actively editing; ignore RGL recomputations
       // (compaction, window resize) that fire outside of edit mode.
       if (!editModeRef.current) return;
-      // Only persist layout changes made on the desktop (lg) breakpoint.
-      // Mobile breakpoints use derived stacked layouts and should never
-      // overwrite the user's saved desktop arrangement.
-      if (currentBreakpoint !== 'lg') return;
+      // Skip layout persistence on narrow viewports where RGL uses derived
+      // stacked layouts — those should never overwrite the user's desktop
+      // arrangement. We infer "narrow" from the layout itself: stacked
+      // layouts always have x=0 on every item.
+      if (newLayout.length > 1 && newLayout.every((l) => l.x === 0)) return;
       setConfig((prev) => {
         const next: DashboardConfig = {
           ...prev,
@@ -107,17 +103,6 @@ function DashboardPage() {
       return next;
     });
   }, [persistConfig]);
-
-  const handleDragStart = useCallback(() => setIsInteracting(true), []);
-  const handleResizeStart = useCallback(() => setIsInteracting(true), []);
-  const handleDragStop = useCallback((newLayout: Layout[]) => {
-    setIsInteracting(false);
-    handleLayoutChange(newLayout);
-  }, [handleLayoutChange]);
-  const handleResizeStop = useCallback((newLayout: Layout[]) => {
-    setIsInteracting(false);
-    handleLayoutChange(newLayout);
-  }, [handleLayoutChange]);
 
   const handleUndoRemove = useCallback(() => {
     setRecentlyRemoved((current) => {
@@ -188,9 +173,6 @@ function DashboardPage() {
     });
   }, [persistConfig]);
 
-  const numGridRows = Math.max(6,
-    config.slots.reduce((max, s) => Math.max(max, s.layout.y + s.layout.h), 0) + 2
-  );
 
   const handleToggleBorders = useCallback(() => {
     setConfig((prev) => {
@@ -236,26 +218,6 @@ function DashboardPage() {
       )}
 
       <div ref={containerRef} className={`relative overflow-x-hidden ${hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
-        {mounted && editMode && isInteracting && (
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(12, 1fr)',
-              gridAutoRows: '120px',
-              gap: '16px',
-              zIndex: 40,
-              opacity: 0.55,
-            }}
-          >
-            {Array.from({ length: 12 * numGridRows }).map((_, i) => (
-              <div
-                key={i}
-                style={{ border: '1px dashed var(--color-accent, #6366f1)', borderRadius: '8px' }}
-              />
-            ))}
-          </div>
-        )}
         {mounted && (
           <ResponsiveGridLayout
             className="dashboard-grid"
@@ -264,22 +226,19 @@ function DashboardPage() {
             breakpoints={{ lg: 1280, md: 996, sm: 768, xs: 480, xxs: 0 }}
             cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }}
             rowHeight={120}
-            dragConfig={{ enabled: isDraggable, handle: isDraggable ? '.widget-drag-handle' : undefined }}
-            resizeConfig={{ enabled: isDraggable, handles: isDraggable ? ['se', 'sw', 'ne', 'nw', 'e', 'w', 's', 'n'] : [] }}
+            dragConfig={{ enabled: editMode, handle: editMode ? '.widget-drag-handle' : undefined }}
+            resizeConfig={{ enabled: editMode, handles: editMode ? ['se', 'sw', 'ne', 'nw'] : [] }}
             compactor={noCompactor}
             margin={[16, 16]}
-            onBreakpointChange={handleBreakpointChange}
-            onDragStart={handleDragStart}
-            onResizeStart={handleResizeStart}
-            onDragStop={handleDragStop}
-            onResizeStop={handleResizeStop}
+            onDragStop={handleLayoutChange}
+            onResizeStop={handleLayoutChange}
           >
           {config.slots.map((slot) => {
             const def = getWidget(slot.widgetId);
             const Widget = def?.component;
             return (
               <div key={slot.layout.i} className="relative h-full">
-                {isDraggable ? (
+                {editMode ? (
                   <div className="flex flex-col h-full">
                     <div
                       className="widget-drag-handle flex items-center gap-2 px-3 py-2 bg-[var(--color-accent)] text-white rounded-t-2xl text-sm select-none shrink-0"
@@ -338,11 +297,6 @@ function DashboardPage() {
         </div>
       )}
 
-      {editMode && currentBreakpoint !== 'lg' && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-6 z-40 rounded-full bg-amber-500/95 text-white px-5 py-2 text-sm font-medium shadow-lg">
-          Switch to a wider screen to rearrange widgets
-        </div>
-      )}
 
       {config.slots.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-[var(--color-border)] p-12 text-center">

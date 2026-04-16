@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+// Note: useMemo was removed — inline getResponsiveLayouts avoids RGL deepEqual mismatch
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ResponsiveGridLayout, useContainerWidth, noCompactor } from 'react-grid-layout';
@@ -43,8 +44,6 @@ function KioskPage() {
   const [editMode, setEditMode] = useState(false);
   const [cursorHidden, setCursorHidden] = useState(false);
   const [showExit, setShowExit] = useState(true);
-  const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
-  const [isInteracting, setIsInteracting] = useState(false);
   const [recentlyRemoved, setRecentlyRemoved] = useState<RecentlyRemovedKiosk | null>(null);
   const { width, mounted, containerRef } = useContainerWidth();
   const { data: prefs } = useUserPreferences();
@@ -57,8 +56,6 @@ function KioskPage() {
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
   }, []);
 
-  const isDraggable = editMode && currentBreakpoint === 'lg';
-  const handleBreakpointChange = useCallback((bp: string) => setCurrentBreakpoint(bp), []);
 
   // Sync from server when preferences load (once per mount, so the 60s
   // auto-refresh doesn't clobber an in-progress local edit).
@@ -77,9 +74,6 @@ function KioskPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const numGridRows = Math.max(6,
-    config.slots.reduce((max, s) => Math.max(max, s.layout.y + s.layout.h), 0) + 2
-  );
 
   // Auto-refresh only the widget-backing queries, not every query in cache.
   // Previous behavior (queryClient.invalidateQueries() with no args) wiped
@@ -160,10 +154,7 @@ function KioskPage() {
 
   const handleLayoutChange = useCallback((newLayout: Layout[]) => {
     if (!editModeRef.current) return;
-    // Only persist drags from the desktop (lg) breakpoint. Mobile/tablet uses
-    // derived stacked layouts and must not overwrite the user's saved desktop
-    // arrangement.
-    if (currentBreakpoint !== 'lg') return;
+    if (newLayout.length > 1 && newLayout.every((l) => l.x === 0)) return;
     setConfig((prev) => {
       const next: DashboardConfig = {
         ...prev,
@@ -191,17 +182,6 @@ function KioskPage() {
       return next;
     });
   }, [persistConfig]);
-
-  const handleDragStart = useCallback(() => setIsInteracting(true), []);
-  const handleResizeStart = useCallback(() => setIsInteracting(true), []);
-  const handleDragStop = useCallback((newLayout: Layout[]) => {
-    setIsInteracting(false);
-    handleLayoutChange(newLayout);
-  }, [handleLayoutChange]);
-  const handleResizeStop = useCallback((newLayout: Layout[]) => {
-    setIsInteracting(false);
-    handleLayoutChange(newLayout);
-  }, [handleLayoutChange]);
 
   const handleUndoRemove = useCallback(() => {
     setRecentlyRemoved((current) => {
@@ -274,26 +254,6 @@ function KioskPage() {
         </div>
       ) : (
         <div ref={containerRef} className={`relative w-full overflow-x-hidden ${config.preferences?.hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
-          {mounted && editMode && isInteracting && (
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(12, 1fr)',
-                gridAutoRows: '120px',
-                gap: '16px',
-                zIndex: 40,
-                opacity: 0.55,
-              }}
-            >
-              {Array.from({ length: 12 * numGridRows }).map((_, i) => (
-                <div
-                  key={i}
-                  style={{ border: '1px dashed var(--color-accent, #6366f1)', borderRadius: '8px' }}
-                />
-              ))}
-            </div>
-          )}
           {mounted && (
             <ResponsiveGridLayout
               className="dashboard-grid"
@@ -302,22 +262,19 @@ function KioskPage() {
               breakpoints={{ lg: 1280, md: 996, sm: 768, xs: 480, xxs: 0 }}
               cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }}
               rowHeight={120}
-              dragConfig={{ enabled: isDraggable, handle: isDraggable ? '.widget-drag-handle' : undefined }}
-              resizeConfig={{ enabled: isDraggable, handles: isDraggable ? ['se', 'sw', 'ne', 'nw', 'e', 'w', 's', 'n'] : [] }}
+              dragConfig={{ enabled: editMode, handle: editMode ? '.widget-drag-handle' : undefined }}
+              resizeConfig={{ enabled: editMode, handles: editMode ? ['se', 'sw', 'ne', 'nw'] : [] }}
               compactor={noCompactor}
               margin={[16, 16]}
-              onBreakpointChange={handleBreakpointChange}
-              onDragStart={handleDragStart}
-              onResizeStart={handleResizeStart}
-              onDragStop={handleDragStop}
-              onResizeStop={handleResizeStop}
+              onDragStop={handleLayoutChange}
+              onResizeStop={handleLayoutChange}
             >
             {config.slots.map((slot) => {
               const def = getWidget(slot.widgetId);
               const Widget = def?.component;
               return (
                 <div key={slot.layout.i} className="relative h-full">
-                  {isDraggable ? (
+                  {editMode ? (
                     <div className="flex flex-col h-full">
                       <div
                         className="widget-drag-handle flex items-center gap-2 px-3 py-2 bg-[var(--color-accent)] text-white rounded-t-2xl text-sm select-none shrink-0"
@@ -377,11 +334,6 @@ function KioskPage() {
         </div>
       )}
 
-      {editMode && currentBreakpoint !== 'lg' && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-6 z-40 rounded-full bg-amber-500/95 text-white px-5 py-2 text-sm font-medium shadow-lg">
-          Switch to a wider screen to rearrange widgets
-        </div>
-      )}
     </div>
   );
 }

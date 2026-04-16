@@ -266,7 +266,6 @@ function DashboardPage() {
             dragConfig={{ enabled: isDraggable, handle: isDraggable ? '.widget-drag-handle' : undefined }}
             resizeConfig={{ enabled: isDraggable, handles: isDraggable ? ['se', 'sw', 'ne', 'nw', 'e', 'w', 's', 'n'] : [] }}
             compactor={noCompactor}
-            preventCollision={true}
             margin={[16, 16]}
             onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
             onDragStart={handleDragStart}

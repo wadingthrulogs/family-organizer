@@ -167,7 +167,7 @@ function KioskPage() {
       persistConfig(next);
       return next;
     });
-  }, [persistConfig, currentBreakpoint]);
+  }, [persistConfig]);
 
   const handleRemoveWidget = useCallback((slotKey: string) => {
     setConfig((prev) => {

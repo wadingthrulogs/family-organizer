@@ -79,7 +79,7 @@ function DashboardPage() {
         return next;
       });
     },
-    [persistConfig, currentBreakpoint]
+    [persistConfig]
   );
 
   const handleAddWidget = useCallback((slot: DashboardWidgetSlot) => {

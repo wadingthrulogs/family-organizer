@@ -1,0 +1,19 @@
+{
+  "name": "family-organizer-agents",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "frontend": "tsx frontend-expert.ts",
+    "frontend:review": "tsx frontend-expert.ts 'Review component architecture and suggest improvements'",
+    "frontend:perf": "tsx frontend-expert.ts 'Audit frontend performance — bundle size, re-renders, lazy loading'",
+    "frontend:a11y": "tsx frontend-expert.ts 'Audit accessibility: WCAG AA compliance, ARIA, keyboard nav'"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "tsx": "^4.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

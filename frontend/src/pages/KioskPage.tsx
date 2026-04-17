@@ -50,8 +50,10 @@ function KioskPage() {
   const updatePrefs = useUpdateUserPreferencesMutation();
   const serverSynced = useRef(false);
   const editModeRef = useRef(editMode);
+  const widthRef = useRef(width);
   const undoTimerRef = useRef<number | null>(null);
   useEffect(() => { editModeRef.current = editMode; }, [editMode]);
+  useEffect(() => { widthRef.current = width; }, [width]);
   useEffect(() => () => {
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
   }, []);
@@ -154,7 +156,7 @@ function KioskPage() {
 
   const handleLayoutChange = useCallback((newLayout: Layout[]) => {
     if (!editModeRef.current) return;
-    if (newLayout.length > 1 && newLayout.every((l) => l.x === 0)) return;
+    if (widthRef.current < 1280) return;
     setConfig((prev) => {
       const next: DashboardConfig = {
         ...prev,

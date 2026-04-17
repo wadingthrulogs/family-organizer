@@ -28,8 +28,10 @@ function DashboardPage() {
   const updatePrefs = useUpdateUserPreferencesMutation();
   const serverSynced = useRef(false);
   const editModeRef = useRef(editMode);
+  const widthRef = useRef(width);
   const undoTimerRef = useRef<number | null>(null);
   useEffect(() => { editModeRef.current = editMode; }, [editMode]);
+  useEffect(() => { widthRef.current = width; }, [width]);
   useEffect(() => () => {
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
   }, []);
@@ -58,11 +60,12 @@ function DashboardPage() {
       // Only persist when the user is actively editing; ignore RGL recomputations
       // (compaction, window resize) that fire outside of edit mode.
       if (!editModeRef.current) return;
-      // Skip layout persistence on narrow viewports where RGL uses derived
-      // stacked layouts — those should never overwrite the user's desktop
-      // arrangement. We infer "narrow" from the layout itself: stacked
-      // layouts always have x=0 on every item.
-      if (newLayout.length > 1 && newLayout.every((l) => l.x === 0)) return;
+      // Only persist layout changes made on the desktop (lg) breakpoint.
+      // On narrower viewports RGL uses derived layouts (md scales to 8 cols,
+      // sm/xs/xxs stack to 1 col) — persisting those would overwrite the
+      // user's desktop arrangement with smaller coordinates. We use a ref
+      // instead of state to avoid mid-drag re-renders.
+      if (widthRef.current < 1280) return;
       setConfig((prev) => {
         const next: DashboardConfig = {
           ...prev,

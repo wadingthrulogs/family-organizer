@@ -306,29 +306,15 @@ function KioskPage() {
         ✕ Exit
       </button>
 
-      {/* Edit layout button — always visible in edit mode, fades with cursor otherwise */}
-      <button
-        type="button"
-        onClick={() => setEditMode((v) => !v)}
-        className={`fixed left-4 z-50 inline-flex items-center min-h-[48px] rounded-full px-5 text-base backdrop-blur-sm transition-all touch-manipulation active:scale-95 ${
-          editMode
-            ? 'bg-[var(--color-accent)] text-white opacity-100'
-            : `bg-black/30 text-white hover:bg-black/50 ${showExit ? 'opacity-100' : 'opacity-0 pointer-events-none'}`
-        }`}
-        style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
-      >
-        {editMode ? '✓ Done editing' : '✏️ Edit layout'}
-      </button>
-
-      {/* Settings FAB — matches dashboard */}
+      {/* Settings FAB — bottom-right, matches dashboard ⚙ placement */}
       <button
         type="button"
         onClick={() => setSettingsOpen(true)}
         aria-label="Dashboard settings"
-        className={`fixed left-20 z-50 h-12 w-12 rounded-full bg-black/30 text-white text-xl backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-all touch-manipulation active:scale-95 ${
+        className={`fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-[var(--color-accent)] text-white text-2xl shadow-lg flex items-center justify-center hover:opacity-90 transition-all touch-manipulation active:scale-95 ${
           showExit || editMode ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
-        style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
+        style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
       >
         ⚙
       </button>

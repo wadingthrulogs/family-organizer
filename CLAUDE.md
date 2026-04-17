@@ -104,7 +104,7 @@ TZ                      # default UTC
 | Model | Key Fields |
 |-------|-----------|
 | User | id, username, email, passwordHash, pinHash, role, colorHex, authProvider, timezone, lastLoginAt, deletedAt |
-| UserPreference | userId, theme, dashboardConfig (JSON), hiddenTabs |
+| UserPreference | userId, theme, dashboardConfig (JSON), kioskConfig (JSON), hiddenTabs |
 | UserSecret | userId, secretType, encryptedValue (Bytes) |
 | GoogleAccount | userId, email, displayName, encryptedRefreshToken, lastSyncedAt |
 | LinkedCalendar | userId, googleAccountId, googleId, displayName, colorHex, accessRole, syncToken, lastSyncedAt |
@@ -211,7 +211,7 @@ TZ                      # default UTC
 **Settings `/settings`**
 - `GET /` — `{ householdName, timezone, quietHours, hiddenTabs, theme, weatherLocation, weatherUnits }`
 - `PATCH /` — partial update
-- `GET /me` — user preferences `{ theme, dashboardConfig, hiddenTabs }`
+- `GET /me` — user preferences `{ theme, dashboardConfig, kioskConfig, hiddenTabs }`
 - `PATCH /me` — user preferences update
 
 **Reminders `/reminders`**
@@ -286,6 +286,7 @@ ErrorBoundary → QueryClientProvider → BrowserRouter → AuthProvider → The
 | `/calendar` | CalendarPage | Day/week/month view + overlays |
 | `/grocery` | GroceryPage | Shopping lists with shopping mode |
 | `/inventory` | InventoryPage | Pantry tracker |
+| `/meal-plans` | MealPlanPage | Weekly planner + recipe management |
 | `/reminders` | → redirect | Redirects to `/notifications` |
 | `/notifications` | NotificationsPage | Push notification history + reminder CRUD |
 | `/settings` | SettingsPage | Household config, Google, users, backup |
@@ -365,18 +366,19 @@ interface GroceryItem { id, listId, name, category?, quantity, unit?, state, not
 
 | ID | Widget | Default Grid |
 |----|--------|-------------|
-| clock | ClockWidget | 6×2 |
-| weather | WeatherWidget | 6×2 |
-| tasks | TasksWidget | 6×3 |
+| clock | ClockWidget | 4×2 |
+| weather | WeatherWidget | 4×2 |
+| tasks | TasksWidget | 4×3 |
 | chores | ChoresWidget | 6×3 |
-| events | EventsWidget | 12×3 |
-| overdueChores | OverdueChoresWidget | 6×3 |
+| events | EventsWidget | 8×3 |
+| overdueChores | OverdueChoresWidget | 4×2 |
 | grocery | GroceryWidget | 6×3 |
-| reminders | RemindersWidget | 6×3 |
+| reminders | RemindersWidget | 4×3 |
 | inventory | InventoryWidget | 6×3 |
 | mealPlan | MealPlanWidget | 6×3 |
 
 Dashboard config stored in localStorage (`dashboard-config`) and synced to server via `/settings/me`.
+Kiosk config stored separately in localStorage (`kiosk-config`) and synced to server via `kioskConfig` field in `/settings/me`.
 
 ---
 

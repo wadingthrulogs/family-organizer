@@ -382,6 +382,8 @@ The Vite dev server proxies `/api` to `http://localhost:3000` automatically.
 | [docs/data-model.md](docs/data-model.md) | Database schema and entity relationships |
 | [docs/requirements.md](docs/requirements.md) | Functional and non-functional requirements |
 | [docs/release-checklist.md](docs/release-checklist.md) | Release and deployment runbook |
+| [docs/perf-audit-2026-04.md](docs/perf-audit-2026-04.md) | Performance audit findings and fixes |
+| [docs/ui-wireframes.md](docs/ui-wireframes.md) | UI wireframes and design notes |
 | [Tailscale-guide.md](Tailscale-guide.md) | HTTPS setup via Tailscale — certs, renewal, Google OAuth fix |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |

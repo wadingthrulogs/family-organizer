@@ -4,7 +4,7 @@
 | Entity | Description |
 | --- | --- |
 | `users` | Household accounts with role, profile info, and authentication credentials. |
-| `user_preferences` | Per-user UI preferences: theme, dashboard widget layout & config (JSON), hidden tabs. |
+| `user_preferences` | Per-user UI preferences: theme, dashboard widget layout & config (JSON), kiosk config (JSON), hidden tabs. |
 | `user_secrets` | Encrypted blobs for arbitrary per-user secrets (not used for OAuth tokens — see `google_accounts`). |
 | `google_accounts` | Connected Google accounts per user; stores `encrypted_refresh_token` directly. |
 | `linked_calendars` | Mapping of Google calendars to household members, including color and sync metadata. |
@@ -17,6 +17,7 @@
 | `chore_assignments` | Generated chore instances tied to a date window and specific member. |
 | `grocery_lists` | Named lists (Weekly, Costco) with metadata (store, preset). |
 | `grocery_items` | Items on a grocery list with quantity, category, claimed status. |
+| `inventory_items` | Pantry/household inventory with quantity tracking, low-stock thresholds, and optional pantry key linking. |
 | `recipes` | User-created recipes with ingredients, prep/cook times, and serving size. |
 | `meal_plans` | Weekly meal plan containers anchored to a `weekStart` date. |
 | `meal_plan_entries` | Individual meal slots within a plan (day + meal type + optional recipe). |

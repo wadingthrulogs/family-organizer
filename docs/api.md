@@ -181,9 +181,10 @@
 - Partial update of household settings.
 
 ### GET /settings/me
-- Response: `{ theme, dashboardConfig, hiddenTabs }` — user preferences.
+- Response: `{ theme, dashboardConfig, kioskConfig, hiddenTabs }` — user preferences.
 
 ### PATCH /settings/me
+- Body: `{ theme?, dashboardConfig?, kioskConfig?, hiddenTabs? }`
 - Update user preferences.
 
 ## Reminders (`/reminders`)

@@ -49,6 +49,7 @@ model UserPreference {
   userId          Int      @unique
   theme           String   @default("default")
   dashboardConfig String?
+  kioskConfig     String?
   hiddenTabs      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

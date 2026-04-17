@@ -10,7 +10,7 @@ import 'react-resizable/css/styles.css';
 import { DashboardSettingsSheet } from '../components/widgets/DashboardSettings';
 import { getWidget } from '../components/widgets/widgetRegistry';
 import type { DashboardConfig, DashboardWidgetSlot } from '../types/dashboard';
-import { loadDashboardConfig, saveDashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
+import { loadKioskConfig, saveKioskConfig, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
 import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
 import { getResponsiveLayouts } from '../lib/dashboardLayouts';
 
@@ -41,7 +41,7 @@ const KIOSK_UNDO_TIMEOUT_MS = 5000;
 function KioskPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [config, setConfig] = useState<DashboardConfig>(loadDashboardConfig);
+  const [config, setConfig] = useState<DashboardConfig>(loadKioskConfig);
   const [editMode, setEditMode] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cursorHidden, setCursorHidden] = useState(false);
@@ -64,17 +64,17 @@ function KioskPage() {
   // Sync from server when preferences load (once per mount, so the 60s
   // auto-refresh doesn't clobber an in-progress local edit).
   useEffect(() => {
-    if (prefs?.dashboardConfig && !serverSynced.current) {
+    if (prefs?.kioskConfig && !serverSynced.current) {
       serverSynced.current = true;
-      if (prefs.dashboardConfig.slots?.length) {
-        setConfig(prefs.dashboardConfig);
+      if (prefs.kioskConfig.slots?.length) {
+        setConfig(prefs.kioskConfig);
       }
     }
-  }, [prefs?.dashboardConfig]);
+  }, [prefs?.kioskConfig]);
 
   const persistConfig = useCallback((cfg: DashboardConfig) => {
-    saveDashboardConfig(cfg);
-    updatePrefs.mutate({ dashboardConfig: cfg });
+    saveKioskConfig(cfg);
+    updatePrefs.mutate({ kioskConfig: cfg });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

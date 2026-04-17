@@ -97,7 +97,6 @@ function EventsWeek({ events }: { events: CalendarEvent[] }) {
 
   const eventMap = useMemo(() => buildEventMap(events), [events]);
   const todayStr = new Date().toDateString();
-  const MAX_EVENTS_PER_DAY = 4;
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
@@ -109,9 +108,6 @@ function EventsWeek({ events }: { events: CalendarEvent[] }) {
 
           // Collapse empty days except today
           if (bucket.length === 0 && !isToday) return null;
-
-          const visible = bucket.slice(0, MAX_EVENTS_PER_DAY);
-          const overflow = bucket.length - visible.length;
 
           return (
             <div
@@ -138,12 +134,12 @@ function EventsWeek({ events }: { events: CalendarEvent[] }) {
               </div>
 
               <div className="flex-1 min-w-0 flex flex-col gap-[0.3em]">
-                {visible.length === 0 ? (
+                {bucket.length === 0 ? (
                   <p className="text-[0.9em] italic text-[var(--color-text-secondary)] py-[0.25em]">
                     Nothing on today
                   </p>
                 ) : (
-                  visible.map((ev) => (
+                  bucket.map((ev) => (
                     <div
                       key={ev.id}
                       className="flex items-baseline gap-[0.6em] border-l-[0.25em] border-[var(--color-accent)] pl-[0.5em] min-h-[2.2em]"
@@ -161,14 +157,6 @@ function EventsWeek({ events }: { events: CalendarEvent[] }) {
                       </span>
                     </div>
                   ))
-                )}
-                {overflow > 0 && (
-                  <a
-                    href="/calendar"
-                    className="text-[0.85em] font-medium text-[var(--color-accent)] hover:underline pl-[0.75em]"
-                  >
-                    +{overflow} more →
-                  </a>
                 )}
               </div>
             </div>

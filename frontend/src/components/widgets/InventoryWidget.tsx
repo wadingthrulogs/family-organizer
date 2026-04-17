@@ -9,7 +9,10 @@ export default function InventoryWidget() {
   const { ref, compact, tiny, height, baseFontSize } = useWidgetSize();
   const [view, setView] = useState<ViewMode>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editQty, setEditQty] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  const qtyInputRef = useRef<HTMLInputElement>(null);
   const updateItem = useUpdateInventoryItemMutation();
 
   const { data, isLoading } = useInventory();
@@ -31,14 +34,40 @@ export default function InventoryWidget() {
     }
   }, [view]);
 
+  useEffect(() => {
+    if (editingId !== null) {
+      setTimeout(() => qtyInputRef.current?.focus(), 0);
+    }
+  }, [editingId]);
+
   const handleSetLowStock = (itemId: number) => {
     const item = allItems.find((i) => i.id === itemId);
     if (!item) return;
-    // Set threshold to current quantity so it shows as low stock
     updateItem.mutate({
       itemId,
       data: { lowStockThreshold: Math.max(item.quantity, 1) },
     });
+  };
+
+  const handleMarkOut = (itemId: number) => {
+    updateItem.mutate({ itemId, data: { quantity: 0 } });
+  };
+
+  const handleStartEdit = (itemId: number, currentQty: number) => {
+    setEditingId(itemId);
+    setEditQty(String(currentQty));
+  };
+
+  const handleSaveQty = (itemId: number) => {
+    const qty = parseInt(editQty, 10);
+    if (!isNaN(qty) && qty >= 0) {
+      updateItem.mutate({ itemId, data: { quantity: qty } });
+    }
+    setEditingId(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
   };
 
   const showHeader = height > 80;
@@ -127,6 +156,7 @@ export default function InventoryWidget() {
               const isLow = item.quantity === 0 || (item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold);
               const isOut = item.quantity === 0;
               const hasThreshold = item.lowStockThreshold != null;
+              const isEditing = editingId === item.id;
 
               return (
                 <li
@@ -142,23 +172,89 @@ export default function InventoryWidget() {
                   <span className="flex-1 text-[var(--color-text)] truncate text-[0.95em]">
                     {item.name}
                   </span>
-                  <span
-                    className={`shrink-0 text-[0.8em] font-semibold tabular-nums ${
-                      isOut ? 'text-red-500' : isLow ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--color-text-secondary)]'
-                    }`}
-                  >
-                    {isOut ? 'OUT' : `${item.quantity}${item.unit ? ` ${item.unit}` : ''}`}
-                  </span>
-                  {view === 'search' && !hasThreshold && (
-                    <button
-                      type="button"
-                      onClick={() => handleSetLowStock(item.id)}
-                      disabled={updateItem.isPending}
-                      title="Track low stock for this item"
-                      className="shrink-0 min-h-[36px] px-2 rounded-lg text-[0.75em] font-medium bg-[var(--color-accent)] text-white hover:opacity-80 transition-opacity touch-manipulation active:scale-95 disabled:opacity-50"
-                    >
-                      + Track
-                    </button>
+
+                  {isEditing ? (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <input
+                        ref={qtyInputRef}
+                        type="number"
+                        min="0"
+                        value={editQty}
+                        onChange={(e) => setEditQty(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveQty(item.id);
+                          if (e.key === 'Escape') handleCancelEdit();
+                        }}
+                        className="w-[4em] min-h-[32px] rounded-lg border border-[var(--color-accent)] bg-[var(--color-bg)] px-2 text-[0.85em] text-center text-[var(--color-text)] outline-none tabular-nums"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSaveQty(item.id)}
+                        className="min-h-[32px] px-2 rounded-lg text-[0.75em] font-medium bg-[var(--color-accent)] text-white touch-manipulation active:scale-95"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className="min-h-[32px] px-2 rounded-lg text-[0.75em] font-medium border border-[var(--color-border)] text-[var(--color-text-secondary)] touch-manipulation active:scale-95"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Quantity — tap to edit */}
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(item.id, item.quantity)}
+                        title="Tap to edit quantity"
+                        className={`min-h-[32px] px-2 rounded-lg text-[0.8em] font-semibold tabular-nums transition-colors touch-manipulation active:scale-95 ${
+                          isOut
+                            ? 'text-red-500 hover:bg-red-500/10'
+                            : isLow
+                            ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
+                            : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]'
+                        }`}
+                      >
+                        {isOut ? 'OUT' : `${item.quantity}${item.unit ? ` ${item.unit}` : ''}`}
+                      </button>
+
+                      {/* Quick actions */}
+                      {!isOut && (
+                        <button
+                          type="button"
+                          onClick={() => handleMarkOut(item.id)}
+                          disabled={updateItem.isPending}
+                          title="Mark as out of stock"
+                          className="min-h-[32px] px-2 rounded-lg text-[0.7em] font-medium text-red-500 border border-red-300 hover:bg-red-500/10 transition-colors touch-manipulation active:scale-95 disabled:opacity-50"
+                        >
+                          Out
+                        </button>
+                      )}
+                      {!hasThreshold && view !== 'search' && (
+                        <button
+                          type="button"
+                          onClick={() => handleSetLowStock(item.id)}
+                          disabled={updateItem.isPending}
+                          title="Track low stock"
+                          className="min-h-[32px] px-2 rounded-lg text-[0.7em] font-medium bg-[var(--color-accent)] text-white hover:opacity-80 transition-opacity touch-manipulation active:scale-95 disabled:opacity-50"
+                        >
+                          Track
+                        </button>
+                      )}
+                      {view === 'search' && !hasThreshold && (
+                        <button
+                          type="button"
+                          onClick={() => handleSetLowStock(item.id)}
+                          disabled={updateItem.isPending}
+                          title="Track low stock"
+                          className="min-h-[32px] px-2 rounded-lg text-[0.7em] font-medium bg-[var(--color-accent)] text-white hover:opacity-80 transition-opacity touch-manipulation active:scale-95 disabled:opacity-50"
+                        >
+                          + Track
+                        </button>
+                      )}
+                    </div>
                   )}
                 </li>
               );

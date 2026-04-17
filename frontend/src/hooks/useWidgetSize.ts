@@ -99,7 +99,14 @@ export function useWidgetSize(): WidgetSize & { ref: React.RefCallback<HTMLEleme
   // Weighted average favoring width (60/40) so wide-but-short widgets
   // don't get crushed. Clamp between 14-32px for touch-kiosk readability.
   const raw = (size.width * 0.6 + size.height * 0.4) * 0.05;
-  const baseFontSize = Math.max(14, Math.min(32, raw));
+  const baseFontSizeRaw = Math.max(14, Math.min(32, raw));
+
+  // Per-widget font scale: read from the closest ancestor's data-font-scale
+  // attribute (set by DashboardPage/KioskPage on the grid item div).
+  // This avoids prop drilling or context — widgets scale automatically.
+  const scaleAttr = nodeRef.current?.closest('[data-font-scale]')?.getAttribute('data-font-scale');
+  const fontScale = scaleAttr ? parseFloat(scaleAttr) : 1;
+  const baseFontSize = baseFontSizeRaw * (Number.isFinite(fontScale) ? fontScale : 1);
 
   return { ...size, compact, tiny, baseFontSize, ref };
 }

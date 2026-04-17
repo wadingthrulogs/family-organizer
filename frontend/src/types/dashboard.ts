@@ -3,6 +3,8 @@ import type { Layout } from 'react-grid-layout';
 export interface DashboardWidgetSlot {
   widgetId: string;
   layout: Layout;
+  /** Per-widget font scale multiplier (default 1.0). Adjustable in edit mode. */
+  fontScale?: number;
 }
 
 export interface DashboardPreferences {

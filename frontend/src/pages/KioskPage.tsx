@@ -160,6 +160,21 @@ function KioskPage() {
     });
   }, [persistConfig]);
 
+  const handleFontScale = useCallback((slotKey: string, delta: number) => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        slots: prev.slots.map((s) =>
+          s.layout.i === slotKey
+            ? { ...s, fontScale: Math.max(0.4, Math.min(2.0, Math.round(((s.fontScale ?? 1) + delta) * 10) / 10)) }
+            : s
+        ),
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
   const handleReset = useCallback(() => {
     setConfig(DEFAULT_DASHBOARD_CONFIG);
     persistConfig(DEFAULT_DASHBOARD_CONFIG);
@@ -364,7 +379,7 @@ function KioskPage() {
               const def = getWidget(slot.widgetId);
               const Widget = def?.component;
               return (
-                <div key={slot.layout.i} className="relative h-full">
+                <div key={slot.layout.i} className="relative h-full" data-font-scale={slot.fontScale ?? 1}>
                   {editMode ? (
                     <div className="flex flex-col h-full">
                       <div
@@ -373,6 +388,25 @@ function KioskPage() {
                       >
                         <span className="text-base leading-none" aria-hidden>⠿</span>
                         <span className="flex-1 truncate font-semibold">{def?.label ?? slot.widgetId}</span>
+                        <div className="flex items-center gap-1 shrink-0" onPointerDown={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleFontScale(slot.layout.i, -0.1); }}
+                            className="rounded bg-white/20 hover:bg-white/40 w-7 h-7 flex items-center justify-center text-xs font-bold transition-colors touch-manipulation active:scale-95"
+                            aria-label="Decrease font size"
+                          >
+                            A-
+                          </button>
+                          <span className="text-xs font-mono w-8 text-center tabular-nums">{Math.round((slot.fontScale ?? 1) * 100)}%</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleFontScale(slot.layout.i, 0.1); }}
+                            className="rounded bg-white/20 hover:bg-white/40 w-7 h-7 flex items-center justify-center text-xs font-bold transition-colors touch-manipulation active:scale-95"
+                            aria-label="Increase font size"
+                          >
+                            A+
+                          </button>
+                        </div>
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleRemoveWidget(slot.layout.i); }}

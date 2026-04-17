@@ -34,6 +34,8 @@ export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
 
 const STORAGE_KEY = 'dashboard-config';
 const KIOSK_STORAGE_KEY = 'kiosk-config';
+const DASHBOARD_TS_KEY = 'dashboard-config-ts';
+const KIOSK_TS_KEY = 'kiosk-config-ts';
 let nextSlotId = 100;
 
 function loadConfigFromStorage(key: string): DashboardConfig | null {
@@ -41,7 +43,7 @@ function loadConfigFromStorage(key: string): DashboardConfig | null {
     const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw) as DashboardConfig;
-      if (parsed.slots?.length) {
+      if (Array.isArray(parsed.slots)) {
         for (const slot of parsed.slots) {
           const num = parseInt(slot.layout.i.replace('slot-', ''), 10);
           if (!isNaN(num) && num >= nextSlotId) nextSlotId = num + 1;
@@ -61,6 +63,11 @@ export function loadDashboardConfig(): DashboardConfig {
 
 export function saveDashboardConfig(config: DashboardConfig): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  localStorage.setItem(DASHBOARD_TS_KEY, String(Date.now()));
+}
+
+export function getDashboardConfigTimestamp(): number {
+  return Number(localStorage.getItem(DASHBOARD_TS_KEY)) || 0;
 }
 
 export function loadKioskConfig(): DashboardConfig {
@@ -69,6 +76,11 @@ export function loadKioskConfig(): DashboardConfig {
 
 export function saveKioskConfig(config: DashboardConfig): void {
   localStorage.setItem(KIOSK_STORAGE_KEY, JSON.stringify(config));
+  localStorage.setItem(KIOSK_TS_KEY, String(Date.now()));
+}
+
+export function getKioskConfigTimestamp(): number {
+  return Number(localStorage.getItem(KIOSK_TS_KEY)) || 0;
 }
 
 export function generateSlotId(): string {

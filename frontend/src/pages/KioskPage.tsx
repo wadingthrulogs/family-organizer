@@ -10,7 +10,7 @@ import 'react-resizable/css/styles.css';
 import { DashboardSettingsSheet } from '../components/widgets/DashboardSettings';
 import { getWidget } from '../components/widgets/widgetRegistry';
 import type { DashboardConfig, DashboardWidgetSlot } from '../types/dashboard';
-import { loadKioskConfig, saveKioskConfig, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
+import { loadKioskConfig, saveKioskConfig, getKioskConfigTimestamp, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
 import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
 import { getResponsiveLayouts } from '../lib/dashboardLayouts';
 
@@ -48,7 +48,7 @@ function KioskPage() {
   const [showExit, setShowExit] = useState(true);
   const [recentlyRemoved, setRecentlyRemoved] = useState<RecentlyRemovedKiosk | null>(null);
   const { width, mounted, containerRef } = useContainerWidth();
-  const { data: prefs } = useUserPreferences();
+  const { data: prefs, dataUpdatedAt } = useUserPreferences();
   const updatePrefs = useUpdateUserPreferencesMutation();
   const serverSynced = useRef(false);
   const editModeRef = useRef(editMode);
@@ -61,16 +61,20 @@ function KioskPage() {
   }, []);
 
 
-  // Sync from server when preferences load (once per mount, so the 60s
-  // auto-refresh doesn't clobber an in-progress local edit).
+  // Sync from server when preferences load — unless localStorage was written
+  // more recently (user edited config, navigated away, returned before cache expired).
   useEffect(() => {
     if (prefs?.kioskConfig && !serverSynced.current) {
       serverSynced.current = true;
-      if (prefs.kioskConfig.slots?.length) {
-        setConfig(prefs.kioskConfig);
+      const localTs = getKioskConfigTimestamp();
+      if (localTs > dataUpdatedAt) return;
+      const serverConfig = prefs.kioskConfig;
+      if (Array.isArray(serverConfig.slots)) {
+        setConfig(serverConfig);
+        saveKioskConfig(serverConfig);
       }
     }
-  }, [prefs?.kioskConfig]);
+  }, [prefs?.kioskConfig, dataUpdatedAt]);
 
   const persistConfig = useCallback((cfg: DashboardConfig) => {
     saveKioskConfig(cfg);

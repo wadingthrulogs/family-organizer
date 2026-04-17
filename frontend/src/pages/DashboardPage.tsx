@@ -7,7 +7,7 @@ import 'react-resizable/css/styles.css';
 import { DashboardSettingsSheet } from '../components/widgets/DashboardSettings';
 import { getWidget } from '../components/widgets/widgetRegistry';
 import type { DashboardWidgetSlot, DashboardConfig } from '../types/dashboard';
-import { loadDashboardConfig, saveDashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
+import { loadDashboardConfig, saveDashboardConfig, getDashboardConfigTimestamp, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
 import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
 import { getResponsiveLayouts } from '../lib/dashboardLayouts';
 
@@ -24,7 +24,7 @@ function DashboardPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recentlyRemoved, setRecentlyRemoved] = useState<RecentlyRemoved | null>(null);
   const { width, mounted, containerRef } = useContainerWidth();
-  const { data: prefs } = useUserPreferences();
+  const { data: prefs, dataUpdatedAt } = useUserPreferences();
   const updatePrefs = useUpdateUserPreferencesMutation();
   const serverSynced = useRef(false);
   const editModeRef = useRef(editMode);
@@ -36,17 +36,21 @@ function DashboardPage() {
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
   }, []);
 
-  // When server preferences load, use server dashboard config (server wins)
+  // When server preferences load, use server dashboard config — unless
+  // localStorage was written more recently (i.e. user edited config, navigated
+  // away, and returned before the React Query cache expired).
   useEffect(() => {
     if (prefs?.dashboardConfig && !serverSynced.current) {
       serverSynced.current = true;
+      const localTs = getDashboardConfigTimestamp();
+      if (localTs > dataUpdatedAt) return;
       const serverConfig = prefs.dashboardConfig;
-      if (serverConfig.slots?.length) {
+      if (Array.isArray(serverConfig.slots)) {
         setConfig(serverConfig);
         saveDashboardConfig(serverConfig);
       }
     }
-  }, [prefs?.dashboardConfig]);
+  }, [prefs?.dashboardConfig, dataUpdatedAt]);
 
   // Helper: save to both localStorage and server
   const persistConfig = useCallback((cfg: DashboardConfig) => {

@@ -6,7 +6,10 @@
     "frontend": "tsx frontend-expert.ts",
     "frontend:review": "tsx frontend-expert.ts 'Review component architecture and suggest improvements'",
     "frontend:perf": "tsx frontend-expert.ts 'Audit frontend performance — bundle size, re-renders, lazy loading'",
-    "frontend:a11y": "tsx frontend-expert.ts 'Audit accessibility: WCAG AA compliance, ARIA, keyboard nav'"
+    "frontend:a11y": "tsx frontend-expert.ts 'Audit accessibility: WCAG AA compliance, ARIA, keyboard nav'",
+    "dashboard": "tsx dashboard-architect.ts",
+    "dashboard:debug": "tsx dashboard-architect.ts 'Debug the dashboard — read DashboardPage.tsx and identify any issues with drag, resize, layout persistence, or breakpoint behavior'",
+    "dashboard:review": "tsx dashboard-architect.ts 'Review DashboardPage.tsx and KioskPage.tsx for architecture risks, mid-drag re-render hazards, and sync issues'"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "latest"

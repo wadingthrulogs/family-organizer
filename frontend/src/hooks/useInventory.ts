@@ -8,7 +8,7 @@ export function useInventory(params?: InventoryQuery) {
   const { search = '', category = '', lowStock = false } = params ?? {};
   return useQuery({
     queryKey: ['inventory', search, category, lowStock],
-    queryFn: () => fetchInventoryItems({ search, category, lowStock }),
+    queryFn: () => fetchInventoryItems({ search, category, lowStock: lowStock || undefined }),
     staleTime: 20_000,
   });
 }

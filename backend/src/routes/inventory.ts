@@ -15,7 +15,7 @@ inventoryRouter.use(requireAuth);
 const listQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
   category: z.string().trim().max(120).optional(),
-  lowStock: z.coerce.boolean().optional(),
+  lowStock: z.string().optional().transform((val) => val === 'true'),
 });
 
 const createItemSchema = z.object({

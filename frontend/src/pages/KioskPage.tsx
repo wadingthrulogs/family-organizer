@@ -7,9 +7,10 @@ import type { Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
+import { DashboardSettingsSheet } from '../components/widgets/DashboardSettings';
 import { getWidget } from '../components/widgets/widgetRegistry';
 import type { DashboardConfig, DashboardWidgetSlot } from '../types/dashboard';
-import { loadDashboardConfig, saveDashboardConfig } from '../types/dashboard';
+import { loadDashboardConfig, saveDashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
 import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
 import { getResponsiveLayouts } from '../lib/dashboardLayouts';
 
@@ -42,6 +43,7 @@ function KioskPage() {
   const queryClient = useQueryClient();
   const [config, setConfig] = useState<DashboardConfig>(loadDashboardConfig);
   const [editMode, setEditMode] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [cursorHidden, setCursorHidden] = useState(false);
   const [showExit, setShowExit] = useState(true);
   const [recentlyRemoved, setRecentlyRemoved] = useState<RecentlyRemovedKiosk | null>(null);
@@ -145,8 +147,78 @@ function KioskPage() {
     };
   }, []);
 
-  const bgImageUrl = prefs?.dashboardConfig?.preferences?.backgroundImageUrl;
-  const bgOpacity = prefs?.dashboardConfig?.preferences?.backgroundOverlay ?? 1;
+  const hideWidgetBorders = config.preferences?.hideWidgetBorders ?? false;
+  const bgImageUrl = config.preferences?.backgroundImageUrl;
+  const bgOpacity = config.preferences?.backgroundOverlay ?? 1;
+  const backgroundFit = config.preferences?.backgroundFit ?? 'cover';
+
+  const handleAddWidget = useCallback((slot: DashboardWidgetSlot) => {
+    setConfig((prev) => {
+      const next: DashboardConfig = { ...prev, slots: [...prev.slots, slot] };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleReset = useCallback(() => {
+    setConfig(DEFAULT_DASHBOARD_CONFIG);
+    persistConfig(DEFAULT_DASHBOARD_CONFIG);
+  }, [persistConfig]);
+
+  const handleToggleBorders = useCallback(() => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          hideWidgetBorders: !prev.preferences?.hideWidgetBorders,
+        },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleSetBackground = useCallback((url: string, overlay?: number) => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          backgroundImageUrl: url,
+          backgroundOverlay: overlay ?? prev.preferences?.backgroundOverlay ?? 0.4,
+        },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleSetBackgroundFit = useCallback((fit: 'cover' | 'contain') => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: { ...prev.preferences, backgroundFit: fit },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleClearBackground = useCallback(() => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          backgroundImageUrl: undefined,
+          backgroundOverlay: undefined,
+        },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
 
   // Apply kiosk class to root
   useEffect(() => {
@@ -214,7 +286,7 @@ function KioskPage() {
           className="fixed inset-0 pointer-events-none"
           style={{
             backgroundImage: `url(${bgImageUrl})`,
-            backgroundSize: 'cover',
+            backgroundSize: backgroundFit,
             backgroundPosition: 'center',
             backgroundAttachment: 'fixed',
             opacity: bgOpacity,
@@ -248,6 +320,37 @@ function KioskPage() {
         {editMode ? '✓ Done editing' : '✏️ Edit layout'}
       </button>
 
+      {/* Settings FAB — matches dashboard */}
+      <button
+        type="button"
+        onClick={() => setSettingsOpen(true)}
+        aria-label="Dashboard settings"
+        className={`fixed left-20 z-50 h-12 w-12 rounded-full bg-black/30 text-white text-xl backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-all touch-manipulation active:scale-95 ${
+          showExit || editMode ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
+      >
+        ⚙
+      </button>
+
+      {settingsOpen && (
+        <DashboardSettingsSheet
+          config={config}
+          editMode={editMode}
+          onToggleEdit={() => setEditMode((v) => !v)}
+          onAddWidget={handleAddWidget}
+          onReset={handleReset}
+          hideWidgetBorders={hideWidgetBorders}
+          onToggleBorders={handleToggleBorders}
+          backgroundImageUrl={bgImageUrl}
+          backgroundFit={backgroundFit}
+          onSetBackground={handleSetBackground}
+          onSetBackgroundFit={handleSetBackgroundFit}
+          onClearBackground={handleClearBackground}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
       {config.slots.length === 0 ? (
         <div className="flex items-center justify-center min-h-screen">
           <p className="text-[var(--color-text-muted)] text-lg">
@@ -255,7 +358,7 @@ function KioskPage() {
           </p>
         </div>
       ) : (
-        <div ref={containerRef} className={`relative w-full overflow-x-hidden ${config.preferences?.hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
+        <div ref={containerRef} className={`relative w-full overflow-x-hidden ${hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
           {mounted && (
             <ResponsiveGridLayout
               className="dashboard-grid"

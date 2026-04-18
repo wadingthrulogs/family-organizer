@@ -70,6 +70,13 @@ export function getDashboardConfigTimestamp(): number {
   return Number(localStorage.getItem(DASHBOARD_TS_KEY)) || 0;
 }
 
+/** True if the user has ever saved a dashboard config on this device.
+ *  Used by the sync effect to decide whether local is authoritative
+ *  (vs. the server copy, which is only consulted on fresh devices). */
+export function hasStoredDashboardConfig(): boolean {
+  return localStorage.getItem(STORAGE_KEY) !== null;
+}
+
 export function loadKioskConfig(): DashboardConfig {
   return loadConfigFromStorage(KIOSK_STORAGE_KEY) ?? DEFAULT_DASHBOARD_CONFIG;
 }
@@ -81,6 +88,11 @@ export function saveKioskConfig(config: DashboardConfig): void {
 
 export function getKioskConfigTimestamp(): number {
   return Number(localStorage.getItem(KIOSK_TS_KEY)) || 0;
+}
+
+/** True if the user has ever saved a kiosk config on this device. */
+export function hasStoredKioskConfig(): boolean {
+  return localStorage.getItem(KIOSK_STORAGE_KEY) !== null;
 }
 
 export function generateSlotId(): string {

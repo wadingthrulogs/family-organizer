@@ -7,7 +7,7 @@ import 'react-resizable/css/styles.css';
 import { DashboardSettingsSheet } from '../components/widgets/DashboardSettings';
 import { getWidget } from '../components/widgets/widgetRegistry';
 import type { DashboardWidgetSlot, DashboardConfig } from '../types/dashboard';
-import { loadDashboardConfig, saveDashboardConfig, getDashboardConfigTimestamp, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
+import { loadDashboardConfig, saveDashboardConfig, hasStoredDashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '../types/dashboard';
 import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
 import { getResponsiveLayouts } from '../lib/dashboardLayouts';
 
@@ -24,7 +24,7 @@ function DashboardPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recentlyRemoved, setRecentlyRemoved] = useState<RecentlyRemoved | null>(null);
   const { width, mounted, containerRef } = useContainerWidth();
-  const { data: prefs, dataUpdatedAt } = useUserPreferences();
+  const { data: prefs } = useUserPreferences();
   const updatePrefs = useUpdateUserPreferencesMutation();
   const serverSynced = useRef(false);
   const editModeRef = useRef(editMode);
@@ -36,21 +36,26 @@ function DashboardPage() {
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
   }, []);
 
-  // When server preferences load, use server dashboard config — unless
-  // localStorage was written more recently (i.e. user edited config, navigated
-  // away, and returned before the React Query cache expired).
+  // On mount, consult the server copy ONLY if no local edit exists on this
+  // device. localStorage is authoritative once the user has edited — the
+  // server is only used for first-time visits (fresh browser / new device).
+  // This avoids a clock-skew bug where a timestamp-based guard always failed:
+  // Date.now() at save time was strictly less than React Query's dataUpdatedAt
+  // stamped at PATCH-response time, so every remount after an edit would
+  // overwrite config with a reference-new (but content-equal) server copy,
+  // which caused RGL to reconcile against the registry's minW/minH and shift
+  // widgets that fell below the current minimums.
   useEffect(() => {
-    if (prefs?.dashboardConfig && !serverSynced.current) {
-      serverSynced.current = true;
-      const localTs = getDashboardConfigTimestamp();
-      if (localTs > dataUpdatedAt) return;
-      const serverConfig = prefs.dashboardConfig;
-      if (Array.isArray(serverConfig.slots)) {
-        setConfig(serverConfig);
-        saveDashboardConfig(serverConfig);
-      }
+    if (!prefs?.dashboardConfig) return;
+    if (serverSynced.current) return;
+    serverSynced.current = true;
+    if (hasStoredDashboardConfig()) return;
+    const serverConfig = prefs.dashboardConfig;
+    if (Array.isArray(serverConfig.slots)) {
+      setConfig(serverConfig);
+      saveDashboardConfig(serverConfig);
     }
-  }, [prefs?.dashboardConfig, dataUpdatedAt]);
+  }, [prefs?.dashboardConfig]);
 
   // Helper: save to both localStorage and server
   const persistConfig = useCallback((cfg: DashboardConfig) => {

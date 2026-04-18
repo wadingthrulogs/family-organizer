@@ -27,11 +27,19 @@ export function getResponsiveLayouts(slots: DashboardWidgetSlot[]) {
     });
   };
 
-  // Scale lg (12 cols) proportionally to md (8 cols), clamped to fit
-  const mdLayouts = lgLayouts.map((l) => {
+  // Build md layout: prefer slot.mdLayout if the user has edited at md
+  // (portrait on a 1080×1920 Pi). Otherwise scale lg (12 cols) → md (8 cols)
+  // proportionally, clamped to fit. Registry mins are injected either way.
+  const mdLayouts = slots.map((s) => {
+    const def = getWidget(s.widgetId);
+    const mins = def ? { minW: def.minW, minH: def.minH } : {};
+    if (s.mdLayout) {
+      return { ...s.mdLayout, ...mins };
+    }
+    const l = s.layout;
     const x = Math.min(Math.round((l.x / 12) * 8), 7);
     const w = Math.max(1, Math.min(Math.round((l.w / 12) * 8), 8 - x));
-    return { ...l, x, w };
+    return { ...l, ...mins, x, w };
   });
 
   return {

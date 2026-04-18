@@ -249,14 +249,24 @@ function KioskPage() {
 
   const handleLayoutChange = useCallback((newLayout: Layout[]) => {
     if (!editModeRef.current) return;
-    if (widthRef.current < 1280) return;
+    // Breakpoint-aware write: lg edits go to slot.layout, md edits to
+    // slot.mdLayout. sm/xs/xxs (stacked) layouts are never persisted.
+    const w = widthRef.current;
+    const isLg = w >= 1280;
+    const isMd = w >= 996 && w < 1280;
+    if (!isLg && !isMd) return;
     setConfig((prev) => {
       const next: DashboardConfig = {
         ...prev,
         slots: prev.slots.map((slot) => {
           const updated = newLayout.find((l) => l.i === slot.layout.i);
           if (!updated) return slot;
-          return { ...slot, layout: { ...slot.layout, x: updated.x, y: updated.y, w: updated.w, h: updated.h } };
+          const coords = { x: updated.x, y: updated.y, w: updated.w, h: updated.h };
+          if (isLg) {
+            return { ...slot, layout: { ...slot.layout, ...coords } };
+          }
+          const base = slot.mdLayout ?? slot.layout;
+          return { ...slot, mdLayout: { ...base, ...coords } };
         }),
       };
       persistConfig(next);

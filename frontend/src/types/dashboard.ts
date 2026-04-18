@@ -2,7 +2,11 @@ import type { Layout } from 'react-grid-layout';
 
 export interface DashboardWidgetSlot {
   widgetId: string;
+  /** lg (12-col) coordinates. Authoritative for landscape / wide viewports. */
   layout: Layout;
+  /** md (8-col) coordinates — authoritative for portrait / medium viewports
+   *  when present. When absent, md is derived by scaling lg down to 8 cols. */
+  mdLayout?: Layout;
   /** Per-widget font scale multiplier (default 1.0). Adjustable in edit mode. */
   fontScale?: number;
 }

@@ -69,22 +69,28 @@ function DashboardPage() {
       // Only persist when the user is actively editing; ignore RGL recomputations
       // (compaction, window resize) that fire outside of edit mode.
       if (!editModeRef.current) return;
-      // Only persist layout changes made on the desktop (lg) breakpoint.
-      // On narrower viewports RGL uses derived layouts (md scales to 8 cols,
-      // sm/xs/xxs stack to 1 col) — persisting those would overwrite the
-      // user's desktop arrangement with smaller coordinates. We use a ref
-      // instead of state to avoid mid-drag re-renders.
-      if (widthRef.current < 1280) return;
+      // Breakpoint-aware write: lg edits go to slot.layout, md edits go to
+      // slot.mdLayout, sm/xs/xxs (stacked) edits are not persistable.
+      // We read width via ref to avoid mid-drag re-renders.
+      const w = widthRef.current;
+      const isLg = w >= 1280;
+      const isMd = w >= 996 && w < 1280;
+      if (!isLg && !isMd) return;
       setConfig((prev) => {
         const next: DashboardConfig = {
           ...prev,
           slots: prev.slots.map((slot) => {
             const updated = newLayout.find((l) => l.i === slot.layout.i);
             if (!updated) return slot;
-            return {
-              ...slot,
-              layout: { ...slot.layout, x: updated.x, y: updated.y, w: updated.w, h: updated.h },
-            };
+            const coords = { x: updated.x, y: updated.y, w: updated.w, h: updated.h };
+            if (isLg) {
+              return { ...slot, layout: { ...slot.layout, ...coords } };
+            }
+            // md: write to mdLayout without touching the lg layout. Seed from
+            // the existing mdLayout if present, otherwise from slot.layout
+            // (so minW/minH/i carry over).
+            const base = slot.mdLayout ?? slot.layout;
+            return { ...slot, mdLayout: { ...base, ...coords } };
           }),
         };
         persistConfig(next);

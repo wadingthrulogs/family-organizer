@@ -10,13 +10,24 @@ export default defineConfig({
     baseURL: 'http://localhost',
     screenshot: 'on',
     trace: 'retain-on-failure',
-    viewport: { width: 1920, height: 1080 },
     storageState: 'auth-state.json',
   },
   projects: [
     {
-      name: 'chromium',
-      use: { browserName: 'chromium' },
+      name: 'chromium-landscape',
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 1920, height: 1080 },
+      },
+    },
+    {
+      // Matches the Pi wall-display mounted in portrait (1080x1920).
+      // Exercises the md breakpoint (8 cols) where mdLayout persistence lives.
+      name: 'chromium-portrait',
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 1080, height: 1920 },
+      },
     },
   ],
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'report' }]],

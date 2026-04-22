@@ -32,6 +32,8 @@ const patchHouseholdSchema = z.object({
   googleClientSecret:  z.string().trim().max(200).nullable().optional(),
   appBaseUrl:          z.string().trim().url().max(200).nullable().optional(),
   openweatherApiKey:   z.string().trim().max(200).nullable().optional(),
+  googleMapsApiKey:    z.string().trim().max(200).nullable().optional(),
+  homeAddress:         z.string().trim().max(300).nullable().optional(),
   smtpHost:            z.string().trim().max(200).nullable().optional(),
   smtpPort:            z.number().int().min(1).max(65535).nullable().optional(),
   smtpUser:            z.string().trim().max(200).nullable().optional(),
@@ -57,6 +59,7 @@ const DEFAULTS: Record<string, unknown> = {
 const ENCRYPTED_KEYS = new Set([
   'google_client_secret',
   'openweather_api_key',
+  'google_maps_api_key',
   'smtp_pass',
   'push_vapid_public_key',
   'push_vapid_private_key',
@@ -66,6 +69,7 @@ const ENCRYPTED_KEYS = new Set([
 const ENCRYPTED_KEY_FLAGS: Record<string, string> = {
   google_client_secret:   'googleClientSecretSet',
   openweather_api_key:    'openweatherApiKeySet',
+  google_maps_api_key:    'googleMapsApiKeySet',
   smtp_pass:              'smtpPassSet',
   push_vapid_public_key:  'pushVapidPublicKeySet',
   push_vapid_private_key: 'pushVapidPrivateKeySet',
@@ -79,6 +83,7 @@ const PLAINTEXT_KEY_MAP: Record<string, string> = {
   smtp_port:        'smtpPort',
   smtp_user:        'smtpUser',
   smtp_from:        'smtpFrom',
+  home_address:     'homeAddress',
 };
 
 async function loadHouseholdSettings(): Promise<Record<string, unknown>> {
@@ -185,6 +190,40 @@ export async function loadServerConfig(): Promise<{
   };
 }
 
+// Commute config — used by the commute routes service to fetch the decrypted
+// Google Maps API key and the household's home address on demand.
+export async function loadCommuteConfig(): Promise<{
+  googleMapsApiKey?: string;
+  homeAddress?: string;
+}> {
+  const rows = await prisma.householdSetting.findMany({
+    where: { key: { in: ['google_maps_api_key', 'home_address'] } },
+  });
+
+  const out: { googleMapsApiKey?: string; homeAddress?: string } = {};
+
+  for (const row of rows) {
+    if (row.key === 'google_maps_api_key') {
+      if (row.value.startsWith('enc:')) {
+        try {
+          const buf = Buffer.from(row.value.slice(4), 'base64');
+          out.googleMapsApiKey = decryptSecret(buf);
+        } catch {
+          // corrupted — skip
+        }
+      }
+    } else if (row.key === 'home_address') {
+      try {
+        out.homeAddress = JSON.parse(row.value) as string;
+      } catch {
+        out.homeAddress = row.value;
+      }
+    }
+  }
+
+  return out;
+}
+
 export const settingsRouter = Router();
 settingsRouter.use(requireAuth);
 
@@ -206,6 +245,7 @@ settingsRouter.patch(
       updates.googleClientSecret !== undefined ||
       updates.appBaseUrl !== undefined ||
       updates.openweatherApiKey !== undefined ||
+      updates.googleMapsApiKey !== undefined ||
       updates.smtpHost !== undefined ||
       updates.smtpPort !== undefined ||
       updates.smtpUser !== undefined ||
@@ -223,6 +263,8 @@ settingsRouter.patch(
       googleClientSecret,
       appBaseUrl,
       openweatherApiKey,
+      googleMapsApiKey,
+      homeAddress,
       smtpHost,
       smtpPort,
       smtpUser,
@@ -281,10 +323,12 @@ settingsRouter.patch(
     await upsertPlaintext('smtp_port', smtpPort);
     await upsertPlaintext('smtp_user', smtpUser);
     await upsertPlaintext('smtp_from', smtpFrom);
+    await upsertPlaintext('home_address', homeAddress);
 
     // Encrypted fields
     await upsertEncrypted('google_client_secret', googleClientSecret);
     await upsertEncrypted('openweather_api_key', openweatherApiKey);
+    await upsertEncrypted('google_maps_api_key', googleMapsApiKey);
     await upsertEncrypted('smtp_pass', smtpPass);
     await upsertEncrypted('push_vapid_public_key', pushVapidPublicKey);
     await upsertEncrypted('push_vapid_private_key', pushVapidPrivateKey);

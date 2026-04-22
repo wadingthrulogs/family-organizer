@@ -27,6 +27,13 @@ const registry: WidgetDef[] = [
     defaultW: 4, defaultH: 2, minW: 3, minH: 2,
   },
   {
+    id: 'commute',
+    label: 'Commute',
+    icon: '🚗',
+    component: lazy(() => import('./CommuteWidget')),
+    defaultW: 4, defaultH: 3, minW: 3, minH: 2,
+  },
+  {
     id: 'tasks',
     label: 'Tasks',
     icon: '📋',

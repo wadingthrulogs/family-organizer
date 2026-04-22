@@ -22,13 +22,17 @@ export interface HouseholdSettings {
   smtpPort?: number | null;
   smtpUser?: string | null;
   smtpFrom?: string | null;
+  homeAddress?: string | null;
   // Server config — write-only secrets: GET returns boolean flags, never plaintext
   openweatherApiKeySet?: boolean;
+  googleMapsApiKeySet?: boolean;
   smtpPassSet?: boolean;
   pushVapidPublicKeySet?: boolean;
   pushVapidPrivateKeySet?: boolean;
   /** Write-only */
   openweatherApiKey?: string | null;
+  /** Write-only */
+  googleMapsApiKey?: string | null;
   /** Write-only */
   smtpPass?: string | null;
   /** Write-only */

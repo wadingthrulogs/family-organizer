@@ -12,6 +12,7 @@ import {
 import { api } from '../api/client';
 import type { HouseholdSettings } from '../types/settings';
 import UserManagement from '../components/UserManagement';
+import CommuteSettings from '../components/settings/CommuteSettings';
 import { useTheme, THEMES, type ThemeId } from '../contexts/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 
@@ -241,6 +242,7 @@ function SettingsPage() {
             { key: 'general', label: 'General', desc: 'Household name, timezone, quiet hours' },
             { key: 'appearance', label: 'Appearance', desc: 'Theme and tab visibility' },
             { key: 'weather', label: 'Weather', desc: 'Location and weather widget' },
+            { key: 'commute', label: 'Commute / Routes', desc: 'Home address, Maps API key, and route ETAs' },
             { key: 'google', label: 'Google Calendar', desc: 'Sync events from Google' },
             { key: 'server', label: 'Server Configuration', desc: isAdmin ? 'API keys, SMTP, VAPID, OAuth' : 'Managed by administrator' },
             { key: 'backup', label: 'Backup & Export', desc: isAdmin ? 'Export or restore household data' : 'Managed by administrator' },
@@ -365,6 +367,11 @@ function SettingsPage() {
       {/* ─── Weather ─── */}
       <div className={sectionClass('weather')}>
       <WeatherSettings />
+      </div>
+
+      {/* ─── Commute / Routes ─── */}
+      <div className={sectionClass('commute')}>
+      <CommuteSettings />
       </div>
 
       {/* ─── Appearance: Theme + Tab Visibility ─── */}

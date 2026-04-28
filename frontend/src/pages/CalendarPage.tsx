@@ -138,6 +138,7 @@ function CalendarPage() {
   });
   const linkedCalendars = calendarsData?.items ?? [];
   const syncMutation = useSyncGoogleCalendarsMutation();
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // Fetch tasks and chores for overlay
   const { data: tasksData } = useQuery({
@@ -326,13 +327,24 @@ function CalendarPage() {
           {linkedCalendars.length > 0 && (
             <button
               type="button"
-              onClick={() => syncMutation.mutate()}
+              onClick={() => {
+                setSyncError(null);
+                syncMutation.mutate(undefined, {
+                  onError: (err) => {
+                    setSyncError(err instanceof Error ? err.message : 'Sync failed. Please try again.');
+                  },
+                  onSuccess: () => setSyncError(null),
+                });
+              }}
               disabled={syncMutation.isPending}
               className="rounded-full border border-th-border px-3 py-2 text-xs font-medium text-secondary disabled:opacity-50"
               title="Sync Google Calendar"
             >
               {syncMutation.isPending ? '⟳ Syncing…' : syncMutation.isSuccess ? '✓ Synced' : '⟳ Sync'}
             </button>
+          )}
+          {syncError && (
+            <span className="text-xs text-red-600">{syncError}</span>
           )}
           {/* Overlay toggles — own full row on mobile, inline on desktop */}
           <div className="flex w-full flex-wrap gap-2 md:w-auto md:contents">

@@ -155,16 +155,15 @@ export function buildGoogleRouter(env: AppEnv) {
       const client = await createGoogleOAuthClient(env);
       client.setCredentials({ refresh_token: refreshToken });
 
-      res.status(202).json({ message: 'Sync started' });
+      try {
+        await syncGoogleAccountCalendarList(account.id, userId, client);
+        await syncGoogleAccountEvents(account.id, client);
+      } catch (err) {
+        logger.error('Manual Google sync failed', { accountId: account.id, err });
+        return res.status(500).json({ error: { code: 'SYNC_FAILED', message: 'Google sync failed' } });
+      }
 
-      void (async () => {
-        try {
-          await syncGoogleAccountCalendarList(account.id, userId, client);
-          await syncGoogleAccountEvents(account.id, client);
-        } catch (err) {
-          logger.error('Manual Google sync failed', { accountId: account.id, err });
-        }
-      })();
+      res.json({ message: 'Sync complete' });
     })
   );
 
@@ -175,24 +174,22 @@ export function buildGoogleRouter(env: AppEnv) {
       const userId = await resolveUserId(req, allowFallbackUser);
       const accounts = await getGoogleAccounts(userId);
 
-      res.status(202).json({ message: 'Sync started for all accounts' });
+      for (const account of accounts) {
+        const refreshToken = decryptAccountRefreshToken(account.encryptedRefreshToken);
+        if (!refreshToken) continue;
 
-      void (async () => {
-        for (const account of accounts) {
-          const refreshToken = decryptAccountRefreshToken(account.encryptedRefreshToken);
-          if (!refreshToken) continue;
+        const client = await createGoogleOAuthClient(env);
+        client.setCredentials({ refresh_token: refreshToken });
 
-          const client = await createGoogleOAuthClient(env);
-          client.setCredentials({ refresh_token: refreshToken });
-
-          try {
-            await syncGoogleAccountCalendarList(account.id, userId, client);
-            await syncGoogleAccountEvents(account.id, client);
-          } catch (err) {
-            logger.error('Google sync failed for account', { accountId: account.id, email: account.email, err });
-          }
+        try {
+          await syncGoogleAccountCalendarList(account.id, userId, client);
+          await syncGoogleAccountEvents(account.id, client);
+        } catch (err) {
+          logger.error('Google sync failed for account', { accountId: account.id, email: account.email, err });
         }
-      })();
+      }
+
+      res.json({ message: 'Sync complete' });
     })
   );
 

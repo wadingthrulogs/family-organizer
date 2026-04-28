@@ -17,6 +17,7 @@ export function useSyncGoogleCalendarsMutation() {
     mutationFn: syncAllGoogleAccounts,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendarEvents'] });
+      queryClient.invalidateQueries({ queryKey: ['linkedCalendars'] });
     },
   });
 }

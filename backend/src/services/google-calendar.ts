@@ -276,17 +276,16 @@ export async function syncGoogleEvents(userId: number, client: OAuth2Client) {
   }
 }
 
-async function syncCalendarEvents(api: calendar_v3.Calendar, calendar: LinkedCalendar) {
+async function syncCalendarEvents(api: calendar_v3.Calendar, calendar: LinkedCalendar, forceFullSync = false) {
   const lookbackMs = 1000 * 60 * 60 * 24 * 30;
   let pageToken: string | undefined;
   let nextSyncToken: string | undefined;
 
-  const useIncremental = Boolean(calendar.syncToken);
+  const useIncremental = !forceFullSync && Boolean(calendar.syncToken);
   const baseParams: calendar_v3.Params$Resource$Events$List = useIncremental
     ? {
         calendarId: calendar.googleId,
         syncToken: calendar.syncToken!,
-        singleEvents: true,
         showDeleted: true,
       }
     : {
@@ -316,11 +315,12 @@ async function syncCalendarEvents(api: calendar_v3.Calendar, calendar: LinkedCal
       (err as { code?: number }).code ??
       (err as { response?: { status?: number } }).response?.status;
     if (useIncremental && status === 410) {
-      logger.warn('Google syncToken expired, clearing for full resync next run', { calendarId: calendar.id });
+      logger.warn('Google syncToken expired, retrying with full sync now', { calendarId: calendar.id });
       await prisma.linkedCalendar.update({
         where: { id: calendar.id },
-        data: { syncToken: null, lastSyncedAt: new Date() },
+        data: { syncToken: null },
       });
+      await syncCalendarEvents(api, calendar, true);
       return;
     }
     throw err;

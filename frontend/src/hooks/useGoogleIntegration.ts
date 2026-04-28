@@ -39,6 +39,8 @@ export function useGoogleSyncMutation() {
     mutationFn: (accountId: number) => syncGoogleAccount(accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['googleIntegration'] });
+      queryClient.invalidateQueries({ queryKey: ['calendarEvents'] });
+      queryClient.invalidateQueries({ queryKey: ['linkedCalendars'] });
     },
   });
 }
@@ -50,6 +52,8 @@ export function useGoogleSyncAllMutation() {
     mutationFn: () => syncAllGoogleAccounts(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['googleIntegration'] });
+      queryClient.invalidateQueries({ queryKey: ['calendarEvents'] });
+      queryClient.invalidateQueries({ queryKey: ['linkedCalendars'] });
     },
   });
 }

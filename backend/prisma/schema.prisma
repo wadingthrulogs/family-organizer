@@ -411,6 +411,15 @@ model CommuteRoute {
   updatedAt    DateTime @updatedAt
 }
 
+model LocationGeocodeCache {
+  location      String   @id
+  reason        String
+  lastAttemptAt DateTime @default(now())
+  expiresAt     DateTime
+
+  @@index([expiresAt])
+}
+
 model Recipe {
   id              Int      @id @default(autoincrement())
   title           String

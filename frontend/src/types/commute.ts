@@ -55,8 +55,23 @@ export interface UpcomingCommute {
   dayOffset: number;
 }
 
+export interface EventCommute {
+  eventId: number;
+  title: string;
+  startAt: string;
+  location: string;
+  durationMinutes?: number;
+  staticDurationMinutes?: number;
+  delayMinutes?: number;
+  distanceMiles?: number;
+  leaveByISO?: string;
+  fetchedAt?: string;
+  error?: { code: string; message: string };
+}
+
 export interface CommuteEtasResponse {
   items: CommuteEtaItem[];
   total: number;
   upcoming: UpcomingCommute | null;
+  eventCommutes?: EventCommute[];
 }

@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/require-auth.js';
 import { prisma } from '../lib/prisma.js';
+import { logger } from '../lib/logger.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { loadCommuteConfig } from './settings.js';
 import {
@@ -11,6 +12,7 @@ import {
   RoutesApiError,
   type TravelMode,
 } from '../services/routes.js';
+import { getEventCommutes } from '../services/event-commutes.js';
 
 export const commuteRouter = Router();
 commuteRouter.use(requireAuth);
@@ -269,10 +271,21 @@ commuteRouter.get(
       })
     );
 
+    let eventCommutes: Awaited<ReturnType<typeof getEventCommutes>> = [];
+    try {
+      eventCommutes = await getEventCommutes({
+        homeAddress: cfg.homeAddress,
+        apiKey: cfg.googleMapsApiKey,
+      });
+    } catch (err) {
+      logger.error('event-commutes lookup failed', { err });
+    }
+
     res.json({
       items,
       total: items.length,
       upcoming: upcomingRoute,
+      eventCommutes,
     });
   })
 );

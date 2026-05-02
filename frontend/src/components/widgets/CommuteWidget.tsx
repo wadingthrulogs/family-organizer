@@ -1,6 +1,6 @@
 import { useActiveCommuteEtas } from '../../hooks/useCommute';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
-import type { CommuteEta, CommuteEtaError, UpcomingCommute } from '../../types/commute';
+import type { CommuteEta, CommuteEtaError, EventCommute, UpcomingCommute } from '../../types/commute';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -68,6 +68,63 @@ function ErrorRow({ error }: { error: CommuteEtaError }) {
   );
 }
 
+function formatTimeOfDay(d: Date): string {
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const hh = ((h + 11) % 12) + 1;
+  const ampm = h < 12 ? 'am' : 'pm';
+  return `${hh}:${m.toString().padStart(2, '0')}${ampm}`;
+}
+
+function leaveByLabel(leaveByISO: string): string {
+  const leaveBy = new Date(leaveByISO);
+  const diffMin = Math.round((leaveBy.getTime() - Date.now()) / 60000);
+  if (diffMin <= -1) return `Should have left ${Math.abs(diffMin)}m ago`;
+  if (diffMin <= 0) return 'Leave now';
+  return `Leave by ${formatTimeOfDay(leaveBy)} (in ${diffMin}m)`;
+}
+
+function EventCommuteRow({ ev, compact }: { ev: EventCommute; compact: boolean }) {
+  if (ev.error) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-th-border-light bg-th-bg/40 px-3 py-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[0.9em] font-semibold text-muted">{ev.title}</p>
+          <p className="truncate text-[0.75em] text-faint">
+            {ev.location} <span className="italic">(unroutable)</span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const tone = delayTone(ev.delayMinutes ?? 0);
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-th-border-light bg-th-bg/60 px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[0.95em] font-semibold text-primary">{ev.title}</p>
+        <p className="truncate text-[0.8em] text-muted">
+          {ev.leaveByISO ? leaveByLabel(ev.leaveByISO) : null}
+          {!compact && ev.location ? <> · {ev.location}</> : null}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <span
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+          className="text-[1.4em] font-bold text-primary leading-none"
+        >
+          {ev.durationMinutes}
+        </span>
+        <span className="text-[0.7em] text-muted">min</span>
+        {(ev.delayMinutes ?? 0) !== 0 ? (
+          <span className={`rounded-full px-2 py-0.5 text-[0.7em] font-medium ${tone.bg} ${tone.text}`}>
+            {tone.label}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function CommuteWidget() {
   const { ref, width, baseFontSize } = useWidgetSize();
   const { data, isLoading, isError, error } = useActiveCommuteEtas();
@@ -102,8 +159,9 @@ export default function CommuteWidget() {
   }
 
   const items = data?.items ?? [];
+  const eventCommutes = data?.eventCommutes ?? [];
 
-  if (items.length === 0) {
+  if (items.length === 0 && eventCommutes.length === 0) {
     const upcoming = data?.upcoming;
     return (
       <div ref={ref} style={{ fontSize: baseFontSize }} className={`${containerCls} justify-center`}>
@@ -119,7 +177,7 @@ export default function CommuteWidget() {
     <div ref={ref} style={{ fontSize: baseFontSize }} className={containerCls}>
       <div className="shrink-0 flex items-center justify-between">
         <span className="text-[0.85em] font-semibold text-muted">Commute</span>
-        {data?.upcoming && (
+        {data?.upcoming && items.length === 0 && (
           <span className="text-[0.7em] text-faint">{upcomingHint(data.upcoming)}</span>
         )}
       </div>
@@ -130,6 +188,18 @@ export default function CommuteWidget() {
           ) : (
             <ErrorRow key={item.data.routeId} error={item.data} />
           )
+        )}
+        {eventCommutes.length > 0 && (
+          <>
+            {items.length > 0 && (
+              <span className="mt-1 text-[0.7em] font-semibold uppercase tracking-wide text-faint">
+                Upcoming events
+              </span>
+            )}
+            {eventCommutes.map((ev) => (
+              <EventCommuteRow key={ev.eventId} ev={ev} compact={compact} />
+            ))}
+          </>
         )}
       </div>
     </div>

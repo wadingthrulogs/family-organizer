@@ -9,9 +9,9 @@ import { asyncHandler } from '../utils/async-handler.js';
 import { loadCommuteConfig } from './settings.js';
 import {
   fetchRouteEta,
-  RoutesApiError,
+  MapboxError,
   type TravelMode,
-} from '../services/routes.js';
+} from '../services/mapbox.js';
 import { getEventCommutes } from '../services/event-commutes.js';
 
 export const commuteRouter = Router();
@@ -70,6 +70,8 @@ function shapeEta(route: {
   durationSeconds: number;
   staticDurationSeconds: number;
   distanceMeters: number;
+  polyline: string;
+  congestion: string[];
   fetchedAt: string;
 }, homeAddress: string) {
   const delaySeconds = eta.durationSeconds - eta.staticDurationSeconds;
@@ -87,15 +89,17 @@ function shapeEta(route: {
     delayMinutes: Math.round(delaySeconds / 60),
     distanceMeters: eta.distanceMeters,
     distanceMiles: Number(metersToMiles(eta.distanceMeters).toFixed(1)),
+    polyline: eta.polyline,
+    congestion: eta.congestion,
     fetchedAt: eta.fetchedAt,
   };
 }
 
-function sendRoutesApiError(
+function sendMapboxError(
   res: Parameters<Parameters<typeof commuteRouter.get>[1]>[1],
   err: unknown,
 ): boolean {
-  if (err instanceof RoutesApiError) {
+  if (err instanceof MapboxError) {
     res.status(err.status).json({ error: { code: err.code, message: err.message } });
     return true;
   }
@@ -190,8 +194,8 @@ commuteRouter.get(
     if (!cfg.homeAddress) {
       return res.status(400).json({ error: { code: 'HOME_ADDRESS_NOT_SET', message: 'Home address not configured in settings' } });
     }
-    if (!cfg.googleMapsApiKey) {
-      return res.status(400).json({ error: { code: 'MAPS_API_KEY_NOT_SET', message: 'Google Maps API key not configured in settings' } });
+    if (!cfg.mapboxToken) {
+      return res.status(400).json({ error: { code: 'MAPBOX_TOKEN_NOT_SET', message: 'Mapbox token not configured in settings' } });
     }
 
     try {
@@ -199,11 +203,11 @@ commuteRouter.get(
         origin: cfg.homeAddress,
         destination: route.destAddress,
         mode: route.travelMode as TravelMode,
-        apiKey: cfg.googleMapsApiKey,
+        apiKey: cfg.mapboxToken,
       });
       res.json(shapeEta(route, eta, cfg.homeAddress));
     } catch (err) {
-      if (sendRoutesApiError(res, err)) return;
+      if (sendMapboxError(res, err)) return;
       throw err;
     }
   })
@@ -217,8 +221,8 @@ commuteRouter.get(
     if (!cfg.homeAddress) {
       return res.status(400).json({ error: { code: 'HOME_ADDRESS_NOT_SET', message: 'Home address not configured in settings' } });
     }
-    if (!cfg.googleMapsApiKey) {
-      return res.status(400).json({ error: { code: 'MAPS_API_KEY_NOT_SET', message: 'Google Maps API key not configured in settings' } });
+    if (!cfg.mapboxToken) {
+      return res.status(400).json({ error: { code: 'MAPBOX_TOKEN_NOT_SET', message: 'Mapbox token not configured in settings' } });
     }
 
     const routes = await prisma.commuteRoute.findMany({
@@ -247,11 +251,11 @@ commuteRouter.get(
             origin: cfg.homeAddress!,
             destination: route.destAddress,
             mode: route.travelMode as TravelMode,
-            apiKey: cfg.googleMapsApiKey!,
+            apiKey: cfg.mapboxToken!,
           });
           return { ok: true as const, data: shapeEta(route, eta, cfg.homeAddress!) };
         } catch (err) {
-          const code = err instanceof RoutesApiError ? err.code : 'REQUEST_FAILED';
+          const code = err instanceof MapboxError ? err.code : 'REQUEST_FAILED';
           const message = err instanceof Error ? err.message : 'Unknown error';
           return {
             ok: false as const,
@@ -275,7 +279,7 @@ commuteRouter.get(
     try {
       eventCommutes = await getEventCommutes({
         homeAddress: cfg.homeAddress,
-        apiKey: cfg.googleMapsApiKey,
+        apiKey: cfg.mapboxToken,
       });
     } catch (err) {
       logger.error('event-commutes lookup failed', { err });
@@ -286,6 +290,7 @@ commuteRouter.get(
       total: items.length,
       upcoming: upcomingRoute,
       eventCommutes,
+      mapboxToken: cfg.mapboxToken,
     });
   })
 );

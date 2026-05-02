@@ -420,6 +420,18 @@ model LocationGeocodeCache {
   @@index([expiresAt])
 }
 
+model GeocodeCache {
+  address   String   @id
+  lng       Float
+  lat       Float
+  placeName String?
+  relevance Float
+  fetchedAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
 model Recipe {
   id              Int      @id @default(autoincrement())
   title           String

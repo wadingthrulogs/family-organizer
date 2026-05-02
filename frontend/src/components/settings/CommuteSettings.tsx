@@ -87,7 +87,7 @@ export default function CommuteSettings() {
     }
   }, [settings]);
 
-  const apiKeyConfigured = (settings as { googleMapsApiKeySet?: boolean } | undefined)?.googleMapsApiKeySet === true;
+  const apiKeyConfigured = (settings as { mapboxTokenSet?: boolean } | undefined)?.mapboxTokenSet === true;
 
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
   const [form, setForm] = useState<RouteFormState>(emptyForm());
@@ -101,7 +101,7 @@ export default function CommuteSettings() {
       const body: Record<string, string> = {};
       body.homeAddress = homeAddress;
       if (apiKey.trim()) {
-        body.googleMapsApiKey = apiKey.trim();
+        body.mapboxToken = apiKey.trim();
       }
       await api.patch('/settings', body);
       await refetchSettings();
@@ -120,10 +120,10 @@ export default function CommuteSettings() {
   };
 
   const handleClearApiKey = async () => {
-    if (!confirm('Remove the stored Google Maps API key?')) return;
+    if (!confirm('Remove the stored Mapbox token?')) return;
     setSavingConfig(true);
     try {
-      await api.patch('/settings', { googleMapsApiKey: null });
+      await api.patch('/settings', { mapboxToken: null });
       await refetchSettings();
       setConfigNotice({ tone: 'success', message: 'Key removed.' });
       setTimeout(() => setConfigNotice(null), 2500);
@@ -217,7 +217,7 @@ export default function CommuteSettings() {
     <section className="mt-10 border-t border-th-border-light pt-6">
       <h2 className="font-semibold text-heading">Commute / Routes</h2>
       <p className="text-sm text-muted mb-4">
-        Configure your home address, Google Maps API key, and destinations. Each route only appears on the Commute widget during its configured time window.
+        Configure your home address, Mapbox public token, and destinations. Each route only appears on the Commute widget during its configured time window.
       </p>
 
       {/* Home address + API key */}
@@ -237,7 +237,7 @@ export default function CommuteSettings() {
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="block text-xs text-muted">
-              Google Maps API key
+              Mapbox public token
               {apiKeyConfigured && <span className="ml-2 text-emerald-600">✓ configured</span>}
             </label>
             {apiKeyConfigured && isAdmin && (
@@ -254,13 +254,13 @@ export default function CommuteSettings() {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder={apiKeyConfigured ? 'Leave blank to keep existing key' : 'Paste your API key'}
+            placeholder={apiKeyConfigured ? 'Leave blank to keep existing token' : 'Paste your Mapbox public token (pk.…)'}
             disabled={!isAdmin}
             autoComplete="off"
             className="w-full rounded-lg border border-th-border bg-th-input px-3 py-2 text-sm text-primary placeholder:text-faint disabled:opacity-60"
           />
           <p className="mt-1 text-xs text-faint">
-            Key is stored encrypted. Enable the <strong>Routes API</strong> in Google Cloud Console and restrict the key by HTTP referrer or IP.
+            Stored encrypted. Use a <strong>public token</strong> (<code>pk.*</code>) from <a href="https://account.mapbox.com/access-tokens/" target="_blank" rel="noreferrer" className="underline">account.mapbox.com</a> and restrict it by URL to this site.
           </p>
         </div>
 

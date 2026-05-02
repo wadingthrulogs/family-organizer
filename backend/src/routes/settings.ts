@@ -33,6 +33,7 @@ const patchHouseholdSchema = z.object({
   appBaseUrl:          z.string().trim().url().max(200).nullable().optional(),
   openweatherApiKey:   z.string().trim().max(200).nullable().optional(),
   googleMapsApiKey:    z.string().trim().max(200).nullable().optional(),
+  mapboxToken:         z.string().trim().max(200).nullable().optional(),
   homeAddress:         z.string().trim().max(300).nullable().optional(),
   smtpHost:            z.string().trim().max(200).nullable().optional(),
   smtpPort:            z.number().int().min(1).max(65535).nullable().optional(),
@@ -60,6 +61,7 @@ const ENCRYPTED_KEYS = new Set([
   'google_client_secret',
   'openweather_api_key',
   'google_maps_api_key',
+  'mapbox_token',
   'smtp_pass',
   'push_vapid_public_key',
   'push_vapid_private_key',
@@ -70,6 +72,7 @@ const ENCRYPTED_KEY_FLAGS: Record<string, string> = {
   google_client_secret:   'googleClientSecretSet',
   openweather_api_key:    'openweatherApiKeySet',
   google_maps_api_key:    'googleMapsApiKeySet',
+  mapbox_token:           'mapboxTokenSet',
   smtp_pass:              'smtpPassSet',
   push_vapid_public_key:  'pushVapidPublicKeySet',
   push_vapid_private_key: 'pushVapidPrivateKeySet',
@@ -191,23 +194,23 @@ export async function loadServerConfig(): Promise<{
 }
 
 // Commute config — used by the commute routes service to fetch the decrypted
-// Google Maps API key and the household's home address on demand.
+// Mapbox public token and the household's home address on demand.
 export async function loadCommuteConfig(): Promise<{
-  googleMapsApiKey?: string;
+  mapboxToken?: string;
   homeAddress?: string;
 }> {
   const rows = await prisma.householdSetting.findMany({
-    where: { key: { in: ['google_maps_api_key', 'home_address'] } },
+    where: { key: { in: ['mapbox_token', 'home_address'] } },
   });
 
-  const out: { googleMapsApiKey?: string; homeAddress?: string } = {};
+  const out: { mapboxToken?: string; homeAddress?: string } = {};
 
   for (const row of rows) {
-    if (row.key === 'google_maps_api_key') {
+    if (row.key === 'mapbox_token') {
       if (row.value.startsWith('enc:')) {
         try {
           const buf = Buffer.from(row.value.slice(4), 'base64');
-          out.googleMapsApiKey = decryptSecret(buf);
+          out.mapboxToken = decryptSecret(buf);
         } catch {
           // corrupted — skip
         }
@@ -246,6 +249,7 @@ settingsRouter.patch(
       updates.appBaseUrl !== undefined ||
       updates.openweatherApiKey !== undefined ||
       updates.googleMapsApiKey !== undefined ||
+      updates.mapboxToken !== undefined ||
       updates.smtpHost !== undefined ||
       updates.smtpPort !== undefined ||
       updates.smtpUser !== undefined ||
@@ -264,6 +268,7 @@ settingsRouter.patch(
       appBaseUrl,
       openweatherApiKey,
       googleMapsApiKey,
+      mapboxToken,
       homeAddress,
       smtpHost,
       smtpPort,
@@ -329,6 +334,7 @@ settingsRouter.patch(
     await upsertEncrypted('google_client_secret', googleClientSecret);
     await upsertEncrypted('openweather_api_key', openweatherApiKey);
     await upsertEncrypted('google_maps_api_key', googleMapsApiKey);
+    await upsertEncrypted('mapbox_token', mapboxToken);
     await upsertEncrypted('smtp_pass', smtpPass);
     await upsertEncrypted('push_vapid_public_key', pushVapidPublicKey);
     await upsertEncrypted('push_vapid_private_key', pushVapidPrivateKey);

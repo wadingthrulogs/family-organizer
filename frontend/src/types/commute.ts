@@ -14,6 +14,8 @@ export interface CommuteRoute {
   updatedAt: string;
 }
 
+export type CongestionClass = 'low' | 'moderate' | 'heavy' | 'severe' | 'unknown';
+
 export interface CommuteEta {
   routeId: number;
   name: string;
@@ -28,6 +30,8 @@ export interface CommuteEta {
   delayMinutes: number;
   distanceMeters: number;
   distanceMiles: number;
+  polyline?: string;
+  congestion?: CongestionClass[];
   fetchedAt: string;
 }
 
@@ -65,6 +69,8 @@ export interface EventCommute {
   delayMinutes?: number;
   distanceMiles?: number;
   leaveByISO?: string;
+  polyline?: string;
+  congestion?: CongestionClass[];
   fetchedAt?: string;
   error?: { code: string; message: string };
 }
@@ -74,4 +80,5 @@ export interface CommuteEtasResponse {
   total: number;
   upcoming: UpcomingCommute | null;
   eventCommutes?: EventCommute[];
+  mapboxToken?: string;
 }

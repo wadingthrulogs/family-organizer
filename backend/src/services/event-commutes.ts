@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 import { isObviouslyNotAddress, normalizeLocation } from '../utils/location-filter.js';
-import { fetchRouteEta, RoutesApiError } from './routes.js';
+import { fetchRouteEta, MapboxError } from './mapbox.js';
 
 const DEFAULT_LOOKAHEAD_MINUTES = 90;
 const NEGATIVE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -17,6 +17,8 @@ export interface EventCommute {
   delayMinutes?: number;
   distanceMiles?: number;
   leaveByISO?: string;
+  polyline?: string;
+  congestion?: string[];
   fetchedAt?: string;
   error?: { code: string; message: string };
 }
@@ -125,14 +127,16 @@ export async function getEventCommutes(opts: FetchOpts): Promise<EventCommute[]>
           delayMinutes,
           distanceMiles,
           leaveByISO: leaveBy.toISOString(),
+          polyline: eta.polyline,
+          congestion: eta.congestion,
           fetchedAt: eta.fetchedAt,
         });
       }
     } catch (err) {
-      const code = err instanceof RoutesApiError ? err.code : 'REQUEST_FAILED';
+      const code = err instanceof MapboxError ? err.code : 'REQUEST_FAILED';
       const message = err instanceof Error ? err.message : 'Unknown error';
 
-      if (err instanceof RoutesApiError && (code === 'NO_ROUTE' || code === 'BAD_REQUEST')) {
+      if (err instanceof MapboxError && (code === 'NO_ROUTE' || code === 'NOT_GEOCODED')) {
         const expiresAt = new Date(now.getTime() + NEGATIVE_CACHE_TTL_MS);
         try {
           await prisma.locationGeocodeCache.upsert({

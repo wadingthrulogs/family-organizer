@@ -1,6 +1,12 @@
+import { lazy, Suspense } from 'react';
 import { useActiveCommuteEtas } from '../../hooks/useCommute';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
 import type { CommuteEta, CommuteEtaError, EventCommute, UpcomingCommute } from '../../types/commute';
+
+const CommuteMap = lazy(() => import('./CommuteMap'));
+
+const MAP_MIN_WIDTH = 300;
+const MAP_HEIGHT = 110;
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -21,38 +27,71 @@ function upcomingHint(upcoming: UpcomingCommute): string {
   return `Next: ${upcoming.name} at ${when}`;
 }
 
-function delayTone(delayMinutes: number) {
-  if (delayMinutes <= 0) return { bg: 'bg-emerald-500/20', text: 'text-emerald-600', label: 'on time' };
-  if (delayMinutes <= 5) return { bg: 'bg-amber-500/20', text: 'text-amber-700', label: `+${delayMinutes} min` };
-  return { bg: 'bg-red-500/20', text: 'text-red-700', label: `+${delayMinutes} min` };
+type TrafficLevel = 'clear' | 'light' | 'moderate' | 'heavy';
+
+function trafficLevel(delayMinutes: number, staticMinutes: number | undefined): TrafficLevel {
+  const base = staticMinutes && staticMinutes > 0 ? staticMinutes : 1;
+  const ratio = delayMinutes / base;
+  if (delayMinutes <= 1 || ratio <= 0.05) return 'clear';
+  if (ratio <= 0.15) return 'light';
+  if (ratio <= 0.30) return 'moderate';
+  return 'heavy';
 }
 
-function RouteRow({ eta, compact }: { eta: CommuteEta; compact: boolean }) {
-  const tone = delayTone(eta.delayMinutes);
+function delayTone(delayMinutes: number, staticMinutes?: number) {
+  const level = trafficLevel(delayMinutes, staticMinutes);
+  const delaySuffix = delayMinutes > 0 ? ` +${delayMinutes} min` : '';
+  if (level === 'clear') {
+    return { bg: 'bg-emerald-500/20', text: 'text-emerald-600', label: 'Clear' };
+  }
+  if (level === 'light') {
+    return { bg: 'bg-amber-500/15', text: 'text-amber-700', label: `Light traffic${delaySuffix}` };
+  }
+  if (level === 'moderate') {
+    return { bg: 'bg-amber-500/25', text: 'text-amber-800', label: `Moderate traffic${delaySuffix}` };
+  }
+  return { bg: 'bg-red-500/25', text: 'text-red-700', label: `Heavy traffic${delaySuffix}` };
+}
+
+function RouteRow({ eta, compact, mapboxToken, showMap }: { eta: CommuteEta; compact: boolean; mapboxToken?: string; showMap: boolean }) {
+  const tone = delayTone(eta.delayMinutes, eta.staticDurationMinutes);
+  const renderMap = showMap && !!eta.polyline && !!mapboxToken;
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-th-border-light bg-th-bg/60 px-3 py-2">
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[0.95em] font-semibold text-primary">{eta.name}</p>
-        {!compact && (
-          <p className="truncate text-[0.8em] text-muted">
-            {eta.distanceMiles} mi · {eta.destAddress}
-          </p>
-        )}
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <span
-          style={{ fontVariantNumeric: 'tabular-nums' }}
-          className="text-[1.6em] font-bold text-primary leading-none"
-        >
-          {eta.durationMinutes}
-        </span>
-        <span className="text-[0.75em] text-muted">min</span>
-        {eta.delayMinutes !== 0 || eta.durationMinutes !== 0 ? (
-          <span className={`rounded-full px-2 py-0.5 text-[0.7em] font-medium ${tone.bg} ${tone.text}`}>
-            {tone.label}
+    <div className="flex flex-col gap-2 rounded-lg border border-th-border-light bg-th-bg/60 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[0.95em] font-semibold text-primary">{eta.name}</p>
+          {!compact && (
+            <p className="truncate text-[0.8em] text-muted">
+              {eta.distanceMiles} mi · {eta.destAddress}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+            className="text-[1.6em] font-bold text-primary leading-none"
+          >
+            {eta.durationMinutes}
           </span>
-        ) : null}
+          <span className="text-[0.75em] text-muted">min</span>
+          {eta.durationMinutes > 0 ? (
+            <span className={`rounded-full px-2 py-0.5 text-[0.7em] font-medium ${tone.bg} ${tone.text}`}>
+              {tone.label}
+            </span>
+          ) : null}
+        </div>
       </div>
+      {renderMap && (
+        <Suspense fallback={<div style={{ height: MAP_HEIGHT }} className="rounded-lg bg-th-bg/40 animate-pulse" />}>
+          <CommuteMap
+            polyline={eta.polyline!}
+            congestion={eta.congestion}
+            mapboxToken={mapboxToken!}
+            height={MAP_HEIGHT}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -84,7 +123,7 @@ function leaveByLabel(leaveByISO: string): string {
   return `Leave by ${formatTimeOfDay(leaveBy)} (in ${diffMin}m)`;
 }
 
-function EventCommuteRow({ ev, compact }: { ev: EventCommute; compact: boolean }) {
+function EventCommuteRow({ ev, compact, mapboxToken, showMap }: { ev: EventCommute; compact: boolean; mapboxToken?: string; showMap: boolean }) {
   if (ev.error) {
     return (
       <div className="flex items-center justify-between gap-3 rounded-lg border border-th-border-light bg-th-bg/40 px-3 py-2">
@@ -97,30 +136,43 @@ function EventCommuteRow({ ev, compact }: { ev: EventCommute; compact: boolean }
       </div>
     );
   }
-  const tone = delayTone(ev.delayMinutes ?? 0);
+  const tone = delayTone(ev.delayMinutes ?? 0, ev.staticDurationMinutes);
+  const renderMap = showMap && !!ev.polyline && !!mapboxToken;
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-th-border-light bg-th-bg/60 px-3 py-2">
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[0.95em] font-semibold text-primary">{ev.title}</p>
-        <p className="truncate text-[0.8em] text-muted">
-          {ev.leaveByISO ? leaveByLabel(ev.leaveByISO) : null}
-          {!compact && ev.location ? <> · {ev.location}</> : null}
-        </p>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <span
-          style={{ fontVariantNumeric: 'tabular-nums' }}
-          className="text-[1.4em] font-bold text-primary leading-none"
-        >
-          {ev.durationMinutes}
-        </span>
-        <span className="text-[0.7em] text-muted">min</span>
-        {(ev.delayMinutes ?? 0) !== 0 ? (
-          <span className={`rounded-full px-2 py-0.5 text-[0.7em] font-medium ${tone.bg} ${tone.text}`}>
-            {tone.label}
+    <div className="flex flex-col gap-2 rounded-lg border border-th-border-light bg-th-bg/60 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[0.95em] font-semibold text-primary">{ev.title}</p>
+          <p className="truncate text-[0.8em] text-muted">
+            {ev.leaveByISO ? leaveByLabel(ev.leaveByISO) : null}
+            {!compact && ev.location ? <> · {ev.location}</> : null}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+            className="text-[1.4em] font-bold text-primary leading-none"
+          >
+            {ev.durationMinutes}
           </span>
-        ) : null}
+          <span className="text-[0.7em] text-muted">min</span>
+          {ev.durationMinutes !== undefined && ev.durationMinutes > 0 ? (
+            <span className={`rounded-full px-2 py-0.5 text-[0.7em] font-medium ${tone.bg} ${tone.text}`}>
+              {tone.label}
+            </span>
+          ) : null}
+        </div>
       </div>
+      {renderMap && (
+        <Suspense fallback={<div style={{ height: MAP_HEIGHT }} className="rounded-lg bg-th-bg/40 animate-pulse" />}>
+          <CommuteMap
+            polyline={ev.polyline!}
+            congestion={ev.congestion}
+            mapboxToken={mapboxToken!}
+            height={MAP_HEIGHT}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -144,12 +196,12 @@ export default function CommuteWidget() {
 
   if (isError) {
     const msg = (error as { response?: { data?: { error?: { message?: string; code?: string } } } })?.response?.data?.error;
-    const isConfig = msg?.code === 'HOME_ADDRESS_NOT_SET' || msg?.code === 'MAPS_API_KEY_NOT_SET';
+    const isConfig = msg?.code === 'HOME_ADDRESS_NOT_SET' || msg?.code === 'MAPBOX_TOKEN_NOT_SET';
     return (
       <div ref={ref} style={{ fontSize: baseFontSize }} className={`${containerCls} justify-center`}>
         <p className="text-[var(--color-text-secondary)] text-center text-[0.95em]">
           {isConfig ? (
-            <>🚗 Set home address &amp; Maps API key in <strong>Settings → Commute</strong></>
+            <>🚗 Set home address &amp; Mapbox token in <strong>Settings → Commute</strong></>
           ) : (
             <>⚠️ {msg?.message ?? 'Commute unavailable'}</>
           )}
@@ -160,6 +212,8 @@ export default function CommuteWidget() {
 
   const items = data?.items ?? [];
   const eventCommutes = data?.eventCommutes ?? [];
+  const mapboxToken = data?.mapboxToken;
+  const showMap = width >= MAP_MIN_WIDTH;
 
   if (items.length === 0 && eventCommutes.length === 0) {
     const upcoming = data?.upcoming;
@@ -184,7 +238,7 @@ export default function CommuteWidget() {
       <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-2">
         {items.map((item) =>
           item.ok ? (
-            <RouteRow key={item.data.routeId} eta={item.data} compact={compact} />
+            <RouteRow key={item.data.routeId} eta={item.data} compact={compact} mapboxToken={mapboxToken} showMap={showMap} />
           ) : (
             <ErrorRow key={item.data.routeId} error={item.data} />
           )
@@ -197,7 +251,7 @@ export default function CommuteWidget() {
               </span>
             )}
             {eventCommutes.map((ev) => (
-              <EventCommuteRow key={ev.eventId} ev={ev} compact={compact} />
+              <EventCommuteRow key={ev.eventId} ev={ev} compact={compact} mapboxToken={mapboxToken} showMap={showMap} />
             ))}
           </>
         )}

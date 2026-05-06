@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "family-organizer": {
+      "command": "node",
+      "args": ["${workspaceFolder}/mcp/dist/index.js"],
+      "env": {
+        "ORGANIZER_BASE_URL": "${env:ORGANIZER_BASE_URL:-http://localhost:3000}",
+        "ORGANIZER_USERNAME": "${env:ORGANIZER_USERNAME:-claude-bot}",
+        "ORGANIZER_PASSWORD": "${env:ORGANIZER_PASSWORD}",
+        "MCP_TRANSPORT": "stdio"
+      }
+    }
+  }
+}

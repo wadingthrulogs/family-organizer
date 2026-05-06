@@ -4,22 +4,26 @@
 - **Client Layer**: React single-page app served over HTTPS via nginx container; push notifications via Web Push API (browser-native).
 - **API Server**: Express server handling REST traffic, session auth, RBAC, validation, and rate limiting. Runs as a single Node process — no separate worker or scheduler containers.
 - **Domain Services** (within the same Express process):
-  - Calendar Sync: pulls Google events via OAuth, normalizes data, populates `FamilyEvent` table. Triggered manually or via admin endpoint.
+  - Calendar Sync: pulls Google events via OAuth, normalizes data, populates `FamilyEvent` table. Triggered manually or via admin endpoint, plus a periodic background sweep started at boot.
   - Chore Rotation Service: business logic for assignment generation, round-robin/weighted rotation.
-  - Reminder Processor: evaluates pending `ReminderTrigger` rows and dispatches push/email notifications. Called via `POST /notifications/process` (run on a schedule externally, e.g. cron or Ofelia).
-- **Data Layer**: SQLite database accessed via Prisma ORM; Node.js `crypto` module for encrypting secrets (OAuth tokens, VAPID keys); file storage for attachments.
-- **Integrations**: Google Calendar API (OAuth2), SMTP (Nodemailer), Web Push (web-push library).
+  - Notification Engine: in-process ticker (default 60 s) that processes due `ReminderTrigger` rows and dispatches push/email/webhook notifications. Also exposed via `POST /notifications/process` for manual runs.
+  - Task Retention: archives finished tasks past `archiveDays` and hard-deletes them after `hardDeleteDays`. Invokable via `POST /tasks/cleanup`.
+  - Commute / Mapbox Service: fetches driving/walking/cycling/transit ETAs from the Mapbox Directions API for configured `CommuteRoute` rows, plus auto-derived "leave-by" times for upcoming calendar events with locations. Geocoder results are cached in `GeocodeCache` (positive) and `LocationGeocodeCache` (negative) to avoid hammering the API.
+- **Data Layer**: SQLite database accessed via Prisma ORM; Node.js `crypto` module for encrypting secrets (OAuth tokens, Mapbox token, SMTP password, VAPID keys, OpenWeather API key); file storage for attachments.
+- **Integrations**: Google Calendar API (OAuth2), Mapbox Directions + Geocoder API, OpenWeatherMap, SMTP (Nodemailer), Web Push (web-push library), generic outbound webhook.
 - **Deployment**: Docker Compose with two services — `frontend` (nginx) and `backend` (Express + Prisma + SQLite).
 
 ## Component Responsibilities
 
 ### Frontend (React + Vite + Tailwind)
-- Authentication views (login, OAuth linking prompts).
+- Authentication views (login, bootstrap-only registration, OAuth linking prompts).
 - Calendar with day/week/month view and combined events/tasks/chores overlay.
 - Task todo list with quick-add and inline editing, grocery list UI with shopping mode, chore planner, reminder settings.
-- Meal plan page: weekly grid (Mon–Sun × meal type), recipe management, inventory check, send-to-grocery flow.
-- Dashboard widget grid (drag/resize via react-grid-layout); custom background photo with opacity; kiosk full-screen mode with independent persistent config.
-- Data freshness via React Query polling (stale-while-revalidate); no WebSocket.
+- Meal plan page: weekly grid (Mon–Sun × meal type), recipe management, ingredient inventory check, recipe bulk import (paste text or upload JSON), send-to-grocery flow.
+- Commute widget: live ETAs and an inline Mapbox GL traffic map for routes that are currently in their active time window, plus auto leave-by suggestions for upcoming calendar events with locations.
+- Dashboard widget grid (drag/resize via react-grid-layout); custom background photo with opacity and fit mode; configurable mobile bottom tab bar; kiosk full-screen mode with independent persistent config.
+- Data freshness via React Query polling (stale-while-revalidate); no WebSocket. Global RQ defaults disable `refetchOnWindowFocus` (perf-audit-2026-04 §5).
+- Routes are lazy-loaded except for Login, Dashboard, and Kiosk so the kiosk cold-load avoids paying the cost of `react-grid-layout` consumers used elsewhere (perf-audit-2026-04 §2).
 - Push notification subscription handled via browser Push API + `POST /notifications/subscribe`.
 
 ### Backend API (Express)
@@ -37,9 +41,13 @@
 
 ### Reminder Scheduler
 - `ReminderTrigger` rows record `nextFireAt` per channel.
-- `POST /notifications/process` (admin-only) evaluates due triggers and sends via push or SMTP.
-- Designed to be called on an external schedule (host cron, Ofelia container, etc.).
+- An in-process ticker (`startNotificationTicker`, default 60 s, started in `index.ts`) evaluates due triggers and dispatches notifications. `POST /notifications/process` (admin-only) is also available for manual runs.
+- Channels: browser push (web-push), email (Nodemailer), webhook (HTTP POST to `WEBHOOK_URL`).
 - Respects quiet hours; logs history to `NotificationLog`.
+
+### Server Configuration Bootstrap
+- At startup, `loadServerConfig()` reads decrypted values from `HouseholdSetting` rows and **overrides** matching env vars (e.g. `APP_BASE_URL`, SMTP, VAPID, OpenWeather). This is what allows admins to reconfigure the server entirely from the in-app **Settings → Server Configuration** UI without editing `.env` or restarting (other than `appBaseUrl`, which still requires a restart to fully take effect on CORS / OAuth).
+- Encrypted secrets stored under the `enc:` prefix are AES-decrypted using `ENCRYPTION_KEY`.
 
 ### Data Layer
 - SQLite with WAL mode; Prisma migrations.

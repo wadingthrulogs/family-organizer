@@ -13,6 +13,8 @@
 ### POST /auth/register
 - Body: `{ username, email?, password, role? }`
 - Response: User (201)
+- **Bootstrap-only:** allowed only when no active user exists. Once any non-disabled user is in the database, this endpoint returns `403 REGISTRATION_DISABLED`. Subsequent users must be created by an admin via `POST /auth/users`.
+- The first registered user is automatically promoted to `ADMIN` regardless of the `role` field.
 
 ### POST /auth/login
 - Body: `{ username, password }`
@@ -36,14 +38,16 @@
 ### POST /auth/users _(ADMIN)_
 - Create a new user.
 
-### PATCH /auth/users/:id/role _(ADMIN)_
+### PATCH /auth/users/:userId/role _(ADMIN)_
 - Body: `{ role }`
+- Returns `400 SELF_ROLE_CHANGE` if you target your own user.
 
-### POST /auth/users/:id/reset-password _(ADMIN)_
+### POST /auth/users/:userId/reset-password _(ADMIN)_
 - Body: `{ newPassword }`
 
-### DELETE /auth/users/:id _(ADMIN)_
+### DELETE /auth/users/:userId _(ADMIN)_
 - Soft-deletes user (sets `deletedAt`, disables password login).
+- Returns `400 SELF_DELETE` if you target your own user.
 
 ## Tasks (`/tasks`)
 
@@ -65,6 +69,11 @@
 
 ### GET /tasks/:id/history
 - Response: `{ taskId, history: TaskStatusChange[] }`
+
+### POST /tasks/cleanup _(ADMIN)_
+- Body: `{ dryRun? }`
+- Runs the task retention sweep: archives finished tasks older than `taskRetention.archiveDays` and hard-deletes archived tasks older than `taskRetention.hardDeleteDays`. Both thresholds come from household settings.
+- Response: `{ data: { archived, hardDeleted, ... } }`
 
 ## Chores (`/chores`)
 
@@ -100,6 +109,39 @@
 
 ### GET /chores/:id/streaks
 - Response: `{ choreId, streaks: [{ userId, username, currentStreak, longestStreak, totalCompleted }] }`
+
+## Commute (`/commute`)
+
+Mapbox-backed commute ETAs. All routes require an active session. Most endpoints also require `homeAddress` and `mapboxToken` to be configured under household settings; missing config returns `400 HOME_ADDRESS_NOT_SET` or `400 MAPBOX_TOKEN_NOT_SET`.
+
+### GET /commute/routes
+- Lists all configured commute routes ordered by `sortOrder`, then `name`.
+- Response: `{ items: CommuteRoute[], total }`
+
+### POST /commute/routes
+- Body: `{ name, destAddress, travelMode?='DRIVE', showStartMin, showEndMin, daysOfWeek?='1,2,3,4,5', sortOrder?=0, active?=true }`
+- `travelMode`: `DRIVE | BICYCLE | WALK | TWO_WHEELER | TRANSIT`
+- `showStartMin` / `showEndMin`: minutes-of-day window (0–1439). End must be greater than start.
+- `daysOfWeek`: comma-separated DOW digits, where 0=Sunday … 6=Saturday.
+- Response: CommuteRoute (201)
+
+### PATCH /commute/routes/:routeId
+- Partial update of any of the create-fields above.
+- Returns `404 ROUTE_NOT_FOUND` if the route does not exist.
+
+### DELETE /commute/routes/:routeId
+- Hard delete (204).
+
+### GET /commute/routes/:routeId/eta
+- Fetches a fresh ETA for a single route (admin/debug). Widget consumers use `/etas/active` instead.
+- Response: `{ routeId, name, destAddress, travelMode, homeAddress, durationMinutes, staticDurationMinutes, delayMinutes, distanceMeters, distanceMiles, polyline, congestion[], fetchedAt, ... }`
+
+### GET /commute/etas/active
+- Returns ETAs for every active route whose current time-of-day window contains "now". Failed lookups are returned with an `error` payload alongside the route metadata so the widget can render a partial result.
+- If no route is active right now, `upcoming` describes the next route to fire (today later or in N days).
+- Includes `eventCommutes`: auto-generated leave-by ETAs for the next few calendar events that have a `location`.
+- Response: `{ items: Array<{ ok: true, data: CommuteEta } | { ok: false, data: CommuteEtaError }>, total, upcoming, eventCommutes, mapboxToken }`
+- The `mapboxToken` is the public token (returned plaintext so the frontend Mapbox GL map can render).
 
 ## Grocery Lists (`/grocery`)
 
@@ -175,10 +217,19 @@
 ## Settings (`/settings`)
 
 ### GET /settings
-- Response: `{ householdName, timezone, quietHours, hiddenTabs, theme, weatherLocation, weatherUnits }`
+- Response includes all household-level settings plus server-configuration flags.
+- Plaintext fields: `householdName, timezone, quietHours, hiddenTabs, theme, weatherLocation, weatherUnits, taskRetention, googleClientId, appBaseUrl, smtpHost, smtpPort, smtpUser, smtpFrom, homeAddress`
+- Encrypted-at-rest fields are returned as boolean `*Set` flags only — never the plaintext value:
+  - `googleClientSecretSet, openweatherApiKeySet, googleMapsApiKeySet, mapboxTokenSet, smtpPassSet, pushVapidPublicKeySet, pushVapidPrivateKeySet`
 
-### PATCH /settings _(ADMIN)_
-- Partial update of household settings.
+### PATCH /settings
+- Partial update of household settings. All callers may update household-level fields (`householdName`, `timezone`, `quietHours`, `hiddenTabs`, `theme`, `weatherLocation`, `weatherUnits`, `taskRetention`).
+- The following fields are **ADMIN-only** and configure server services. Plaintext keys are stored in the clear; encrypted keys are AES-encrypted at rest using `ENCRYPTION_KEY`:
+  - Plaintext: `googleClientId, appBaseUrl, smtpHost, smtpPort, smtpUser, smtpFrom, homeAddress`
+  - Encrypted: `googleClientSecret, openweatherApiKey, googleMapsApiKey, mapboxToken, smtpPass, pushVapidPublicKey, pushVapidPrivateKey`
+- Sending `null` or `''` for any server-config field deletes the stored value.
+- SMTP, VAPID, and OpenWeather changes are hot-reloaded into their respective services without a restart. `appBaseUrl` requires a backend restart to fully take effect (CORS, OAuth redirect URL).
+- Non-admin callers attempting to set any admin field receive `403 FORBIDDEN`.
 
 ### GET /settings/me
 - Response: `{ theme, dashboardConfig, kioskConfig, hiddenTabs }` — user preferences.

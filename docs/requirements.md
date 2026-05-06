@@ -55,9 +55,16 @@ A privacy-first intranet web application that lets household members share calen
 
 ### Meal Planning
 - Recipe management: CRUD with ingredient list (name, quantity, unit, optional inventory link), prep/cook times, serving size, and source URL.
+- Bulk recipe import via pasted text (one block per recipe, blank-line separated) or uploaded JSON array.
 - Weekly meal planner grid (Monday–Sunday × meal type) with recipe slots and free-text entries.
 - Ingredient inventory check: compares recipe ingredients against inventory quantities and reports ok/low/missing status.
 - Add missing ingredients to a grocery list directly from a recipe or an entire meal plan week.
+
+### Commute & Travel ETAs
+- Configurable commute routes with destination address, travel mode (drive / bicycle / walk / two-wheeler / transit), active time-of-day window, and weekday filter.
+- Live ETAs against a household-configured "home address" via the Mapbox Directions API, with congestion classes and an inline traffic map (Mapbox GL).
+- Auto "leave-by" suggestions for the next few calendar events that include a `location`.
+- Cached geocoder results (positive and negative) to keep API usage low.
 
 ### Settings & Administration
 - Household profile (name, timezone, default categories, theme).

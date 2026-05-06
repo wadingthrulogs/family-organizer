@@ -120,6 +120,8 @@ All variables live in `backend/.env`. The `docker-compose.yml` mounts this as `e
 
 > `DATABASE_URL` and `SQLITE_PATH` are set automatically by `docker-compose.yml` — you only need to set them if doing a manual install.
 
+> **Most optional values can also be configured at runtime via Settings → Server Configuration in the app** (admin only). The backend reads these on boot and overrides the env-var equivalents. This includes Google OAuth credentials, OpenWeather API key, SMTP settings, VAPID keys, the Mapbox public token (for the commute widget), and the household home address. Sensitive values are AES-encrypted at rest using `ENCRYPTION_KEY`.
+
 ---
 
 ## Changing the Port

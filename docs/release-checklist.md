@@ -47,8 +47,10 @@ A short runbook for tagging the repository, packaging assets, and rolling out th
 
 ## 6. Post-Deployment Smoke Test
 - Sign in with a household user; ensure tasks/chores/grocery views load data.
-- Trigger a reminder and verify email/push delivery.
+- Trigger a reminder and verify email/push/webhook delivery (whichever channels are wired up).
 - Create & complete a grocery item while in shopping mode.
+- If the Commute widget is in use: confirm the Mapbox token + home address are configured in **Settings → Server Configuration**, then verify `/api/v1/commute/etas/active` returns ETAs for any active route. The geocode cache (`GeocodeCache` / `LocationGeocodeCache`) is self-managing — no manual maintenance required.
+- Open the Dashboard and verify lazy-loaded routes (Calendar, Tasks, Settings, etc.) load cleanly under `Suspense`.
 - Review logs (`docker compose logs -f backend`) for errors during the first 15 minutes.
 
 ## 7. Rollback Plan

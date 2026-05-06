@@ -18,7 +18,8 @@ Optional
 - **Grocery Lists** — Shopping mode, bulk add, low-stock auto-populate
 - **Inventory** — Pantry tracker with low-stock thresholds and export
 - **Meal Plans** — Weekly planner with recipe management, ingredient inventory checking, grocery list integration, and bulk recipe import (paste text or upload JSON)
-- **Reminders & Notifications** — Web push and email notifications with configurable lead times
+- **Commute** — Mapbox-backed live ETAs and traffic map for configured routes, plus auto "leave-by" for upcoming calendar events with locations
+- **Reminders & Notifications** — Web push, email, and webhook notifications with configurable lead times
 - **Multi-user** — Role-based access (Admin / Member / Viewer), per-user colors
 
 
@@ -112,7 +113,9 @@ editing files or restarting the server. Log in as an admin and go to **Settings*
 | SMTP host, port, user, password, from address | Email → SMTP |
 | Web push VAPID keys | Push Notifications → VAPID Keys |
 | Google OAuth client ID & secret | Google Calendar → Credentials |
+| Mapbox public token & home address | Commute → Mapbox Token / Home Address |
 | App base URL | Server → App Base URL *(restart required)* |
+| Task retention (auto-archive / hard-delete days) | Server → Task Retention |
 
 Sensitive values (secrets, passwords, VAPID keys) are encrypted at rest in the database.
 The UI shows a "configured" badge instead of revealing stored values.
@@ -365,9 +368,10 @@ The Vite dev server proxies `/api` to `http://localhost:3000` automatically.
 |-------|-----------|
 | Backend | Node 20, TypeScript, Express 4, Prisma 5, SQLite |
 | Auth | express-session, bcrypt |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Frontend | React 18, TypeScript, Vite 5, Tailwind CSS 3 |
 | Data fetching | TanStack Query v5 |
-| Drag & drop | react-grid-layout (dashboard) |
+| Drag & drop | react-grid-layout (dashboard), @dnd-kit (kanban) |
+| Maps | mapbox-gl (commute widget) |
 | Deployment | Docker Compose, Nginx |
 
 ---

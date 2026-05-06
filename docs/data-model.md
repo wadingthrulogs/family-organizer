@@ -21,12 +21,15 @@
 | `recipes` | User-created recipes with ingredients, prep/cook times, and serving size. |
 | `meal_plans` | Weekly meal plan containers anchored to a `weekStart` date. |
 | `meal_plan_entries` | Individual meal slots within a plan (day + meal type + optional recipe). |
+| `commute_routes` | Configured commute destinations with active time-of-day windows and DOW filters. |
+| `geocode_cache` | Mapbox geocoder result cache (address → lng/lat) with TTL. |
+| `location_geocode_cache` | Negative cache for geocoder lookups that failed (so we don't retry repeatedly). |
 | `reminders` | Reminder rules referencing tasks/chores/groceries/events. |
 | `reminder_triggers` | Scheduled occurrences for reminders, tracking last attempt and channel. |
 | `attachments` | File metadata for items referenced by tasks, groceries, or dashboard backgrounds. |
 | `push_subscriptions` | Browser Web Push subscription records per user. |
-| `notification_logs` | Delivery history for reminder notifications (push/email). |
-| `household_settings` | Key-value store for household-wide configuration. |
+| `notification_logs` | Delivery history for reminder notifications (push/email/webhook). |
+| `household_settings` | Key-value store for household-wide configuration. Encrypted secrets (OAuth secrets, Mapbox token, SMTP password, VAPID keys, OpenWeather API key) are stored AES-encrypted with the `enc:` prefix. |
 | `audit_logs` | Append-only log of significant actions for troubleshooting. |
 | `search_index` | Optional full-text search index for tasks and grocery items. |
 
@@ -78,10 +81,21 @@
 - `meal_plan_entries.meal_type`: `BREAKFAST`, `LUNCH`, `DINNER`, or `SNACK`.
 - `meal_plan_entries.recipe_id`: optional FK to a recipe; entries can be free-text meals without a recipe.
 
+### Commute Routes
+- `commute_routes.travel_mode`: `DRIVE`, `BICYCLE`, `WALK`, `TWO_WHEELER`, `TRANSIT`. Mapped to Mapbox profiles (`driving-traffic`, `cycling`, `walking`).
+- `commute_routes.show_start_min` / `show_end_min`: minutes of day (0–1439). The route's ETA only appears in the widget when the current local time falls inside this window.
+- `commute_routes.days_of_week`: comma-separated DOW digits (0=Sun … 6=Sat), default `'1,2,3,4,5'` (weekdays).
+- `commute_routes.sort_order`: render order in the widget. Lower numbers appear first.
+
+### Geocode Caches
+- `geocode_cache`: positive cache. Key = address string. Stores `lng`/`lat`/`place_name`/`relevance` with `expires_at` (default 30-day TTL). Hits avoid hammering Mapbox's geocoder.
+- `location_geocode_cache`: negative cache. Records addresses that recently failed to geocode (with a `reason` and `last_attempt_at`) so the system backs off retries until `expires_at`.
+
 ### Reminders
-- `reminders.channel_mask`: bit flags for push/email/webhook.
+- `reminders.channel_mask`: bit flags for push/email/webhook (`PUSH = 1`, `EMAIL = 2`, `WEBHOOK = 4`).
 - `quiet_hours_start`/`quiet_hours_end` per reminder or inherit from household settings.
 - `reminder_triggers.next_fire_at` recalculated after each send; `last_status` for monitoring.
+- Webhook delivery uses the `WEBHOOK_URL` env var (or the value loaded from settings at startup).
 
 ### Attachments
 - Files stored on disk; DB holds `path`, `content_type`, `checksum`, `owner_user_id`, `linked_entity`.

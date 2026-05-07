@@ -178,6 +178,12 @@ function SettingsPage() {
     }
   };
 
+  const extractApiErrorMessage = (err: unknown, fallback: string): string => {
+    const apiMsg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+    if (apiMsg) return apiMsg;
+    return err instanceof Error ? err.message : fallback;
+  };
+
   const handleGoogleSync = async (accountId: number) => {
     try {
       const result = await syncGoogle.mutateAsync(accountId);
@@ -186,7 +192,7 @@ function SettingsPage() {
     } catch (err) {
       setIntegrationNotice({
         tone: 'error',
-        message: err instanceof Error ? err.message : 'Unable to sync Google Calendar.',
+        message: extractApiErrorMessage(err, 'Unable to sync Google Calendar.'),
       });
     }
   };
@@ -199,7 +205,7 @@ function SettingsPage() {
     } catch (err) {
       setIntegrationNotice({
         tone: 'error',
-        message: err instanceof Error ? err.message : 'Unable to run full re-sync.',
+        message: extractApiErrorMessage(err, 'Unable to run full re-sync.'),
       });
     }
   };
@@ -653,7 +659,7 @@ function SettingsPage() {
                 } catch (err) {
                   setIntegrationNotice({
                     tone: 'error',
-                    message: err instanceof Error ? err.message : 'Unable to sync all accounts.',
+                    message: extractApiErrorMessage(err, 'Unable to sync all accounts.'),
                   });
                 }
               }}

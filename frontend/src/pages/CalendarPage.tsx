@@ -331,7 +331,8 @@ function CalendarPage() {
                 setSyncError(null);
                 syncMutation.mutate(undefined, {
                   onError: (err) => {
-                    setSyncError(err instanceof Error ? err.message : 'Sync failed. Please try again.');
+                    const apiMsg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+                    setSyncError(apiMsg ?? (err instanceof Error ? err.message : 'Sync failed. Please try again.'));
                   },
                   onSuccess: () => setSyncError(null),
                 });

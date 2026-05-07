@@ -1,5 +1,5 @@
 import type { OAuth2Client } from 'google-auth-library';
-import type { LinkedCalendar } from '@prisma/client';
+import type { LinkedCalendar, Prisma } from '@prisma/client';
 import { calendar_v3 } from 'googleapis';
 
 import { calendarApi } from '../lib/google.js';
@@ -8,6 +8,42 @@ import { encryptSecret, decryptSecret } from '../lib/secrets.js';
 import { prisma } from '../lib/prisma.js';
 
 const SECRET_TYPE = 'GOOGLE_CALENDAR_REFRESH_TOKEN';
+
+const EVENT_CHUNK_SIZE = 100;
+const TRANSACTION_TIMEOUT_MS = 30_000;
+const UNRECOVERABLE_AUTH_ERRORS = ['invalid_grant', 'insufficient_scope', 'Insufficient Permission', 'PERMISSION_DENIED'];
+const AUTH_ERROR_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+let syncInFlight = false;
+
+export function isSyncInFlight() {
+  return syncInFlight;
+}
+
+export async function withSyncLock<T>(label: string, fn: () => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; reason: 'busy' }> {
+  if (syncInFlight) {
+    logger.info('Sync skipped — another sync in progress', { label });
+    return { ok: false, reason: 'busy' };
+  }
+  syncInFlight = true;
+  try {
+    const value = await fn();
+    return { ok: true, value };
+  } finally {
+    syncInFlight = false;
+  }
+}
+
+export function isUnrecoverableAuthError(errorMessage: string | null | undefined): boolean {
+  if (!errorMessage) return false;
+  return UNRECOVERABLE_AUTH_ERRORS.some((needle) => errorMessage.includes(needle));
+}
+
+export function isAccountInAuthCooldown(account: { lastSyncError: string | null; lastSyncErrorAt: Date | null }): boolean {
+  if (!isUnrecoverableAuthError(account.lastSyncError)) return false;
+  if (!account.lastSyncErrorAt) return false;
+  return Date.now() - account.lastSyncErrorAt.getTime() < AUTH_ERROR_COOLDOWN_MS;
+}
 
 /* ─── GoogleAccount-based functions (NEW) ─── */
 
@@ -160,13 +196,24 @@ export async function getAllGoogleAccounts() {
 }
 
 export function classifyGoogleSyncError(err: unknown): string {
-  const e = err as { response?: { data?: { error?: string | { code?: number; message?: string } } }; message?: string; code?: number; status?: number };
+  const e = err as {
+    response?: { status?: number; data?: { error?: string | { code?: number; message?: string; status?: string } } };
+    message?: string;
+    code?: number;
+    status?: number;
+  };
   const apiError = e?.response?.data?.error;
   if (typeof apiError === 'string') return apiError;
-  if (apiError && typeof apiError === 'object' && apiError.message) return String(apiError.message);
+  if (apiError && typeof apiError === 'object') {
+    const msg = apiError.message ? String(apiError.message) : '';
+    const status = apiError.status ? String(apiError.status) : '';
+    if (status === 'PERMISSION_DENIED') return msg || 'PERMISSION_DENIED';
+    if (msg) return msg;
+  }
   if (typeof e?.message === 'string') {
     if (e.message.includes('invalid_grant')) return 'invalid_grant';
-    return e.message;
+    if (e.message.includes('insufficient')) return 'insufficient_scope';
+    return e.message.slice(0, 200);
   }
   return 'unknown_error';
 }
@@ -191,6 +238,21 @@ export async function clearSyncTokensForAccount(accountId: number) {
     where: { googleAccountId: accountId },
     data: { syncToken: null },
   });
+}
+
+/**
+ * Hard-deletes orphan FamilyEvents that were soft-deleted when their LinkedCalendar was removed.
+ * These rows are inert (deleted=true, linkedCalendarId=null) but accumulate over time as the user
+ * disconnects and reconnects Google accounts. Runs once on backend startup; idempotent.
+ */
+export async function cleanupOrphanEvents(): Promise<number> {
+  const result = await prisma.familyEvent.deleteMany({
+    where: { linkedCalendarId: null, deleted: true, source: 'GOOGLE' },
+  });
+  if (result.count > 0) {
+    logger.info('Cleaned up orphan FamilyEvent rows', { count: result.count });
+  }
+  return result.count;
 }
 
 /* ─── Legacy wrappers (kept for backward compat) ─── */
@@ -338,13 +400,12 @@ async function syncCalendarEvents(api: calendar_v3.Calendar, calendar: LinkedCal
   try {
     while (true) {
       const response = await api.events.list({ ...baseParams, pageToken });
+      const pageEvents = response.data.items ?? [];
 
-      for (const event of response.data.items ?? []) {
-        if (event.id) seenSourceIds.add(event.id);
-        if (event.status === 'cancelled') cancelled++;
-        processed++;
-        await upsertFamilyEvent(calendar.id, event);
-      }
+      const result = await processEventPage(calendar.id, pageEvents);
+      for (const id of result.seen) seenSourceIds.add(id);
+      processed += result.processed;
+      cancelled += result.cancelled;
 
       pageToken = response.data.nextPageToken ?? undefined;
       if (!pageToken) {
@@ -400,26 +461,67 @@ async function syncCalendarEvents(api: calendar_v3.Calendar, calendar: LinkedCal
   });
 }
 
-async function upsertFamilyEvent(linkedCalendarId: number, event: calendar_v3.Schema$Event) {
-  if (!event.id) {
-    return;
+interface ProcessPageResult {
+  seen: string[];
+  processed: number;
+  cancelled: number;
+}
+
+async function processEventPage(linkedCalendarId: number, events: calendar_v3.Schema$Event[]): Promise<ProcessPageResult> {
+  const result: ProcessPageResult = { seen: [], processed: 0, cancelled: 0 };
+  if (events.length === 0) return result;
+
+  const sourceIds: string[] = [];
+  for (const event of events) {
+    if (event.id) {
+      sourceIds.push(event.id);
+      result.seen.push(event.id);
+    }
   }
 
-  const existing = await prisma.familyEvent.findFirst({
-    where: { linkedCalendarId, sourceEventId: event.id },
-  });
+  const existingRows = sourceIds.length > 0
+    ? await prisma.familyEvent.findMany({
+        where: { linkedCalendarId, sourceEventId: { in: sourceIds } },
+        select: { id: true, sourceEventId: true },
+      })
+    : [];
+  const existingByEventId = new Map<string, number>();
+  for (const row of existingRows) {
+    if (row.sourceEventId) existingByEventId.set(row.sourceEventId, row.id);
+  }
 
+  for (let i = 0; i < events.length; i += EVENT_CHUNK_SIZE) {
+    const chunk = events.slice(i, i + EVENT_CHUNK_SIZE);
+    await prisma.$transaction(async (tx) => {
+      for (const event of chunk) {
+        if (!event.id) continue;
+        const existingId = existingByEventId.get(event.id);
+        const wasCancelled = await processEvent(tx, linkedCalendarId, event, existingId, existingByEventId);
+        if (wasCancelled === 'cancelled') result.cancelled += 1;
+        if (wasCancelled !== 'skipped') result.processed += 1;
+      }
+    }, { timeout: TRANSACTION_TIMEOUT_MS });
+  }
+
+  return result;
+}
+
+async function processEvent(
+  tx: Prisma.TransactionClient,
+  linkedCalendarId: number,
+  event: calendar_v3.Schema$Event,
+  existingId: number | undefined,
+  existingByEventId: Map<string, number>,
+): Promise<'cancelled' | 'upserted' | 'skipped'> {
   if (event.status === 'cancelled') {
-    if (existing) {
-      await prisma.familyEvent.update({ where: { id: existing.id }, data: { deleted: true } });
+    if (existingId) {
+      await tx.familyEvent.update({ where: { id: existingId }, data: { deleted: true } });
     }
-    return;
+    return 'cancelled';
   }
 
   const timing = normalizeEventTiming(event);
-  if (!timing) {
-    return;
-  }
+  if (!timing) return 'skipped';
 
   const attendees = event.attendees?.map((attendee) => ({
     name: attendee.displayName ?? undefined,
@@ -443,18 +545,21 @@ async function upsertFamilyEvent(linkedCalendarId: number, event: calendar_v3.Sc
     deleted: false,
   } as const;
 
-  if (existing) {
-    await prisma.familyEvent.update({ where: { id: existing.id }, data: payload });
+  if (existingId) {
+    await tx.familyEvent.update({ where: { id: existingId }, data: payload });
   } else {
-    await prisma.familyEvent.create({
+    const created = await tx.familyEvent.create({
       data: {
         linkedCalendarId,
         source: 'GOOGLE',
-        sourceEventId: event.id,
+        sourceEventId: event.id!,
         ...payload,
       },
+      select: { id: true },
     });
+    if (event.id) existingByEventId.set(event.id, created.id);
   }
+  return 'upserted';
 }
 
 function normalizeEventTiming(event: calendar_v3.Schema$Event) {

@@ -17,6 +17,7 @@ import {
   syncGoogleAccountEvents,
   markAccountSyncError,
   clearSyncTokensForAccount,
+  withSyncLock,
 } from '../../services/google-calendar.js';
 import { ensureDefaultUser } from '../../services/default-user.js';
 import { asyncHandler } from '../../utils/async-handler.js';
@@ -110,9 +111,17 @@ export function buildGoogleRouter(env: AppEnv) {
       const account = await upsertGoogleAccount(userId, email, refreshToken, userInfo.data.name);
       client.setCredentials({ refresh_token: refreshToken });
 
-      void syncGoogleAccountCalendarList(account.id, userId, client)
-        .then(() => syncGoogleAccountEvents(account.id, client))
-        .catch((err) => logger.error('Initial Google sync after connect failed', { accountId: account.id, err }));
+      void withSyncLock('oauth-callback-sync', async () => {
+        try {
+          await syncGoogleAccountCalendarList(account.id, userId, client);
+          await syncGoogleAccountEvents(account.id, client);
+        } catch (err) {
+          logger.error('Initial Google sync after connect failed', { accountId: account.id, err });
+          await markAccountSyncError(account.id, err);
+        }
+      }).then((res) => {
+        if (!res.ok) logger.info('OAuth-callback sync skipped (another sync running)');
+      });
 
       req.session.googleOAuthState = undefined;
       return res.redirect(buildSettingsRedirect(env.APP_BASE_URL, 'connected'));
@@ -159,15 +168,24 @@ export function buildGoogleRouter(env: AppEnv) {
       const client = await createGoogleOAuthClient(env);
       client.setCredentials({ refresh_token: refreshToken });
 
-      try {
-        await syncGoogleAccountCalendarList(account.id, userId, client);
-        await syncGoogleAccountEvents(account.id, client);
-      } catch (err) {
-        logger.error('Manual Google sync failed', { accountId: account.id, err });
-        await markAccountSyncError(account.id, err);
+      const result = await withSyncLock('manual-sync', async () => {
+        try {
+          await syncGoogleAccountCalendarList(account.id, userId, client);
+          await syncGoogleAccountEvents(account.id, client);
+          return { ok: true as const };
+        } catch (err) {
+          logger.error('Manual Google sync failed', { accountId: account.id, err });
+          await markAccountSyncError(account.id, err);
+          return { ok: false as const };
+        }
+      });
+
+      if (!result.ok) {
+        return res.status(409).json({ error: { code: 'SYNC_BUSY', message: 'Another sync is already in progress. Try again in a moment.' } });
+      }
+      if (!result.value.ok) {
         return res.status(500).json({ error: { code: 'SYNC_FAILED', message: 'Google sync failed' } });
       }
-
       res.json({ message: 'Sync complete' });
     })
   );
@@ -190,20 +208,28 @@ export function buildGoogleRouter(env: AppEnv) {
         return res.status(400).json({ error: { code: 'TOKEN_DECRYPT_FAILED', message: 'Could not decrypt refresh token' } });
       }
 
-      await clearSyncTokensForAccount(accountId);
-
       const client = await createGoogleOAuthClient(env);
       client.setCredentials({ refresh_token: refreshToken });
 
-      try {
-        await syncGoogleAccountCalendarList(account.id, userId, client);
-        await syncGoogleAccountEvents(account.id, client);
-      } catch (err) {
-        logger.error('Manual Google full-sync failed', { accountId: account.id, err });
-        await markAccountSyncError(account.id, err);
+      const result = await withSyncLock('manual-full-sync', async () => {
+        await clearSyncTokensForAccount(accountId);
+        try {
+          await syncGoogleAccountCalendarList(account.id, userId, client);
+          await syncGoogleAccountEvents(account.id, client);
+          return { ok: true as const };
+        } catch (err) {
+          logger.error('Manual Google full-sync failed', { accountId: account.id, err });
+          await markAccountSyncError(account.id, err);
+          return { ok: false as const };
+        }
+      });
+
+      if (!result.ok) {
+        return res.status(409).json({ error: { code: 'SYNC_BUSY', message: 'Another sync is already in progress. Try again in a moment.' } });
+      }
+      if (!result.value.ok) {
         return res.status(500).json({ error: { code: 'SYNC_FAILED', message: 'Google full sync failed' } });
       }
-
       res.json({ message: 'Full re-sync complete' });
     })
   );
@@ -213,24 +239,29 @@ export function buildGoogleRouter(env: AppEnv) {
     '/sync-all',
     asyncHandler(async (req, res) => {
       const userId = await resolveUserId(req, allowFallbackUser);
-      const accounts = await getGoogleAccounts(userId);
 
-      for (const account of accounts) {
-        const refreshToken = decryptAccountRefreshToken(account.encryptedRefreshToken);
-        if (!refreshToken) continue;
+      const result = await withSyncLock('manual-sync-all', async () => {
+        const accounts = await getGoogleAccounts(userId);
+        for (const account of accounts) {
+          const refreshToken = decryptAccountRefreshToken(account.encryptedRefreshToken);
+          if (!refreshToken) continue;
 
-        const client = await createGoogleOAuthClient(env);
-        client.setCredentials({ refresh_token: refreshToken });
+          const client = await createGoogleOAuthClient(env);
+          client.setCredentials({ refresh_token: refreshToken });
 
-        try {
-          await syncGoogleAccountCalendarList(account.id, userId, client);
-          await syncGoogleAccountEvents(account.id, client);
-        } catch (err) {
-          logger.error('Google sync failed for account', { accountId: account.id, email: account.email, err });
-          await markAccountSyncError(account.id, err);
+          try {
+            await syncGoogleAccountCalendarList(account.id, userId, client);
+            await syncGoogleAccountEvents(account.id, client);
+          } catch (err) {
+            logger.error('Google sync failed for account', { accountId: account.id, email: account.email, err });
+            await markAccountSyncError(account.id, err);
+          }
         }
-      }
+      });
 
+      if (!result.ok) {
+        return res.status(409).json({ error: { code: 'SYNC_BUSY', message: 'Another sync is already in progress. Try again in a moment.' } });
+      }
       res.json({ message: 'Sync complete' });
     })
   );

@@ -6,6 +6,7 @@ import { initMailer } from './lib/mailer.js';
 import { createApp } from './server.js';
 import { initVapid, setWebhookUrl, startNotificationTicker, stopNotificationTicker } from './services/notification-engine.js';
 import { initBackgroundSync } from './services/background-sync.js';
+import { cleanupOrphanEvents } from './services/google-calendar.js';
 import { loadServerConfig } from './routes/settings.js';
 import { setOpenWeatherApiKey } from './routes/weather.js';
 
@@ -53,6 +54,10 @@ async function bootstrap() {
 
   // Initialize background calendar sync
   initBackgroundSync(env);
+
+  // One-shot cleanup of orphan FamilyEvents from previous account disconnects.
+  // Runs in the background — failures here must never block startup.
+  cleanupOrphanEvents().catch((err) => logger.warn('Orphan event cleanup failed', { err: String(err) }));
 
   // Initialize OpenWeather if set
   if (env.OPENWEATHER_API_KEY) {

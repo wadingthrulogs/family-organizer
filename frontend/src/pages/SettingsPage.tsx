@@ -7,6 +7,7 @@ import {
   useGoogleDisconnectMutation,
   useGoogleIntegration,
   useGoogleSyncMutation,
+  useGoogleFullSyncMutation,
   useGoogleSyncAllMutation,
 } from '../hooks/useGoogleIntegration';
 import { api } from '../api/client';
@@ -74,6 +75,7 @@ function SettingsPage() {
   const connectGoogle = useGoogleConnectMutation();
   const disconnectGoogle = useGoogleDisconnectMutation();
   const syncGoogle = useGoogleSyncMutation();
+  const fullSyncGoogle = useGoogleFullSyncMutation();
   const syncAllGoogle = useGoogleSyncAllMutation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [formState, setFormState] = useState<FormState>(initialState);
@@ -189,6 +191,19 @@ function SettingsPage() {
     }
   };
 
+  const handleGoogleFullSync = async (accountId: number) => {
+    try {
+      const result = await fullSyncGoogle.mutateAsync(accountId);
+      setIntegrationNotice({ tone: 'success', message: result?.message ?? 'Full re-sync complete.' });
+      await refetchIntegration();
+    } catch (err) {
+      setIntegrationNotice({
+        tone: 'error',
+        message: err instanceof Error ? err.message : 'Unable to run full re-sync.',
+      });
+    }
+  };
+
   const isAdmin = user?.role === 'ADMIN';
   const [mobileSectionKey, setMobileSectionKey] = useState<string | null>(null);
   const sectionClass = (key: string) =>
@@ -210,7 +225,7 @@ function SettingsPage() {
   const googleConnected = googleAccounts.length > 0;
   const connecting = connectGoogle.isPending;
   const disconnecting = disconnectGoogle.isPending;
-  const syncing = syncGoogle.isPending || syncAllGoogle.isPending;
+  const syncing = syncGoogle.isPending || syncAllGoogle.isPending || fullSyncGoogle.isPending;
 
   if (isLoading && !data) {
     return (
@@ -545,7 +560,10 @@ function SettingsPage() {
           </div>
         ) : googleAccounts.length > 0 ? (
           <div className="mt-4 space-y-4">
-            {googleAccounts.map((account) => (
+            {googleAccounts.map((account) => {
+              const authNeeded = account.lastSyncError === 'invalid_grant';
+              const otherSyncError = account.lastSyncError && !authNeeded;
+              return (
               <div key={account.id} className="rounded-card border border-th-border-light p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -553,7 +571,7 @@ function SettingsPage() {
                     {account.displayName ? <p className="text-xs text-muted">{account.displayName}</p> : null}
                     <p className="text-xs text-faint">Last sync: {formatSyncTimestamp(account.lastSyncedAt)}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       className="rounded-full border border-th-border px-3 py-1 text-xs"
@@ -561,6 +579,15 @@ function SettingsPage() {
                       disabled={syncing}
                     >
                       {syncing ? 'Syncing…' : 'Sync'}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-th-border px-3 py-1 text-xs"
+                      onClick={() => handleGoogleFullSync(account.id)}
+                      disabled={syncing}
+                      title="Clears sync tokens and re-fetches every event from Google. Use this to repair drift or remove stale events."
+                    >
+                      {fullSyncGoogle.isPending ? 'Re-syncing…' : 'Force full re-sync'}
                     </button>
                     <button
                       type="button"
@@ -572,6 +599,24 @@ function SettingsPage() {
                     </button>
                   </div>
                 </div>
+                {authNeeded ? (
+                  <div className="mt-3 rounded-card border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    <p className="font-semibold">Reauthorization required</p>
+                    <p className="mt-1">
+                      Google revoked the sync token for this account (last error{' '}
+                      {formatSyncTimestamp(account.lastSyncErrorAt)}). Sync has been failing — calendar data is stale.
+                      Disconnect this account and reconnect it to issue a fresh refresh token.
+                    </p>
+                  </div>
+                ) : otherSyncError ? (
+                  <div className="mt-3 rounded-card border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <p className="font-semibold">Last sync failed</p>
+                    <p className="mt-1">
+                      Error <span className="font-mono">{account.lastSyncError}</span> at{' '}
+                      {formatSyncTimestamp(account.lastSyncErrorAt)}. Try Sync or Force full re-sync.
+                    </p>
+                  </div>
+                ) : null}
                 {account.calendars.length > 0 ? (
                   <ul className="mt-3 space-y-2">
                     {account.calendars.map((calendar) => (
@@ -587,7 +632,8 @@ function SettingsPage() {
                   <p className="mt-3 text-xs text-muted">No calendars found for this account.</p>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="mt-4 text-sm text-muted">

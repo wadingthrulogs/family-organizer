@@ -4,6 +4,7 @@ import {
   fetchGoogleIntegrationStatus,
   requestGoogleConnectUrl,
   syncGoogleAccount,
+  fullSyncGoogleAccount,
   syncAllGoogleAccounts,
 } from '../api/integrations';
 
@@ -41,6 +42,21 @@ export function useGoogleSyncMutation() {
       queryClient.invalidateQueries({ queryKey: ['googleIntegration'] });
       queryClient.invalidateQueries({ queryKey: ['calendarEvents'] });
       queryClient.invalidateQueries({ queryKey: ['linkedCalendars'] });
+      queryClient.invalidateQueries({ queryKey: ['commuteEtas'] });
+    },
+  });
+}
+
+export function useGoogleFullSyncMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (accountId: number) => fullSyncGoogleAccount(accountId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['googleIntegration'] });
+      queryClient.invalidateQueries({ queryKey: ['calendarEvents'] });
+      queryClient.invalidateQueries({ queryKey: ['linkedCalendars'] });
+      queryClient.invalidateQueries({ queryKey: ['commuteEtas'] });
     },
   });
 }

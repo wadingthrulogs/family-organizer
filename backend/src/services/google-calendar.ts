@@ -151,12 +151,46 @@ export async function syncGoogleAccountEvents(accountId: number, client: OAuth2C
 
   await prisma.googleAccount.update({
     where: { id: accountId },
-    data: { lastSyncedAt: new Date() },
+    data: { lastSyncedAt: new Date(), lastSyncError: null, lastSyncErrorAt: null },
   });
 }
 
 export async function getAllGoogleAccounts() {
   return prisma.googleAccount.findMany({ select: { id: true, userId: true, encryptedRefreshToken: true } });
+}
+
+export function classifyGoogleSyncError(err: unknown): string {
+  const e = err as { response?: { data?: { error?: string | { code?: number; message?: string } } }; message?: string; code?: number; status?: number };
+  const apiError = e?.response?.data?.error;
+  if (typeof apiError === 'string') return apiError;
+  if (apiError && typeof apiError === 'object' && apiError.message) return String(apiError.message);
+  if (typeof e?.message === 'string') {
+    if (e.message.includes('invalid_grant')) return 'invalid_grant';
+    return e.message;
+  }
+  return 'unknown_error';
+}
+
+export async function markAccountSyncError(accountId: number, err: unknown) {
+  const code = classifyGoogleSyncError(err);
+  await prisma.googleAccount.update({
+    where: { id: accountId },
+    data: { lastSyncError: code, lastSyncErrorAt: new Date() },
+  }).catch((e) => logger.warn('Failed to record account sync error', { accountId, e }));
+}
+
+export async function clearAccountSyncError(accountId: number) {
+  await prisma.googleAccount.update({
+    where: { id: accountId },
+    data: { lastSyncError: null, lastSyncErrorAt: null },
+  }).catch((e) => logger.warn('Failed to clear account sync error', { accountId, e }));
+}
+
+export async function clearSyncTokensForAccount(accountId: number) {
+  await prisma.linkedCalendar.updateMany({
+    where: { googleAccountId: accountId },
+    data: { syncToken: null },
+  });
 }
 
 /* ─── Legacy wrappers (kept for backward compat) ─── */
@@ -278,6 +312,7 @@ export async function syncGoogleEvents(userId: number, client: OAuth2Client) {
 
 async function syncCalendarEvents(api: calendar_v3.Calendar, calendar: LinkedCalendar, forceFullSync = false) {
   const lookbackMs = 1000 * 60 * 60 * 24 * 30;
+  const timeMinDate = new Date(Date.now() - lookbackMs);
   let pageToken: string | undefined;
   let nextSyncToken: string | undefined;
 
@@ -290,17 +325,24 @@ async function syncCalendarEvents(api: calendar_v3.Calendar, calendar: LinkedCal
       }
     : {
         calendarId: calendar.googleId,
-        timeMin: new Date(Date.now() - lookbackMs).toISOString(),
+        timeMin: timeMinDate.toISOString(),
         singleEvents: true,
         showDeleted: true,
         maxResults: 250,
       };
+
+  const seenSourceIds = new Set<string>();
+  let processed = 0;
+  let cancelled = 0;
 
   try {
     while (true) {
       const response = await api.events.list({ ...baseParams, pageToken });
 
       for (const event of response.data.items ?? []) {
+        if (event.id) seenSourceIds.add(event.id);
+        if (event.status === 'cancelled') cancelled++;
+        processed++;
         await upsertFamilyEvent(calendar.id, event);
       }
 
@@ -326,12 +368,35 @@ async function syncCalendarEvents(api: calendar_v3.Calendar, calendar: LinkedCal
     throw err;
   }
 
+  let pruned = 0;
+  if (!useIncremental && seenSourceIds.size > 0) {
+    const result = await prisma.familyEvent.updateMany({
+      where: {
+        linkedCalendarId: calendar.id,
+        source: 'GOOGLE',
+        deleted: false,
+        startAt: { gte: timeMinDate },
+        sourceEventId: { notIn: Array.from(seenSourceIds) },
+      },
+      data: { deleted: true },
+    });
+    pruned = result.count;
+  }
+
   await prisma.linkedCalendar.update({
     where: { id: calendar.id },
     data: {
       lastSyncedAt: new Date(),
       ...(nextSyncToken ? { syncToken: nextSyncToken } : {}),
     },
+  });
+
+  logger.info('Calendar sync complete', {
+    calendarId: calendar.id,
+    mode: useIncremental ? 'incremental' : 'full',
+    processed,
+    cancelled,
+    pruned,
   });
 }
 

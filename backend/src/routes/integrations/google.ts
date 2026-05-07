@@ -15,6 +15,8 @@ import {
   removeGoogleAccount,
   syncGoogleAccountCalendarList,
   syncGoogleAccountEvents,
+  markAccountSyncError,
+  clearSyncTokensForAccount,
 } from '../../services/google-calendar.js';
 import { ensureDefaultUser } from '../../services/default-user.js';
 import { asyncHandler } from '../../utils/async-handler.js';
@@ -36,6 +38,8 @@ export function buildGoogleRouter(env: AppEnv) {
           email: a.email,
           displayName: a.displayName,
           lastSyncedAt: a.lastSyncedAt,
+          lastSyncError: a.lastSyncError,
+          lastSyncErrorAt: a.lastSyncErrorAt,
           calendars: a.linkedCalendars.map((c) => ({
             id: c.id,
             googleId: c.googleId,
@@ -160,10 +164,47 @@ export function buildGoogleRouter(env: AppEnv) {
         await syncGoogleAccountEvents(account.id, client);
       } catch (err) {
         logger.error('Manual Google sync failed', { accountId: account.id, err });
+        await markAccountSyncError(account.id, err);
         return res.status(500).json({ error: { code: 'SYNC_FAILED', message: 'Google sync failed' } });
       }
 
       res.json({ message: 'Sync complete' });
+    })
+  );
+
+  /* ─── POST /:accountId/full-sync — Force a full re-sync (clears syncTokens first) ─── */
+  router.post(
+    '/:accountId/full-sync',
+    asyncHandler(async (req, res) => {
+      const userId = await resolveUserId(req, allowFallbackUser);
+      const accountId = Number(req.params.accountId);
+      if (isNaN(accountId)) return res.status(400).json({ error: { message: 'Invalid account ID' } });
+
+      const account = await getGoogleAccountById(accountId);
+      if (!account || account.userId !== userId) {
+        return res.status(404).json({ error: { message: 'Account not found' } });
+      }
+
+      const refreshToken = decryptAccountRefreshToken(account.encryptedRefreshToken);
+      if (!refreshToken) {
+        return res.status(400).json({ error: { code: 'TOKEN_DECRYPT_FAILED', message: 'Could not decrypt refresh token' } });
+      }
+
+      await clearSyncTokensForAccount(accountId);
+
+      const client = await createGoogleOAuthClient(env);
+      client.setCredentials({ refresh_token: refreshToken });
+
+      try {
+        await syncGoogleAccountCalendarList(account.id, userId, client);
+        await syncGoogleAccountEvents(account.id, client);
+      } catch (err) {
+        logger.error('Manual Google full-sync failed', { accountId: account.id, err });
+        await markAccountSyncError(account.id, err);
+        return res.status(500).json({ error: { code: 'SYNC_FAILED', message: 'Google full sync failed' } });
+      }
+
+      res.json({ message: 'Full re-sync complete' });
     })
   );
 
@@ -186,6 +227,7 @@ export function buildGoogleRouter(env: AppEnv) {
           await syncGoogleAccountEvents(account.id, client);
         } catch (err) {
           logger.error('Google sync failed for account', { accountId: account.id, email: account.email, err });
+          await markAccountSyncError(account.id, err);
         }
       }
 

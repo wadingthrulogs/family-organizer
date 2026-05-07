@@ -11,6 +11,8 @@ export interface GoogleAccountSummary {
   email: string;
   displayName: string | null;
   lastSyncedAt: string | null;
+  lastSyncError: string | null;
+  lastSyncErrorAt: string | null;
   calendars: LinkedCalendarSummary[];
 }
 

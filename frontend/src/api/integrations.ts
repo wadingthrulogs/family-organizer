@@ -26,6 +26,11 @@ export async function syncGoogleAccount(accountId: number) {
   return data;
 }
 
+export async function fullSyncGoogleAccount(accountId: number) {
+  const { data } = await api.post<{ message: string }>(`/integrations/google/${accountId}/full-sync`);
+  return data;
+}
+
 export async function syncAllGoogleAccounts() {
   const { data } = await api.post<{ message: string }>('/integrations/google/sync-all');
   return data;

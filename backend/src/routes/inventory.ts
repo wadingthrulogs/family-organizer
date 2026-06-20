@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/require-auth.js';
 import { prisma } from '../lib/prisma.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { parseBulkLine } from '../utils/parse-bulk-line.js';
+import { upsertPreparedMealRecipe, deletePreparedMealRecipe } from '../services/prepared-meal.js';
 
 export const inventoryRouter = Router();
 inventoryRouter.use(requireAuth);
@@ -26,6 +27,7 @@ const createItemSchema = z.object({
   pantryItemKey: z.string().trim().max(120).nullable().optional(),
   lowStockThreshold: z.coerce.number().min(0).max(99_999).nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
+  isPreparedMeal: z.boolean().optional(),
   dateAdded: z.coerce.date().nullable().optional(),
 });
 
@@ -208,9 +210,14 @@ inventoryRouter.post(
         pantryItemKey: payload.pantryItemKey ?? null,
         lowStockThreshold: payload.lowStockThreshold ?? null,
         notes: payload.notes ?? null,
+        isPreparedMeal: payload.isPreparedMeal ?? false,
         dateAdded: payload.dateAdded ?? new Date(),
       },
     });
+
+    if (item.isPreparedMeal) {
+      await upsertPreparedMealRecipe(item, req.session.userId!);
+    }
 
     res.status(201).json(item);
   })
@@ -227,6 +234,11 @@ inventoryRouter.patch(
       return res.status(400).json({ error: { code: 'NO_UPDATES', message: 'No changes provided' } });
     }
 
+    const existing = await prisma.inventoryItem.findUnique({ where: { id: itemId } });
+    if (!existing) {
+      return res.status(404).json({ error: { code: 'ITEM_NOT_FOUND', message: 'Inventory item not found' } });
+    }
+
     const data: Prisma.InventoryItemUpdateInput = {};
     if (payload.name !== undefined) data.name = payload.name;
     if (payload.category !== undefined) data.category = payload.category ?? null;
@@ -235,17 +247,19 @@ inventoryRouter.patch(
     if (payload.pantryItemKey !== undefined) data.pantryItemKey = payload.pantryItemKey ?? null;
     if (payload.lowStockThreshold !== undefined) data.lowStockThreshold = payload.lowStockThreshold ?? null;
     if (payload.notes !== undefined) data.notes = payload.notes ?? null;
+    if (payload.isPreparedMeal !== undefined) data.isPreparedMeal = payload.isPreparedMeal;
     if (payload.dateAdded !== undefined) data.dateAdded = payload.dateAdded ?? new Date();
 
-    try {
-      const updated = await prisma.inventoryItem.update({ where: { id: itemId }, data });
-      res.json(updated);
-    } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
-        return res.status(404).json({ error: { code: 'ITEM_NOT_FOUND', message: 'Inventory item not found' } });
-      }
-      throw err;
+    const updated = await prisma.inventoryItem.update({ where: { id: itemId }, data });
+
+    // Keep the linked prepared-meal recipe in sync (create / update title+unit+notes / remove).
+    if (updated.isPreparedMeal) {
+      await upsertPreparedMealRecipe(updated, req.session.userId!);
+    } else if (existing.isPreparedMeal) {
+      await deletePreparedMealRecipe(updated.id);
     }
+
+    res.json(updated);
   })
 );
 

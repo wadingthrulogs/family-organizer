@@ -28,6 +28,7 @@ type FormState = {
   lowStockThreshold: string;
   notes: string;
   dateAdded: string;
+  isPreparedMeal: boolean;
 };
 
 const emptyForm: FormState = {
@@ -38,6 +39,7 @@ const emptyForm: FormState = {
   lowStockThreshold: '',
   notes: '',
   dateAdded: toDateInputValue(),
+  isPreparedMeal: false,
 };
 
 function formFromItem(item: InventoryItem): FormState {
@@ -49,6 +51,7 @@ function formFromItem(item: InventoryItem): FormState {
     lowStockThreshold: item.lowStockThreshold != null ? String(item.lowStockThreshold) : '',
     notes: item.notes ?? '',
     dateAdded: item.dateAdded ? item.dateAdded.slice(0, 10) : '',
+    isPreparedMeal: item.isPreparedMeal ?? false,
   };
 }
 
@@ -159,7 +162,7 @@ function InventoryPage() {
     return Array.from(set).sort();
   }, [items]);
 
-  const handleChange = (key: keyof FormState, value: string) => {
+  const handleChange = (key: keyof FormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -221,6 +224,7 @@ function InventoryPage() {
       lowStockThreshold: form.lowStockThreshold ? Number(form.lowStockThreshold) : null,
       notes: form.notes || null,
       dateAdded: form.dateAdded || null,
+      isPreparedMeal: form.isPreparedMeal,
     });
     announce(`${form.name} added to inventory.`);
     setForm(emptyForm);
@@ -240,6 +244,7 @@ function InventoryPage() {
         lowStockThreshold: form.lowStockThreshold ? Number(form.lowStockThreshold) : null,
         notes: form.notes || null,
         dateAdded: form.dateAdded || null,
+        isPreparedMeal: form.isPreparedMeal,
       },
     });
     announce(`${form.name} updated.`);
@@ -506,6 +511,12 @@ function InventoryPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-heading">{item.name}</span>
+                        {item.isPreparedMeal && (
+                          <span
+                            className="rounded-full border border-th-border bg-page px-2 py-0.5 text-xs text-muted"
+                            title="Prepared meal — available as a recipe in meal planning"
+                          >🍱 Meal</span>
+                        )}
                         {low && (
                           <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-700">Low</span>
                         )}
@@ -795,6 +806,14 @@ function InventoryPage() {
                   <tr key={item.id} className="border-t border-th-border-light">
                     <td className="px-4 py-3 font-semibold text-heading">
                       {item.name}
+                      {item.isPreparedMeal && (
+                        <span
+                          className="ml-2 rounded-full border border-th-border bg-page px-2 py-0.5 text-xs text-muted"
+                          title="Prepared meal — available as a recipe in meal planning"
+                        >
+                          🍱 Meal
+                        </span>
+                      )}
                       {low && (
                         <span className="ml-2 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
                           Low
@@ -979,7 +998,7 @@ function InventoryForm({
   isSubmitting,
 }: {
   form: FormState;
-  onChange: (key: keyof FormState, value: string) => void;
+  onChange: (key: keyof FormState, value: string | boolean) => void;
   onSubmit: (e: FormEvent) => void;
   onCancel: () => void;
   submitLabel: string;
@@ -1054,6 +1073,21 @@ function InventoryForm({
           value={form.dateAdded}
           onChange={(e) => onChange('dateAdded', e.target.value)}
         />
+      </label>
+      <label className="md:col-span-2 flex items-start gap-2 text-sm font-semibold text-form-label">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4"
+          checked={form.isPreparedMeal}
+          onChange={(e) => onChange('isPreparedMeal', e.target.checked)}
+        />
+        <span>
+          🍱 Prepared meal
+          <span className="block text-xs font-normal text-muted">
+            Frozen/ready-made meals (e.g. frozen pizza). Creates a matching recipe in meal planning;
+            planning it uses one from stock.
+          </span>
+        </span>
       </label>
       <div className="md:col-span-2 flex justify-end gap-3">
         <button

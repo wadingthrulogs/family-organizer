@@ -49,7 +49,11 @@ export function useCreateEntryMutation() {
   return useMutation({
     mutationFn: ({ planId, payload }: { planId: number; payload: CreateMealPlanEntryPayload }) =>
       createMealPlanEntry(planId, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mealPlans'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mealPlans'] });
+      // Planning a prepared meal decrements its inventory stock.
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
   });
 }
 
@@ -58,7 +62,10 @@ export function useUpdateEntryMutation() {
   return useMutation({
     mutationFn: ({ planId, entryId, payload }: { planId: number; entryId: number; payload: UpdateMealPlanEntryPayload }) =>
       updateMealPlanEntry(planId, entryId, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mealPlans'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mealPlans'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
   });
 }
 
@@ -67,7 +74,11 @@ export function useDeleteEntryMutation() {
   return useMutation({
     mutationFn: ({ planId, entryId }: { planId: number; entryId: number }) =>
       deleteMealPlanEntry(planId, entryId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mealPlans'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mealPlans'] });
+      // Removing a planned prepared meal restores its inventory stock.
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
   });
 }
 

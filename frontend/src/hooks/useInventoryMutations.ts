@@ -21,6 +21,8 @@ export function useCreateInventoryItemMutation() {
     mutationFn: (payload: CreateInventoryItemPayload) => createInventoryItem(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      // Tagging an item as a prepared meal creates a linked recipe.
+      queryClient.invalidateQueries({ queryKey: ['recipes'] });
     },
   });
 }
@@ -60,6 +62,8 @@ export function useUpdateInventoryItemMutation() {
 
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      // A prepared-meal toggle/rename syncs the linked recipe.
+      queryClient.invalidateQueries({ queryKey: ['recipes'] });
     },
   });
 }
@@ -71,6 +75,8 @@ export function useDeleteInventoryItemMutation() {
     mutationFn: (itemId: number) => deleteInventoryItem(itemId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      // Deleting a prepared-meal item cascades to its linked recipe.
+      queryClient.invalidateQueries({ queryKey: ['recipes'] });
     },
   });
 }

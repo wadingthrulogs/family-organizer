@@ -531,6 +531,20 @@ mealPlansRouter.delete(
 
 // ─── Entries ─────────────────────────────────────────────────────────────────
 
+/**
+ * Prepared-meal stock tracking: a recipe with `sourceInventoryItemId` is a tagged
+ * inventory item. Planning it consumes one from stock; removing the entry restores it.
+ * Always ±1 per entry (independent of entry servings).
+ */
+async function adjustInventoryStock(inventoryItemId: number, delta: number) {
+  const item = await prisma.inventoryItem.findUnique({ where: { id: inventoryItemId } });
+  if (!item) return;
+  await prisma.inventoryItem.update({
+    where: { id: inventoryItemId },
+    data: { quantity: Math.max(0, item.quantity + delta) },
+  });
+}
+
 mealPlansRouter.post(
   '/:planId/entries',
   asyncHandler(async (req, res) => {
@@ -542,12 +556,14 @@ mealPlansRouter.post(
       return res.status(404).json({ error: { code: 'PLAN_NOT_FOUND', message: 'Meal plan not found' } });
     }
 
-    // Validate recipe exists if provided
+    // Validate recipe exists if provided, and note whether it's a prepared-meal recipe.
+    let sourceInventoryItemId: number | null = null;
     if (payload.recipeId) {
       const recipe = await prisma.recipe.findUnique({ where: { id: payload.recipeId } });
       if (!recipe) {
         return res.status(404).json({ error: { code: 'RECIPE_NOT_FOUND', message: 'Recipe not found' } });
       }
+      sourceInventoryItemId = recipe.sourceInventoryItemId;
     }
 
     const entry = await prisma.mealPlanEntry.create({
@@ -563,6 +579,10 @@ mealPlansRouter.post(
       select: entrySelect,
     });
 
+    if (sourceInventoryItemId != null) {
+      await adjustInventoryStock(sourceInventoryItemId, -1);
+    }
+
     res.status(201).json(entry);
   })
 );
@@ -577,9 +597,23 @@ mealPlansRouter.patch(
       return res.status(400).json({ error: { code: 'NO_UPDATES', message: 'No changes provided' } });
     }
 
-    const existing = await prisma.mealPlanEntry.findFirst({ where: { id: entryId, mealPlanId: planId } });
+    const existing = await prisma.mealPlanEntry.findFirst({
+      where: { id: entryId, mealPlanId: planId },
+      include: { recipe: { select: { sourceInventoryItemId: true } } },
+    });
     if (!existing) {
       return res.status(404).json({ error: { code: 'ENTRY_NOT_FOUND', message: 'Entry not found' } });
+    }
+
+    // Resolve the new prepared-meal link when the recipe is changing.
+    const recipeChanging = payload.recipeId !== undefined && (payload.recipeId ?? null) !== existing.recipeId;
+    let newSourceInventoryItemId: number | null = null;
+    if (payload.recipeId) {
+      const recipe = await prisma.recipe.findUnique({ where: { id: payload.recipeId } });
+      if (!recipe) {
+        return res.status(404).json({ error: { code: 'RECIPE_NOT_FOUND', message: 'Recipe not found' } });
+      }
+      newSourceInventoryItemId = recipe.sourceInventoryItemId;
     }
 
     const data: Prisma.MealPlanEntryUpdateInput = {};
@@ -598,6 +632,16 @@ mealPlansRouter.patch(
       select: entrySelect,
     });
 
+    // Restore stock for the old prepared meal, consume for the new one.
+    if (recipeChanging) {
+      if (existing.recipe?.sourceInventoryItemId != null) {
+        await adjustInventoryStock(existing.recipe.sourceInventoryItemId, 1);
+      }
+      if (newSourceInventoryItemId != null) {
+        await adjustInventoryStock(newSourceInventoryItemId, -1);
+      }
+    }
+
     res.json(entry);
   })
 );
@@ -607,12 +651,21 @@ mealPlansRouter.delete(
   asyncHandler(async (req, res) => {
     const { planId, entryId } = entryIdParams.parse(req.params);
 
-    const existing = await prisma.mealPlanEntry.findFirst({ where: { id: entryId, mealPlanId: planId } });
+    const existing = await prisma.mealPlanEntry.findFirst({
+      where: { id: entryId, mealPlanId: planId },
+      include: { recipe: { select: { sourceInventoryItemId: true } } },
+    });
     if (!existing) {
       return res.status(404).json({ error: { code: 'ENTRY_NOT_FOUND', message: 'Entry not found' } });
     }
 
     await prisma.mealPlanEntry.delete({ where: { id: entryId } });
+
+    // Restore prepared-meal stock when the planned entry is removed.
+    if (existing.recipe?.sourceInventoryItemId != null) {
+      await adjustInventoryStock(existing.recipe.sourceInventoryItemId, 1);
+    }
+
     res.status(204).send();
   })
 );

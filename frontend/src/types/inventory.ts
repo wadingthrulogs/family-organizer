@@ -7,6 +7,7 @@ export interface InventoryItem {
   pantryItemKey?: string | null;
   lowStockThreshold?: number | null;
   notes?: string | null;
+  isPreparedMeal?: boolean;
   dateAdded?: string | null;
   createdAt: string;
   updatedAt: string;

@@ -277,9 +277,12 @@ model InventoryItem {
   pantryItemKey     String?  @unique
   lowStockThreshold Float?
   notes             String?
+  isPreparedMeal    Boolean  @default(false)
   dateAdded         DateTime @default(now())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  preparedMealRecipe Recipe?
 
   @@index([name])
 }
@@ -444,11 +447,13 @@ model Recipe {
   sourceUrl       String?
   ingredientsJson String   @default("[]")
   createdByUserId Int
+  sourceInventoryItemId Int? @unique
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  createdBy User            @relation("RecipeAuthor", fields: [createdByUserId], references: [id], onDelete: Cascade)
-  entries   MealPlanEntry[]
+  createdBy           User           @relation("RecipeAuthor", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  sourceInventoryItem InventoryItem? @relation(fields: [sourceInventoryItemId], references: [id], onDelete: Cascade)
+  entries             MealPlanEntry[]
 }
 
 model MealPlan {

@@ -144,62 +144,55 @@ export function RecipeUploadModal({
           </p>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-muted">
-                  <th className="px-2 py-1 font-medium">Item</th>
-                  <th className="w-20 px-2 py-1 font-medium">Qty</th>
-                  <th className="w-24 px-2 py-1 font-medium">Unit</th>
-                  <th className="w-32 px-2 py-1 font-medium">Category</th>
-                  <th className="w-8 px-2 py-1" />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i} className="border-t border-th-border-light">
-                    <td className="px-1 py-1">
+            <div className="flex flex-col gap-2">
+              {rows.map((r, i) => (
+                <div key={i} className="rounded-card border border-th-border bg-page p-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="min-w-0 flex-1 rounded border border-th-border bg-input px-2 py-2 text-sm text-heading"
+                      placeholder="Item name"
+                      value={r.name}
+                      onChange={(e) => updateRow(i, 'name', e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="shrink-0 px-2 py-1 text-lg leading-none text-muted hover:text-red-600"
+                      aria-label="Remove item"
+                      onClick={() => removeRow(i)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <label className="flex flex-col gap-0.5 text-[11px] font-medium text-muted">
+                      Qty
                       <input
-                        className="w-full rounded border border-th-border bg-input px-2 py-1"
-                        value={r.name}
-                        onChange={(e) => updateRow(i, 'name', e.target.value)}
-                      />
-                    </td>
-                    <td className="px-1 py-1">
-                      <input
-                        className="w-full rounded border border-th-border bg-input px-2 py-1"
+                        className="rounded border border-th-border bg-input px-2 py-1.5 text-sm text-heading"
                         inputMode="decimal"
                         value={r.quantity}
                         onChange={(e) => updateRow(i, 'quantity', e.target.value)}
                       />
-                    </td>
-                    <td className="px-1 py-1">
+                    </label>
+                    <label className="flex flex-col gap-0.5 text-[11px] font-medium text-muted">
+                      Unit
                       <input
-                        className="w-full rounded border border-th-border bg-input px-2 py-1"
+                        className="rounded border border-th-border bg-input px-2 py-1.5 text-sm text-heading"
                         value={r.unit}
                         onChange={(e) => updateRow(i, 'unit', e.target.value)}
                       />
-                    </td>
-                    <td className="px-1 py-1">
+                    </label>
+                    <label className="col-span-2 flex flex-col gap-0.5 text-[11px] font-medium text-muted">
+                      Category
                       <input
-                        className="w-full rounded border border-th-border bg-input px-2 py-1"
+                        className="rounded border border-th-border bg-input px-2 py-1.5 text-sm text-heading"
                         value={r.category}
                         onChange={(e) => updateRow(i, 'category', e.target.value)}
                       />
-                    </td>
-                    <td className="px-1 py-1 text-center">
-                      <button
-                        type="button"
-                        className="text-muted hover:text-red-600"
-                        aria-label="Remove item"
-                        onClick={() => removeRow(i)}
-                      >
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">

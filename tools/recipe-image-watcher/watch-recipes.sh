@@ -43,7 +43,7 @@ object — no prose, no markdown, no code fences — exactly matching this schem
       "name": "<concise item name, e.g. 'all-purpose flour'>",
       "quantity": <number or null>,
       "unit": "<unit such as cup, tbsp, oz, lb, g, ml, can, or null>",
-      "category": "<a short grocery category like Produce, Dairy, Meat, Pantry, Spices, or null>"
+      "category": "<a short grocery category, or null>"
     }
   ]
 }
@@ -51,7 +51,6 @@ Rules: one object per distinct item; split combined lines; convert fractions lik
 "1 1/2" to 1.5; use null (not 0 or "") when an amount or unit is absent; do not
 invent items. If the image has no readable items, return {"title": null, "items": []}.
 Output JSON only.
-Image path:
 EOF
 
 log() { echo "[$(date -Is)] $*"; }
@@ -94,8 +93,25 @@ process_image() {
   fi
 
   log "PROCESS $filepath"
+
+  # Optional sidecar "<image>.ctx.json" written by the app carries the household's
+  # existing inventory categories so the model labels items the way we already do.
+  local guidance=""
+  local ctx="${filepath}.ctx.json"
+  if [ -f "$ctx" ]; then
+    local cats
+    cats="$(node -e 'try{const c=require(process.argv[1]);const a=Array.isArray(c.categories)?c.categories:[];process.stdout.write(a.filter(x=>typeof x==="string"&&x.trim()).map(x=>x.trim()).join(", "))}catch(e){}' "$ctx" 2>/dev/null)"
+    if [ -n "$cats" ]; then
+      guidance="The household already labels inventory with these categories: ${cats}. For each item's \"category\", reuse the closest matching label from that list; only use a new label when none reasonably fit."
+    fi
+  fi
+
+  local prompt_text="${PROMPT}
+${guidance}
+Image path: ${filepath}"
+
   # </dev/null so claude never steals from the inotifywait pipe on stdin.
-  raw="$("$CLAUDE_BIN" -p "${PROMPT} ${filepath}" \
+  raw="$("$CLAUDE_BIN" -p "$prompt_text" \
         --allowedTools "Read" \
         --output-format json \
         --max-turns "$MAX_TURNS" \

@@ -258,16 +258,34 @@ inventoryRouter.post(
       return res.status(415).json({ error: { code: 'INVALID_IMAGE', message: 'That file is not a valid image.' } });
     }
 
-    // Atomic rename within the watch dir → fires the watcher's `moved_to` event.
     const ext = IMAGE_MIME_EXTENSION[file.mimetype] ?? 'jpg';
     const imageName = `${path.basename(partPath, '.part')}.${ext}`;
     const imagePath = path.join(uploadDir as string, imageName);
+
+    // Sidecar that teaches the watcher our existing labels so it categorizes the
+    // way we already do. Written before the rename so it's present when the
+    // watcher processes the image.
+    const ctxPath = `${imagePath}.ctx.json`;
+    try {
+      const rows = await prisma.inventoryItem.findMany({
+        where: { category: { not: null } },
+        distinct: ['category'],
+        select: { category: true },
+        orderBy: { category: 'asc' },
+      });
+      const categories = rows.map((r) => r.category).filter((c): c is string => Boolean(c && c.trim()));
+      fs.writeFileSync(ctxPath, JSON.stringify({ categories }));
+    } catch {
+      // Non-fatal: extraction still works without the category hint.
+    }
+
+    // Atomic rename within the watch dir → fires the watcher's `moved_to` event.
     fs.renameSync(partPath, imagePath);
 
     const outPath = path.join(outputDir as string, `${imageName}.json`);
     const rawPath = path.join(outputDir as string, `${imageName}.raw.txt`);
     const cleanup = () => {
-      for (const p of [imagePath, outPath, rawPath]) fs.rmSync(p, { force: true });
+      for (const p of [imagePath, outPath, rawPath, ctxPath]) fs.rmSync(p, { force: true });
     };
 
     const deadline = Date.now() + timeoutMs;

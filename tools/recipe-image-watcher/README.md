@@ -84,3 +84,8 @@ The Inventory page's **Upload recipe** button posts a photo to
 for this watcher to write `<name>.json`, and returns `.items` for an editable
 preview before adding them to inventory. The app never runs `claude` or holds an
 API key — all AI stays in this subscription-billed watcher.
+
+The app may also drop a sidecar `<image>.ctx.json` (e.g. `{ "categories": [...] }`)
+next to the image. If present, the watcher folds those existing household
+categories into the prompt so items are labeled consistently with how the family
+already categorizes inventory.

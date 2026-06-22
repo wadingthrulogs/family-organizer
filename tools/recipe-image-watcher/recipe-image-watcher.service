@@ -1,0 +1,26 @@
+[Unit]
+Description=Recipe image analysis watcher (Claude Code headless, subscription auth)
+Documentation=https://github.com/wadingthrulogs/family-organizer
+After=network-online.target
+Wants=network-online.target
+# Don't crash-loop against the subscription if auth/creds are broken (these keys
+# belong in [Unit], not [Service]).
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=wade
+Group=wade
+# HOME must be set so claude finds ~/.claude (subscription credentials).
+Environment=HOME=/home/wade
+# claude is not on the default PATH; include ~/.local/bin. node lives in /usr/bin.
+Environment=PATH=/home/wade/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Belt-and-suspenders: never let an API key reach this service (would bill the API).
+UnsetEnvironment=ANTHROPIC_API_KEY
+ExecStart=/home/wade/recipe-watcher/watch-recipes.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -6,10 +6,13 @@ import {
   moveGroceryToInventory,
   moveGroceryListToInventory,
   bulkAddInventoryItems,
+  extractInventoryFromImage,
+  bulkAddInventoryStructured,
   type CreateInventoryItemPayload,
   type UpdateInventoryItemPayload,
   type MoveFromGroceryPayload,
   type MoveFromGroceryListPayload,
+  type ExtractedInventoryItem,
 } from '../api/inventory';
 import type { ApiListResponse } from '../api/client';
 import type { InventoryItem } from '../types/inventory';
@@ -110,6 +113,25 @@ export function useBulkAddInventoryItemsMutation() {
 
   return useMutation({
     mutationFn: (text: string) => bulkAddInventoryItems(text),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}
+
+// Upload a recipe photo and get extracted items back (no DB write — preview only).
+export function useExtractInventoryFromImageMutation() {
+  return useMutation({
+    mutationFn: (file: File) => extractInventoryFromImage(file),
+  });
+}
+
+// Commit the reviewed/edited items from the preview into inventory.
+export function useBulkAddInventoryStructuredMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (items: ExtractedInventoryItem[]) => bulkAddInventoryStructured(items),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },

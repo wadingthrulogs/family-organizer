@@ -23,6 +23,12 @@ const envSchema = z.object({
   PUSH_VAPID_PUBLIC_KEY: z.string().optional(),
   PUSH_VAPID_PRIVATE_KEY: z.string().optional(),
   OPENWEATHER_API_KEY: z.string().optional(),
+  // Recipe-photo extraction bridge (host-side Claude Code watcher). When both
+  // dirs are set, the app drops uploaded images in UPLOAD_DIR and reads the
+  // watcher's JSON from OUTPUT_DIR. The app itself never runs AI / holds a key.
+  RECIPE_EXTRACT_UPLOAD_DIR: z.string().optional(),
+  RECIPE_EXTRACT_OUTPUT_DIR: z.string().optional(),
+  RECIPE_EXTRACT_TIMEOUT_MS: z.coerce.number().default(75_000),
   TZ: z.string().default('UTC'),
 });
 

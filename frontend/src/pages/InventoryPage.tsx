@@ -12,6 +12,7 @@ import { exportInventoryTxt } from '../api/inventory';
 import type { InventoryItem } from '../types/inventory';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Modal } from '../components/ui/Modal';
+import { RecipeUploadModal } from '../components/inventory/RecipeUploadModal';
 import { useAnnounce } from '../contexts/AnnouncementContext';
 import { toDateInputValue } from '../lib/dates';
 
@@ -85,6 +86,7 @@ function InventoryPage() {
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [recipeUploadOpen, setRecipeUploadOpen] = useState(false);
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [bulkAddText, setBulkAddText] = useState('');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -324,6 +326,14 @@ function InventoryPage() {
           </button>
           <button
             type="button"
+            className="rounded-full border border-th-border px-4 py-2 text-sm text-primary"
+            title="Upload a photo of a recipe or ingredient list and add the items with AI"
+            onClick={() => { setRecipeUploadOpen(true); setBulkAddOpen(false); setComposerOpen(false); setEditingItem(null); }}
+          >
+            📷 Upload recipe
+          </button>
+          <button
+            type="button"
             className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text"
             onClick={() => { setBulkAddOpen(false); composerOpen ? handleCancel() : handleOpenCreate(); }}
           >
@@ -420,6 +430,12 @@ function InventoryPage() {
           isSubmitting={updateItem.isPending}
         />
       </Modal>
+
+      <RecipeUploadModal
+        open={recipeUploadOpen}
+        onClose={() => setRecipeUploadOpen(false)}
+        onAdded={(count) => announce(`Added ${count} item${count === 1 ? '' : 's'} to inventory from photo.`)}
+      />
 
       <div className="flex items-center gap-3">
         <input

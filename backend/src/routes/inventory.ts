@@ -1,5 +1,10 @@
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { Prisma } from '@prisma/client';
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import multer from 'multer';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/require-auth.js';
@@ -7,6 +12,11 @@ import { prisma } from '../lib/prisma.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { parseBulkLine } from '../utils/parse-bulk-line.js';
 import { upsertPreparedMealRecipe, deletePreparedMealRecipe } from '../services/prepared-meal.js';
+import {
+  ALLOWED_IMAGE_MIME_TYPES,
+  IMAGE_MIME_EXTENSION,
+  verifyImageMagicBytes,
+} from '../utils/image-magic.js';
 
 export const inventoryRouter = Router();
 inventoryRouter.use(requireAuth);
@@ -192,6 +202,144 @@ inventoryRouter.post(
     );
 
     res.status(201).json({ items, total: items.length });
+  })
+);
+
+// ----- Recipe photo → inventory (bridged to the host Claude Code watcher) -----
+//
+// The app never runs AI or holds an API key. It drops the uploaded image into a
+// host directory watched by the subscription-billed `recipe-image-watcher`
+// service, then reads back the JSON that service writes.
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function extractionConfig() {
+  const uploadDir = process.env.RECIPE_EXTRACT_UPLOAD_DIR;
+  const outputDir = process.env.RECIPE_EXTRACT_OUTPUT_DIR;
+  const timeoutMs = Number(process.env.RECIPE_EXTRACT_TIMEOUT_MS) || 75_000;
+  return { uploadDir, outputDir, timeoutMs, enabled: Boolean(uploadDir && outputDir) };
+}
+
+function requireExtractionConfigured(_req: Request, res: Response, next: NextFunction) {
+  if (!extractionConfig().enabled) {
+    return res.status(501).json({
+      error: { code: 'EXTRACTION_NOT_CONFIGURED', message: 'Recipe photo extraction is not configured on this server.' },
+    });
+  }
+  next();
+}
+
+// Saves the upload as "<uuid>.part" in the watch dir — a non-image extension the
+// watcher ignores — so it only processes the complete image after we rename it.
+const recipeUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, extractionConfig().uploadDir as string),
+    filename: (_req, _file, cb) => cb(null, `${randomUUID()}.part`),
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, ALLOWED_IMAGE_MIME_TYPES.includes(file.mimetype)),
+});
+
+// Analyze a recipe photo and return the extracted items for an editable preview.
+inventoryRouter.post(
+  '/extract-from-image',
+  requireExtractionConfigured,
+  recipeUpload.single('image'),
+  asyncHandler(async (req, res) => {
+    const { uploadDir, outputDir, timeoutMs } = extractionConfig();
+    const file = req.file;
+    if (!file) {
+      return res.status(415).json({ error: { code: 'INVALID_IMAGE', message: 'Upload a JPG, PNG, or WebP image.' } });
+    }
+
+    const partPath = file.path;
+    if (!verifyImageMagicBytes(partPath, file.mimetype)) {
+      fs.rmSync(partPath, { force: true });
+      return res.status(415).json({ error: { code: 'INVALID_IMAGE', message: 'That file is not a valid image.' } });
+    }
+
+    // Atomic rename within the watch dir → fires the watcher's `moved_to` event.
+    const ext = IMAGE_MIME_EXTENSION[file.mimetype] ?? 'jpg';
+    const imageName = `${path.basename(partPath, '.part')}.${ext}`;
+    const imagePath = path.join(uploadDir as string, imageName);
+    fs.renameSync(partPath, imagePath);
+
+    const outPath = path.join(outputDir as string, `${imageName}.json`);
+    const rawPath = path.join(outputDir as string, `${imageName}.raw.txt`);
+    const cleanup = () => {
+      for (const p of [imagePath, outPath, rawPath]) fs.rmSync(p, { force: true });
+    };
+
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (fs.existsSync(outPath)) {
+        let parsed: { title?: unknown; items?: unknown };
+        try {
+          parsed = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+        } catch {
+          cleanup();
+          return res.status(422).json({ error: { code: 'EXTRACTION_PARSE_FAILED', message: 'Could not read the analysis result.' } });
+        }
+        cleanup();
+        const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+        const items = rawItems
+          .filter((it): it is Record<string, unknown> => Boolean(it) && typeof (it as Record<string, unknown>).name === 'string' && String((it as Record<string, unknown>).name).trim() !== '')
+          .map((it) => {
+            const q = it.quantity;
+            return {
+              name: String(it.name).trim().slice(0, 200),
+              quantity: typeof q === 'number' && Number.isFinite(q) ? q : null,
+              unit: it.unit ? String(it.unit).trim().slice(0, 24) : null,
+              category: it.category ? String(it.category).trim().slice(0, 120) : null,
+            };
+          });
+        return res.json({ title: typeof parsed.title === 'string' ? parsed.title : null, items });
+      }
+      if (fs.existsSync(rawPath)) {
+        cleanup();
+        return res.status(422).json({ error: { code: 'EXTRACTION_PARSE_FAILED', message: 'The analyzer did not return usable data. Try a clearer photo.' } });
+      }
+      await sleep(1000);
+    }
+
+    cleanup();
+    return res.status(504).json({ error: { code: 'EXTRACTION_TIMEOUT', message: 'Analysis took too long. Please try again.' } });
+  })
+);
+
+// Commit reviewed/edited items from the preview into inventory.
+const bulkItemsSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(200),
+        quantity: z.coerce.number().min(0).max(99_999).nullable().optional(),
+        unit: z.string().trim().max(24).nullable().optional(),
+        category: z.string().trim().max(120).nullable().optional(),
+      })
+    )
+    .min(1)
+    .max(200),
+});
+
+inventoryRouter.post(
+  '/bulk-items',
+  asyncHandler(async (req, res) => {
+    const { items } = bulkItemsSchema.parse(req.body ?? {});
+    const created = await prisma.$transaction(
+      items.map((it) =>
+        prisma.inventoryItem.create({
+          data: {
+            name: it.name,
+            quantity: it.quantity ?? 1,
+            unit: it.unit ?? null,
+            category: it.category ?? null,
+            dateAdded: new Date(),
+          },
+        })
+      )
+    );
+    res.status(201).json({ items: created, total: created.length });
   })
 );
 

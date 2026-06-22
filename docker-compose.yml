@@ -12,9 +12,17 @@ services:
       - SESSION_SECURE=${SESSION_SECURE:-false}
       - SESSION_SECRET=${SESSION_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      # Recipe-photo extraction bridge to the host Claude Code watcher (subscription-billed).
+      # The app only does file I/O here; it never runs claude or holds an API key.
+      - RECIPE_EXTRACT_UPLOAD_DIR=/host-recipe-uploads
+      - RECIPE_EXTRACT_OUTPUT_DIR=/host-recipe-output
+      - RECIPE_EXTRACT_TIMEOUT_MS=${RECIPE_EXTRACT_TIMEOUT_MS:-75000}
     volumes:
       - sqlite_data:/data
       - uploads_data:/app/uploads
+      # Host dirs watched by the recipe-image-watcher systemd service.
+      - ${RECIPE_UPLOADS_HOST_DIR:-/home/wade/uploads}:/host-recipe-uploads
+      - ${RECIPE_OUTPUT_HOST_DIR:-/home/wade/recipe-output}:/host-recipe-output
     expose:
       - '3000'
     healthcheck:

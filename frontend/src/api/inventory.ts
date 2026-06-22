@@ -64,6 +64,36 @@ export async function bulkAddInventoryItems(text: string) {
   return data;
 }
 
+export interface ExtractedInventoryItem {
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  category: string | null;
+}
+
+export interface ExtractRecipeResult {
+  title: string | null;
+  items: ExtractedInventoryItem[];
+}
+
+// Upload a recipe/ingredient photo; the server bridges it to the host AI watcher
+// and returns the extracted items for an editable preview. Can take a while
+// (AI cold start + vision), so allow a generous client timeout.
+export async function extractInventoryFromImage(file: File): Promise<ExtractRecipeResult> {
+  const formData = new FormData();
+  formData.append('image', file);
+  const { data } = await api.post<ExtractRecipeResult>('/inventory/extract-from-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120_000,
+  });
+  return data;
+}
+
+export async function bulkAddInventoryStructured(items: ExtractedInventoryItem[]) {
+  const { data } = await api.post<{ items: InventoryItem[]; total: number }>('/inventory/bulk-items', { items });
+  return data;
+}
+
 export async function exportInventoryTxt() {
   const response = await api.get('/inventory/export', { responseType: 'blob' });
   const blob = response.data as Blob;

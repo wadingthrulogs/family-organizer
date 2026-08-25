@@ -1,6 +1,9 @@
+# Base images are pinned by digest so a rebuild can't silently pick up a
+# different upstream image. Refresh with:
+#   docker manifest inspect --verbose <image>:<tag> | jq -r '.[0].Descriptor.digest'
 # syntax=docker/dockerfile:1
 ### ---- Build stage ----
-FROM node:20-alpine AS build
+FROM node:20-alpine@sha256:afdf98210b07b586eb71fa22ba2e432e058e4cd1304d31ed60888755b8c865fb AS build
 WORKDIR /app
 
 # Install dependencies
@@ -17,7 +20,7 @@ COPY public ./public
 RUN npm run build
 
 ### ---- Production stage — nginx with /api reverse-proxy ----
-FROM nginx:1.27-alpine AS production
+FROM nginx:1.27-alpine@sha256:62223d644fa234c3a1cc785ee14242ec47a77364226f1c811d2f669f96dc2ac8 AS production
 
 # Remove default site
 RUN rm /etc/nginx/conf.d/default.conf

@@ -1,6 +1,9 @@
+# Base images are pinned by digest so a rebuild can't silently pick up a
+# different upstream image. Refresh with:
+#   docker manifest inspect --verbose <image>:<tag> | jq -r '.[0].Descriptor.digest'
 # syntax=docker/dockerfile:1
 ### ---- Build stage ----
-FROM node:20-alpine AS build
+FROM node:20-alpine@sha256:afdf98210b07b586eb71fa22ba2e432e058e4cd1304d31ed60888755b8c865fb AS build
 WORKDIR /app
 
 # Native addons (bcrypt, sqlite3 via connect-sqlite3) require compilation tools on Alpine
@@ -26,7 +29,7 @@ RUN npx tsc -p tsconfig.json
 RUN npm prune --omit=dev
 
 ### ---- Production stage ----
-FROM node:20-alpine AS production
+FROM node:20-alpine@sha256:afdf98210b07b586eb71fa22ba2e432e058e4cd1304d31ed60888755b8c865fb AS production
 WORKDIR /app
 
 # OpenSSL is required by the Prisma schema engine (used during migrate deploy)

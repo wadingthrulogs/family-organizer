@@ -1,0 +1,81 @@
+# cargo-deny policy for the Family Organizer desktop shell.
+#
+# Real vulnerabilities and yanked crates fail the build. Everything under
+# `ignore` is a reviewed, accepted exception with a stated reason — treat that
+# list as a debt register, not a dumping ground.
+#
+#   cargo deny check          # everything
+#   cargo deny check advisories
+
+[graph]
+targets = [{ triple = "aarch64-unknown-linux-gnu" }]
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+  # ── gtk-rs GTK3 bindings ──────────────────────────────────────────────
+  # Flagged unmaintained because gtk-rs moved to GTK4. Tauri v2 on Linux
+  # still targets GTK3 through WebKitGTK, so every Tauri Linux app carries
+  # these. There is nothing to migrate to until Tauri itself moves.
+  # Revisit whenever the Tauri major version changes.
+  "RUSTSEC-2024-0411",  # gdkwayland-sys
+  "RUSTSEC-2024-0412",  # gdk
+  "RUSTSEC-2024-0413",  # atk
+  "RUSTSEC-2024-0414",  # gdkx11-sys
+  "RUSTSEC-2024-0415",  # gtk
+  "RUSTSEC-2024-0416",  # atk-sys
+  "RUSTSEC-2024-0417",  # gdkx11
+  "RUSTSEC-2024-0418",  # gdk-sys
+  "RUSTSEC-2024-0419",  # gtk3-macros
+  "RUSTSEC-2024-0420",  # gtk-sys
+
+  # NOTE: cargo-audit also reports RUSTSEC-2024-0429 (glib, unsound
+  # VariantStrIter iterators). cargo-deny does not surface it, so listing it
+  # here would only produce an "advisory not detected" warning. It is reached
+  # solely through GVariant string iteration, which this shell never performs.
+
+  # ── unic-* ────────────────────────────────────────────────────────────
+  # Unmaintained Unicode crates pulled in transitively by the Tauri build.
+  # Data-table crates with no network or filesystem reach.
+  "RUSTSEC-2025-0075",  # unic-char-range
+  "RUSTSEC-2025-0080",  # unic-common
+  "RUSTSEC-2025-0081",  # unic-char-property
+  "RUSTSEC-2025-0098",  # unic-ucd-version
+  "RUSTSEC-2025-0100",  # unic-ucd-ident
+
+  # proc-macro-error: unmaintained, build-time only (proc macro expansion).
+  "RUSTSEC-2024-0370",
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.8
+# Permissive licenses only. A copyleft license appearing here would be a
+# genuine finding worth reviewing, not a formality.
+# Exactly the licenses present in the current tree, all permissive. Adding a
+# dependency under a new license fails the check with the name to add here —
+# which is the point: a copyleft license showing up should be a decision, not
+# a silent inheritance.
+allow = [
+  "MIT", "MIT-0", "Apache-2.0", "Apache-2.0 WITH LLVM-exception",
+  "BSD-3-Clause", "0BSD", "ISC", "Zlib",
+  "Unicode-3.0", "MPL-2.0", "CC0-1.0", "Unlicense",
+  # Mozilla CA certificate bundle, via webpki-roots.
+  "CDLA-Permissive-2.0",
+]
+
+[bans]
+# Duplicate versions are common in a tree this size and are not a security
+# problem on their own — surface them without failing.
+multiple-versions = "warn"
+# A wildcard version requirement means any future release is accepted sight
+# unseen, which is exactly the supply-chain hole we're trying to close.
+wildcards = "deny"
+
+[sources]
+# Only crates.io. An unexpected registry or git source is the strongest single
+# signal of a dependency-confusion or typosquat attempt.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

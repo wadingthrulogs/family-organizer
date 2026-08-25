@@ -1,0 +1,71 @@
+name: supply-chain
+
+# Dependency review for a self-hosted household app. The point is to notice a
+# compromised or vulnerable dependency without having to remember to look —
+# hence the weekly run, not just on-push.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays 08:00 UTC. Advisories land continuously; the repo does not change
+    # every week, so a push-only trigger would go blind for long stretches.
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    name: npm audit (${{ matrix.workspace }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [backend, frontend, mcp, desktop, e2e, agents]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No `npm ci` first: audit reads the lockfile directly, and installing
+      # would run the very lifecycle scripts we are trying not to trust.
+      - name: Audit
+        working-directory: ${{ matrix.workspace }}
+        run: npm audit --audit-level=high
+
+  cargo-deny:
+    name: cargo-deny (desktop)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      # cargo-deny only reads Cargo.lock and crate metadata, so the desktop
+      # shell's GTK/WebKit system libraries are not needed here.
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: desktop/src-tauri/Cargo.toml
+          command: check advisories bans sources licenses
+
+  lockfiles:
+    name: lockfiles present
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # A missing lockfile silently turns every install into "newest that
+      # satisfies the range", which defeats pinning entirely.
+      - name: Check every workspace has a committed lockfile
+        run: |
+          missing=0
+          for d in backend frontend mcp desktop e2e agents; do
+            if [ ! -f "$d/package-lock.json" ]; then
+              echo "::error::$d/package-lock.json is missing"; missing=1
+            fi
+          done
+          if [ ! -f desktop/src-tauri/Cargo.lock ]; then
+            echo "::error::desktop/src-tauri/Cargo.lock is missing"; missing=1
+          fi
+          exit $missing

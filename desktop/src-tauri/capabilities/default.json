@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Local splash page only. No capability grants any remote origin access to IPC, so the app served from the server cannot call into the shell.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

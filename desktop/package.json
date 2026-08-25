@@ -1,0 +1,15 @@
+{
+  "name": "family-organizer-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native desktop shell for the self-hosted Family Organizer",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icon": "tauri icon src-tauri/app-icon.png",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

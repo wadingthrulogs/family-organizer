@@ -1,0 +1,21 @@
+[package]
+name = "family-organizer-desktop"
+version = "0.1.0"
+description = "Native desktop shell for the self-hosted Family Organizer"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+ureq = "2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

@@ -1,9 +1,15 @@
 # Base images are pinned by digest so a rebuild can't silently pick up a
-# different upstream image. Refresh with:
-#   docker manifest inspect --verbose <image>:<tag> | jq -r '.[0].Descriptor.digest'
+# different upstream image.
+#
+# Pin the multi-arch INDEX digest, not a per-platform manifest digest. Refresh with:
+#   docker buildx imagetools inspect --format '{{.Manifest.Digest}}' <image>:<tag>
+#
+# `docker manifest inspect --verbose` returns one entry per platform; taking the
+# first gives you linux/amd64, which pulls an unrunnable image on this arm64 Pi
+# and fails at the first RUN with "exec format error".
 # syntax=docker/dockerfile:1
 ### ---- Build stage ----
-FROM node:20-alpine@sha256:afdf98210b07b586eb71fa22ba2e432e058e4cd1304d31ed60888755b8c865fb AS build
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS build
 WORKDIR /app
 
 # Native addons (bcrypt, sqlite3 via connect-sqlite3) require compilation tools on Alpine
@@ -29,7 +35,7 @@ RUN npx tsc -p tsconfig.json
 RUN npm prune --omit=dev
 
 ### ---- Production stage ----
-FROM node:20-alpine@sha256:afdf98210b07b586eb71fa22ba2e432e058e4cd1304d31ed60888755b8c865fb AS production
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS production
 WORKDIR /app
 
 # OpenSSL is required by the Prisma schema engine (used during migrate deploy)

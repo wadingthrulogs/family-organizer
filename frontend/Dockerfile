@@ -1,9 +1,15 @@
 # Base images are pinned by digest so a rebuild can't silently pick up a
-# different upstream image. Refresh with:
-#   docker manifest inspect --verbose <image>:<tag> | jq -r '.[0].Descriptor.digest'
+# different upstream image.
+#
+# Pin the multi-arch INDEX digest, not a per-platform manifest digest. Refresh with:
+#   docker buildx imagetools inspect --format '{{.Manifest.Digest}}' <image>:<tag>
+#
+# `docker manifest inspect --verbose` returns one entry per platform; taking the
+# first gives you linux/amd64, which pulls an unrunnable image on this arm64 Pi
+# and fails at the first RUN with "exec format error".
 # syntax=docker/dockerfile:1
 ### ---- Build stage ----
-FROM node:20-alpine@sha256:afdf98210b07b586eb71fa22ba2e432e058e4cd1304d31ed60888755b8c865fb AS build
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS build
 WORKDIR /app
 
 # Install dependencies
@@ -20,7 +26,7 @@ COPY public ./public
 RUN npm run build
 
 ### ---- Production stage — nginx with /api reverse-proxy ----
-FROM nginx:1.27-alpine@sha256:62223d644fa234c3a1cc785ee14242ec47a77364226f1c811d2f669f96dc2ac8 AS production
+FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 AS production
 
 # Remove default site
 RUN rm /etc/nginx/conf.d/default.conf

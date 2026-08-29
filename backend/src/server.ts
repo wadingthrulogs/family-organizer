@@ -40,6 +40,12 @@ export function createApp(env: AppEnv) {
       secret: env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
+      // Reset the expiry countdown on every request, so maxAge below means
+      // "7 days idle" rather than "7 days since login". Without this the wall
+      // display gets logged out weekly mid-use and every endpoint 401s.
+      // Safe with resave:false because connect-sqlite3 implements touch(),
+      // so the stored record's expiry is updated alongside the cookie.
+      rolling: true,
       cookie: {
         httpOnly: true,
         sameSite: 'lax',

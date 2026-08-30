@@ -147,14 +147,16 @@ async function checkIngredientsAgainstInventory(
 
 mealPlansRouter.get(
   '/recipes',
-  asyncHandler(async (req, res) => {
-    const userId = req.session.userId!;
+  asyncHandler(async (_req, res) => {
+    // Recipes are household-wide, like tasks, chores, grocery and meal plans.
+    // They used to be filtered to createdByUserId, which made them the only
+    // user-private resource in the app — and inconsistently so, since
+    // GET/PATCH/DELETE on /recipes/:id never checked ownership. You could edit
+    // someone's recipe if you knew the id, just not see it in the list.
+    // createdByUserId is retained for attribution only.
     const [items, total] = await Promise.all([
-      prisma.recipe.findMany({
-        where: { createdByUserId: userId },
-        orderBy: { title: 'asc' },
-      }),
-      prisma.recipe.count({ where: { createdByUserId: userId } }),
+      prisma.recipe.findMany({ orderBy: { title: 'asc' } }),
+      prisma.recipe.count(),
     ]);
 
     res.json({

@@ -16,6 +16,7 @@ const emptyIngredient = (): RecipeIngredient => ({ name: '', quantity: undefined
 export function RecipeForm({ editingRecipe, inventoryItems, onSave, onCancel, isPending }: RecipeFormProps) {
   const [title, setTitle] = useState(editingRecipe?.title ?? '');
   const [description, setDescription] = useState(editingRecipe?.description ?? '');
+  const [instructions, setInstructions] = useState(editingRecipe?.instructions ?? '');
   const [servings, setServings] = useState(editingRecipe?.servings ?? 4);
   const [prepMinutes, setPrepMinutes] = useState<string | number>(editingRecipe?.prepMinutes ?? '');
   const [cookMinutes, setCookMinutes] = useState<string | number>(editingRecipe?.cookMinutes ?? '');
@@ -68,6 +69,7 @@ export function RecipeForm({ editingRecipe, inventoryItems, onSave, onCancel, is
     await onSave({
       title: title.trim(),
       description: description.trim() || null,
+      instructions: instructions.trim() || null,
       servings,
       prepMinutes: prepMinutes !== '' ? parseInt(String(prepMinutes), 10) : null,
       cookMinutes: cookMinutes !== '' ? parseInt(String(cookMinutes), 10) : null,
@@ -103,6 +105,17 @@ export function RecipeForm({ editingRecipe, inventoryItems, onSave, onCancel, is
           rows={2}
           placeholder="Brief description…"
           className="w-full rounded-lg border border-input bg-input px-3 py-2 text-sm text-heading placeholder:text-faint resize-none"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-heading mb-1">Instructions</label>
+        <textarea
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          rows={8}
+          placeholder={'1. Prep the ingredients\n2. Cook\n3. Serve'}
+          className="w-full rounded-lg border border-input bg-input px-3 py-2 text-sm text-heading placeholder:text-faint resize-y"
         />
       </div>
 

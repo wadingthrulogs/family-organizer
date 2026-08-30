@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/require-auth.js';
 import { prisma } from '../lib/prisma.js';
+import { findInventoryMatch } from '../utils/ingredient-match.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { parseBulkLine } from '../utils/parse-bulk-line.js';
 
@@ -28,6 +29,7 @@ const createRecipeSchema = z.object({
   prepMinutes: z.coerce.number().int().min(0).max(1440).nullable().optional(),
   cookMinutes: z.coerce.number().int().min(0).max(1440).nullable().optional(),
   sourceUrl: z.string().trim().url().nullable().optional().or(z.literal('')),
+  instructions: z.string().trim().max(10000).nullable().optional(),
   ingredients: z
     .array(
       z.object({
@@ -90,8 +92,6 @@ async function checkIngredientsAgainstInventory(
 ) {
   // Bulk-fetch all inventory items once
   const allInventory = await prisma.inventoryItem.findMany();
-  const byId = new Map(allInventory.map((i) => [i.id, i]));
-  const byName = new Map(allInventory.map((i) => [i.name.toLowerCase().trim(), i]));
 
   type Status = 'ok' | 'low' | 'missing' | 'unlinked';
   const results: Array<{
@@ -105,9 +105,7 @@ async function checkIngredientsAgainstInventory(
   }> = [];
 
   for (const ing of ingredients) {
-    const invItem = ing.inventoryItemId
-      ? byId.get(ing.inventoryItemId)
-      : byName.get(ing.name.toLowerCase().trim());
+    const invItem = findInventoryMatch(ing, allInventory);
 
     const required =
       ing.quantity != null ? Math.round((ing.quantity * (requestedServings / (recipeServings || 1))) * 100) / 100 : undefined;
@@ -180,6 +178,7 @@ mealPlansRouter.post(
         prepMinutes: payload.prepMinutes ?? null,
         cookMinutes: payload.cookMinutes ?? null,
         sourceUrl: payload.sourceUrl || null,
+        instructions: payload.instructions ?? null,
         ingredientsJson: serializeIngredients(payload.ingredients),
         createdByUserId: userId,
       },
@@ -220,6 +219,7 @@ mealPlansRouter.patch(
     if (payload.prepMinutes !== undefined) data.prepMinutes = payload.prepMinutes ?? null;
     if (payload.cookMinutes !== undefined) data.cookMinutes = payload.cookMinutes ?? null;
     if (payload.sourceUrl !== undefined) data.sourceUrl = payload.sourceUrl || null;
+    if (payload.instructions !== undefined) data.instructions = payload.instructions ?? null;
     if (payload.ingredients !== undefined) data.ingredientsJson = serializeIngredients(payload.ingredients);
 
     try {

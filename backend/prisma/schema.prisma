@@ -445,6 +445,7 @@ model Recipe {
   prepMinutes     Int?
   cookMinutes     Int?
   sourceUrl       String?
+  instructions    String?
   ingredientsJson String   @default("[]")
   createdByUserId Int
   sourceInventoryItemId Int? @unique

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { findInventoryMatch } from '../../utils/ingredientMatch';
 import type { Recipe, RecipeIngredient, IngredientStatus } from '../../types/mealPlan';
 import type { CreateRecipePayload } from '../../api/mealPlans';
 import type { InventoryItem } from '../../types/inventory';
@@ -25,9 +26,7 @@ function getIngredientStatus(
   servings: number,
   recipeServings: number
 ): { status: IngredientStatus; inStock?: number; required?: number; invItem?: InventoryItem } {
-  const invItem = ing.inventoryItemId
-    ? inventoryItems.find((i) => i.id === ing.inventoryItemId)
-    : inventoryItems.find((i) => i.name.toLowerCase().trim() === ing.name.toLowerCase().trim());
+  const invItem = findInventoryMatch(ing, inventoryItems);
 
   const required =
     ing.quantity != null ? Math.round((ing.quantity * (servings / (recipeServings || 1))) * 100) / 100 : undefined;
@@ -51,9 +50,7 @@ function getIngredientStatus(
 type RecipeAvailability = 'ready' | 'low' | 'missing' | 'none';
 
 function getRecipeAvailability(recipe: Recipe, inventoryItems: InventoryItem[], servings: number): RecipeAvailability {
-  const linked = recipe.ingredients.filter(
-    (i) => i.inventoryItemId || inventoryItems.some((inv) => inv.name.toLowerCase().trim() === i.name.toLowerCase().trim())
-  );
+  const linked = recipe.ingredients.filter((i) => findInventoryMatch(i, inventoryItems));
   if (linked.length === 0) return 'none';
 
   const statuses = linked.map((ing) => getIngredientStatus(ing, inventoryItems, servings, recipe.servings).status);
@@ -344,6 +341,14 @@ export function RecipesTab({
                   <div className="px-4 pb-4 border-t border-th-border-light space-y-3">
                     {recipe.description && (
                       <p className="text-sm text-secondary mt-3">{recipe.description}</p>
+                    )}
+
+                    {recipe.instructions && (
+                      <div className="mt-3">
+                        <h4 className="text-xs font-semibold uppercase tracking-wide text-muted mb-1">Instructions</h4>
+                        {/* whitespace-pre-line keeps the step-per-line layout without needing markdown */}
+                        <p className="text-sm text-secondary whitespace-pre-line">{recipe.instructions}</p>
+                      </div>
                     )}
 
                     {/* Servings stepper */}

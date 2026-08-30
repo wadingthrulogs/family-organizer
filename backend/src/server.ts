@@ -41,8 +41,8 @@ export function createApp(env: AppEnv) {
       resave: false,
       saveUninitialized: false,
       // Reset the expiry countdown on every request, so maxAge below means
-      // "7 days idle" rather than "7 days since login". Without this the wall
-      // display gets logged out weekly mid-use and every endpoint 401s.
+      // "N days idle" rather than "N days since login". Without this the wall
+      // display gets logged out mid-use and every endpoint 401s.
       // Safe with resave:false because connect-sqlite3 implements touch(),
       // so the stored record's expiry is updated alongside the cookie.
       rolling: true,
@@ -50,7 +50,13 @@ export function createApp(env: AppEnv) {
         httpOnly: true,
         sameSite: 'lax',
         secure: env.SESSION_SECURE,
-        maxAge: 1000 * 60 * 60 * 24 * 7,
+        // 30 days of *inactivity* (rolling above resets this on every request).
+        // The wall display is the reason for the length: it should never present
+        // a login screen to the household. In practice the dashboard's commute
+        // and weather widgets poll every 2-5 minutes, so the countdown never
+        // gets near this — but the session must not depend on a particular
+        // widget being on the dashboard, which is what 7 days effectively did.
+        maxAge: 1000 * 60 * 60 * 24 * 30,
       },
     })
   );

@@ -10,5 +10,9 @@ export function useInventory(params?: InventoryQuery) {
     queryKey: ['inventory', search, category, lowStock],
     queryFn: () => fetchInventoryItems({ search, category, lowStock: lowStock || undefined }),
     staleTime: 20_000,
+    // The dashboard is a wall display nobody interacts with, so React Query's
+    // refetch-on-focus never fires. Without an interval the board can sit on
+    // stale data all day. Cheap against a household-sized SQLite backend.
+    refetchInterval: 10 * 60_000,
   });
 }

@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import { useMealPlans } from '../../hooks/useMealPlans';
+import { useToday } from '../../hooks/useToday';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
 import type { MealPlanEntry } from '../../types/mealPlan';
 
@@ -28,11 +30,16 @@ export default function MealPlanWidget() {
   const { data, isLoading } = useMealPlans();
   const { ref, compact, tiny, height, width, baseFontSize } = useWidgetSize();
 
+  // Re-render at midnight so "this week" and the highlighted day follow the
+  // clock instead of whenever the dashboard was last loaded.
+  const dayKey = useToday();
+
   const plans = data?.items ?? [];
-  const monday = getMonday(new Date());
-  const mondayStr = toISODate(monday);
+  const { mondayStr, todayIdx } = useMemo(
+    () => ({ mondayStr: toISODate(getMonday(new Date())), todayIdx: todayDayOffset() }),
+    [dayKey]
+  );
   const currentPlan = plans.find((p) => toISODate(new Date(p.weekStart)) === mondayStr);
-  const todayIdx = todayDayOffset();
 
   const showHeader = height > 80;
   const showLink = !compact;

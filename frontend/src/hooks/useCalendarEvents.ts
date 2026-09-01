@@ -8,6 +8,10 @@ export function useCalendarEvents(params: CalendarQueryParams | null) {
     queryFn: params ? () => fetchCalendarEvents(params) : undefined,
     enabled: Boolean(params),
     staleTime: 15_000,
+    // The dashboard is a wall display nobody interacts with, so React Query's
+    // refetch-on-focus never fires. Without an interval the board can sit on
+    // stale data all day. Cheap against a household-sized SQLite backend.
+    refetchInterval: 5 * 60_000,
   });
 }
 

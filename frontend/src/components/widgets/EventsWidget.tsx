@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useToday } from '../../hooks/useToday';
 import { useCalendarEvents } from '../../hooks/useCalendarEvents';
 import { useMealPlanCalendar } from '../../hooks/useMealPlans';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
@@ -83,6 +84,8 @@ function EventsToday({ events, width }: { events: CalendarEvent[]; width: number
 
 /* ─── Week (agenda list) ─── */
 function EventsWeek({ events }: { events: CalendarEvent[] }) {
+  const dayKey = useToday();
+
   const days = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -93,7 +96,9 @@ function EventsWeek({ events }: { events: CalendarEvent[] }) {
       arr.push(d);
     }
     return arr;
-  }, []);
+    // Recompute at the day rollover — this used to be [] and so stayed pinned
+    // to whichever day the dashboard was last opened.
+  }, [dayKey]);
 
   const eventMap = useMemo(() => buildEventMap(events), [events]);
   const todayStr = new Date().toDateString();
@@ -289,7 +294,11 @@ export default function EventsWidget() {
     localStorage.setItem(RANGE_KEY, range);
   }, [range]);
 
-  const { start, end } = getRange(range);
+  // today is a dependency, not decoration: it re-renders this widget at
+  // midnight so the range (and therefore the React Query key) moves to the new
+  // day without anyone touching the screen.
+  const today = useToday();
+  const { start, end } = useMemo(() => getRange(range), [range, today]);
   const { data: eventsData } = useCalendarEvents({ start, end });
 
   const mealStart = start.slice(0, 10);

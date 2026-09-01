@@ -174,6 +174,7 @@ function EventsWeek({ events }: { events: CalendarEvent[] }) {
 
 /* ─── 30-Day Calendar ─── */
 function EventsCalendar({ events, compact, tiny }: { events: CalendarEvent[]; compact: boolean; tiny: boolean }) {
+  const dayKey = useToday();
   const { weeks, monthLabel } = useMemo(() => {
     const today = new Date();
     const year = today.getFullYear();
@@ -205,7 +206,8 @@ function EventsCalendar({ events, compact, tiny }: { events: CalendarEvent[]; co
     });
 
     return { weeks, monthLabel };
-  }, [compact]);
+    // dayKey so the grid follows the calendar across midnight and month ends.
+  }, [compact, dayKey]);
 
   const eventMap = useMemo(() => buildEventMap(events), [events]);
   const todayStr = new Date().toDateString();

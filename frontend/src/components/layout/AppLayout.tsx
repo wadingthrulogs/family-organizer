@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useToday } from '../../hooks/useToday';
 import { useMemo, useRef, useState } from 'react';
 import { useSettings } from '../../hooks/useSettings';
 import { useAuth } from '../../hooks/useAuth';
@@ -30,13 +31,16 @@ export function AppLayout() {
   const bgImageUrl = isDashboard ? prefs?.dashboardConfig?.preferences?.backgroundImageUrl : undefined;
   const bgOpacity = isDashboard ? (prefs?.dashboardConfig?.preferences?.backgroundOverlay ?? 1) : 0;
   const bgFit = isDashboard ? (prefs?.dashboardConfig?.preferences?.backgroundFit ?? 'cover') : 'cover';
+  // Same frozen-at-mount trap the widgets had: with [] this header kept
+  // showing whichever day the app was opened on.
+  const dayKey = useToday();
   const formattedDate = useMemo(() => {
     return new Intl.DateTimeFormat(undefined, {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
     }).format(new Date());
-  }, []);
+  }, [dayKey]);
   const householdName = settings?.householdName?.trim() ? settings.householdName : 'Harbor Family';
   const hiddenTabs = settings?.hiddenTabs ?? [];
   const visibleNavItems = useMemo(

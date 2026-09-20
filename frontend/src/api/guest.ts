@@ -18,11 +18,21 @@ export interface GuestBook {
   /** 0–100 */
   progress: number | null;
   coverAttachmentId: number | null;
+  /** Filled by the lookup service unless written by hand. */
+  synopsis: string;
+  year: number | null;
+  /** Lookup bookkeeping — server-owned, ignored on write. */
+  enrichStatus: 'pending' | 'done' | 'failed' | null;
+  enrichError: string | null;
+  enrichRequestedAt: string | null;
+  enrichedAt: string | null;
 }
 
 export interface GuestContent {
   wifi: GuestWifi | null;
   books: GuestBook[];
+  /** The host-side lookup bridge is configured, so new books get looked up. */
+  lookupEnabled: boolean;
 }
 
 export async function fetchGuestContent(): Promise<GuestContent> {
@@ -30,10 +40,18 @@ export async function fetchGuestContent(): Promise<GuestContent> {
   return data;
 }
 
+export type GuestBookInput = Partial<Pick<GuestBook, 'id' | 'author' | 'reader' | 'progress' | 'coverAttachmentId' | 'synopsis' | 'year'>> & Pick<GuestBook, 'title'>;
+
 export async function updateGuestContent(
-  payload: { wifi?: GuestWifi | null; books?: Omit<GuestBook, 'id'>[] | GuestBook[] }
+  payload: { wifi?: GuestWifi | null; books?: GuestBookInput[] }
 ): Promise<GuestContent> {
   const { data } = await api.patch<GuestContent>('/guest/content', payload);
+  return data;
+}
+
+/** Re-run the cover/synopsis lookup for one book. */
+export async function requestBookLookup(bookId: string): Promise<GuestContent> {
+  const { data } = await api.post<GuestContent>(`/guest/books/${encodeURIComponent(bookId)}/lookup`);
   return data;
 }
 

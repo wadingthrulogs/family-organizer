@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
 import { setDisplayPin } from '../../api/auth';
-import type { GuestBook, GuestWifi, WifiSecurity } from '../../api/guest';
-import { useGuestContent, useUpdateGuestContentMutation } from '../../hooks/useGuestContent';
+import type { GuestBook, GuestBookInput, GuestWifi, WifiSecurity } from '../../api/guest';
+import { useGuestContent, useRequestBookLookupMutation, useUpdateGuestContentMutation } from '../../hooks/useGuestContent';
 import { useAuth } from '../../hooks/useAuth';
 
 /**
@@ -116,11 +116,42 @@ function WifiEditor() {
 /* ─── Books ─── */
 
 type BookDraft = Omit<GuestBook, 'id'> & { id?: string };
-const EMPTY_BOOK: BookDraft = { title: '', author: '', reader: '', progress: null, coverAttachmentId: null };
+const EMPTY_BOOK: BookDraft = {
+  title: '', author: '', reader: '', progress: null, coverAttachmentId: null,
+  synopsis: '', year: null, enrichStatus: null, enrichError: null, enrichRequestedAt: null, enrichedAt: null,
+};
+
+function LookupStatus({ book, onRetry, busy }: { book: BookDraft; onRetry?: () => void; busy: boolean }) {
+  if (!book.id) return null;
+  if (book.enrichStatus === 'pending') {
+    return <span className="text-xs text-muted">🔎 Looking up cover and synopsis…</span>;
+  }
+  if (book.enrichStatus === 'failed') {
+    return (
+      <span className="text-xs text-red-600">
+        Lookup failed{book.enrichError ? `: ${book.enrichError}` : ''}.{' '}
+        {onRetry && <button type="button" onClick={onRetry} disabled={busy} className="text-link underline">Try again</button>}
+      </span>
+    );
+  }
+  if (book.enrichStatus === 'done') {
+    return (
+      <span className="text-xs text-muted">
+        ✓ Looked up{book.year ? ` · first published ${book.year}` : ''}.{' '}
+        {onRetry && <button type="button" onClick={onRetry} disabled={busy} className="text-link underline">Look up again</button>}
+      </span>
+    );
+  }
+  return onRetry ? (
+    <button type="button" onClick={onRetry} disabled={busy} className="text-xs text-link underline">Look up cover &amp; synopsis</button>
+  ) : null;
+}
 
 function BooksEditor() {
   const { data, isLoading } = useGuestContent();
   const update = useUpdateGuestContentMutation();
+  const lookup = useRequestBookLookupMutation();
+  const lookupEnabled = data?.lookupEnabled ?? false;
   const [books, setBooks] = useState<BookDraft[]>([]);
   const [dirty, setDirty] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
@@ -150,6 +181,8 @@ function BooksEditor() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      // Tagged so any household member's display can load it (covers are shared).
+      formData.append('linkedEntityType', 'guestBook');
       const { data: att } = await api.post<{ id: number }>('/attachments', formData);
       edit(i, { coverAttachmentId: att.id });
     } catch {
@@ -160,17 +193,32 @@ function BooksEditor() {
   };
 
   const save = async () => {
-    const cleaned = books
-      .map((b) => ({ ...b, title: b.title.trim(), author: b.author.trim(), reader: b.reader.trim() }))
+    const cleaned: GuestBookInput[] = books
+      .map((b) => ({
+        id: b.id, title: b.title.trim(), author: b.author.trim(), reader: b.reader.trim(),
+        progress: b.progress, coverAttachmentId: b.coverAttachmentId, synopsis: b.synopsis.trim(), year: b.year,
+      }))
       .filter((b) => b.title.length > 0);
     await update.mutateAsync({ books: cleaned });
     setDirty(false);
   };
 
+  // Re-run the lookup for a saved book. Unsaved edits would be lost by the
+  // refetch, so save first if needed.
+  const retry = async (id: string) => {
+    if (dirty) await save();
+    await lookup.mutateAsync(id);
+  };
+
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-heading">📚 Currently reading</h3>
-      <p className="text-xs text-muted">What the household is reading right now. Progress and cover are optional.</p>
+      <p className="text-xs text-muted">
+        What the household is reading right now. A title is enough
+        {lookupEnabled
+          ? ' — when you save, the cover, author and a short synopsis are looked up automatically (takes about a minute). You can edit the synopsis afterwards.'
+          : '. Author, progress, synopsis and cover are optional.'}
+      </p>
 
       {isLoading ? (
         <p className="text-sm text-muted">Loading…</p>
@@ -214,6 +262,20 @@ function BooksEditor() {
                     onChange={(e) => edit(i, { reader: e.target.value })}
                     className="w-full rounded-lg border border-th-border bg-input px-3 py-2 text-sm"
                   />
+                  <textarea
+                    placeholder={lookupEnabled ? 'Synopsis (filled in automatically, edit if you like)' : 'Synopsis'}
+                    value={book.synopsis}
+                    onChange={(e) => edit(i, { synopsis: e.target.value })}
+                    rows={2}
+                    className="w-full rounded-lg border border-th-border bg-input px-3 py-2 text-sm md:col-span-2"
+                  />
+                  <div className="md:col-span-2 min-h-[1rem]">
+                    <LookupStatus
+                      book={book}
+                      busy={lookup.isPending}
+                      onRetry={lookupEnabled && book.id ? () => retry(book.id!) : undefined}
+                    />
+                  </div>
                   <label className="flex items-center gap-2 text-xs text-muted md:col-span-2">
                     Progress
                     <input

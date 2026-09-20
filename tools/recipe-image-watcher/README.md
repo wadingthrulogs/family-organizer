@@ -1,4 +1,4 @@
-# Recipe image-analysis watcher (headless Claude Code, subscription-billed)
+# Recipe image-analysis + book lookup watcher (headless Claude Code, subscription-billed)
 
 Watches a directory on the Pi for new images and runs **Claude Code in headless
 mode** (`claude -p`) to read each image and emit structured JSON. The prompt
@@ -21,6 +21,7 @@ them to inventory (see the app's `POST /api/v1/inventory/extract-from-image`).
 |------|-------------|---------|
 | `watch-recipes.sh` | `/home/wade/recipe-watcher/watch-recipes.sh` | inotify watch loop + `claude -p` invocation |
 | `parse-envelope.mjs` | `/home/wade/recipe-watcher/parse-envelope.mjs` | parses the `claude` JSON envelope, writes `<name>.json` |
+| `finish-book.mjs` | `/home/wade/recipe-watcher/finish-book.mjs` | book lookups: downloads the cover, writes `<id>.book.result.json` |
 | `recipe-image-watcher.service` | `/etc/systemd/system/recipe-image-watcher.service` | runs the watcher as `wade`, survives reboot, restarts on crash |
 
 Defaults (override via env in the unit): `WATCH_DIR=/home/wade/uploads`,
@@ -40,7 +41,7 @@ sudo apt-get install -y inotify-tools
 
 # 3. Dirs + deploy
 mkdir -p /home/wade/uploads /home/wade/recipe-output /home/wade/recipe-watcher
-cp watch-recipes.sh parse-envelope.mjs /home/wade/recipe-watcher/
+cp watch-recipes.sh parse-envelope.mjs finish-book.mjs /home/wade/recipe-watcher/
 chmod +x /home/wade/recipe-watcher/watch-recipes.sh
 
 # 4. Install + enable the service
@@ -89,3 +90,28 @@ The app may also drop a sidecar `<image>.ctx.json` (e.g. `{ "categories": [...] 
 next to the image. If present, the watcher folds those existing household
 categories into the prompt so items are labeled consistently with how the family
 already categorizes inventory.
+
+## Book lookups (guest display reading list)
+The same watcher also handles `*.book.json` requests dropped by the app when a
+book is added to the guest display's reading list:
+
+```
+<id>.book.json           {"id","title","author"}        ← app writes (upload dir)
+<id>.book.result.json    {ok,title,author,year,synopsis,coverFile|error}  → app ingests (output dir)
+<id>.cover.jpg|png|webp  the downloaded cover                            → app files as an Attachment
+```
+
+`claude -p` runs with `--allowedTools "WebFetch,WebSearch"` and `BOOK_MAX_TURNS`
+(default 12): Open Library first, Google Books second, web search only if those
+fail. The cover is downloaded here on the host by `finish-book.mjs` (https only,
+image content-type, ≤ 5 MB) — the app container never fetches arbitrary URLs.
+A result file is written even on failure so the app doesn't wait on a dead lookup.
+
+Test one by hand:
+```bash
+echo '{"id":"test-1","title":"Project Hail Mary","author":""}' > /home/wade/uploads/x.part \
+  && mv /home/wade/uploads/x.part /home/wade/uploads/test-1.book.json
+journalctl -u recipe-image-watcher -f          # LOOKUP → COST → COVER → WROTE
+cat /home/wade/recipe-output/test-1.book.result.json
+rm /home/wade/uploads/test-1.book.json /home/wade/recipe-output/test-1.*   # app-less test: clean up yourself
+```

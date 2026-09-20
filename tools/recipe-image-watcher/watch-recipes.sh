@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
-# Recipe image-analysis watcher.
+# Recipe image-analysis watcher (and guest-display book lookups).
 #
-# Watches a directory for new images and runs Claude Code in headless mode
-# (`claude -p`) to emit structured JSON about each image.
+# Watches a directory and runs Claude Code in headless mode (`claude -p`):
+#   *.jpg/*.png/*.webp  → extract pantry items from a recipe photo
+#   *.book.json         → look up a book (cover + synopsis) for the reading list
 #
 # BILLING: runs on the Claude *subscription* credit via the logged-in account
 # in ~/.claude. It MUST NOT use the pay-as-you-go API. If ANTHROPIC_API_KEY is
@@ -23,6 +24,9 @@ OUTPUT_DIR="${OUTPUT_DIR:-/home/wade/recipe-output}"
 CLAUDE_BIN="${CLAUDE_BIN:-/home/wade/.local/bin/claude}"
 CREDENTIALS_FILE="${CREDENTIALS_FILE:-${HOME:-/home/wade}/.claude/.credentials.json}"
 MAX_TURNS="${MAX_TURNS:-3}"
+# Book lookups browse (Open Library / Google Books, plus web search for obscure
+# titles), so they get more turns than a single image read.
+BOOK_MAX_TURNS="${BOOK_MAX_TURNS:-12}"
 STDERR_LOG="${STDERR_LOG:-$OUTPUT_DIR/.claude-stderr.log}"
 
 # ── Analysis prompt + output schema ──────────────────────────────────────────
@@ -50,6 +54,43 @@ object — no prose, no markdown, no code fences — exactly matching this schem
 Rules: one object per distinct item; split combined lines; convert fractions like
 "1 1/2" to 1.5; use null (not 0 or "") when an amount or unit is absent; do not
 invent items. If the image has no readable items, return {"title": null, "items": []}.
+Output JSON only.
+EOF
+
+# ── Book lookup prompt ────────────────────────────────────────────────────────
+# For the guest display's "currently reading" list. The app writes
+# <id>.book.json = {"id","title","author"}; the model identifies the book and
+# returns metadata plus a cover URL. finish-book.mjs downloads the cover on the
+# host and writes <id>.book.result.json for the app to ingest.
+read -r -d '' BOOK_PROMPT <<'EOF'
+You are an automated step in a household display pipeline. Identify the book
+described at the end of this message and gather its details. The author may be
+missing or misspelled; the title may be approximate — pick the best-known match.
+
+Use these sources, in order, with the WebFetch tool:
+1. Open Library search: https://openlibrary.org/search.json?title=<title>&author=<author>&limit=5
+   (URL-encode the values; omit author if unknown). Take the best match's
+   "cover_i" and "first_publish_year". The cover image URL is then
+   https://covers.openlibrary.org/b/id/<cover_i>-L.jpg
+2. Google Books: https://www.googleapis.com/books/v1/volumes?q=intitle:<title>+inauthor:<author>&maxResults=5
+   Use volumeInfo.description for the synopsis and imageLinks.thumbnail as a
+   fallback cover (change http:// to https:// and zoom=1 to zoom=2 if present).
+3. Only if those fail to identify the book, use WebSearch.
+
+Then respond with ONLY a single JSON object — no prose, no markdown, no code
+fences — exactly matching this schema:
+{
+  "found": true,
+  "title": "<canonical title>",
+  "author": "<author name(s)>",
+  "year": <first publication year as an integer, or null>,
+  "synopsis": "<2 to 3 sentences, spoiler-free, in your own words, plain text>",
+  "coverUrl": "<https URL of the best cover image, or null>",
+  "coverUrls": ["<alternative https cover URLs, best first>"]
+}
+If you genuinely cannot identify the book, respond with
+{"found": false, "reason": "<short reason>"}.
+Never invent a cover URL; only return URLs you saw in a source response.
 Output JSON only.
 EOF
 
@@ -127,15 +168,66 @@ Image path: ${filepath}"
   printf '%s' "$raw" | OUT_FILE="$out" BASE="$base" node "$SCRIPT_DIR/parse-envelope.mjs"
 }
 
+process_book() {
+  local filepath="$1"
+  local base id result claude_json raw rc fail_reason
+  base="$(basename "$filepath")"
+  id="${base%.book.json}"
+  result="$OUTPUT_DIR/${id}.book.result.json"
+  claude_json="$OUTPUT_DIR/${id}.book.claude.json"
+
+  if [ -f "$result" ]; then
+    log "SKIP book already processed: $id"
+    return 0
+  fi
+  case "$id" in
+    *[!A-Za-z0-9-]*|"") log "SKIP book: bad id '$id'"; return 0 ;;
+  esac
+
+  local title author
+  title="$(node -e 'try{const b=require(process.argv[1]);process.stdout.write(String(b.title||"").slice(0,200))}catch(e){}' "$filepath" 2>/dev/null)"
+  author="$(node -e 'try{const b=require(process.argv[1]);process.stdout.write(String(b.author||"").slice(0,200))}catch(e){}' "$filepath" 2>/dev/null)"
+  if [ -z "$title" ]; then
+    FAIL_REASON="Request had no title" OUTPUT_DIR="$OUTPUT_DIR" BOOK_ID="$id" node "$SCRIPT_DIR/finish-book.mjs"
+    return 0
+  fi
+
+  log "LOOKUP book $id: '$title' by '${author:-?}'"
+
+  local prompt_text="${BOOK_PROMPT}
+Book title: ${title}
+Author: ${author:-unknown}"
+
+  fail_reason=""
+  raw="$("$CLAUDE_BIN" -p "$prompt_text" \
+        --allowedTools "WebFetch,WebSearch" \
+        --output-format json \
+        --max-turns "$BOOK_MAX_TURNS" \
+        </dev/null 2>>"$STDERR_LOG")"
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    log "ERROR claude exited $rc for book '$id' (see $STDERR_LOG). No auth fallback."
+    fail_reason="Lookup service error (claude exited $rc)"
+  else
+    printf '%s' "$raw" | OUT_FILE="$claude_json" BASE="book:$id" node "$SCRIPT_DIR/parse-envelope.mjs"
+  fi
+
+  # Always writes <id>.book.result.json (ok or error) so the app never waits
+  # on a lookup that already finished badly.
+  FAIL_REASON="$fail_reason" CLAUDE_JSON="$claude_json" OUTPUT_DIR="$OUTPUT_DIR" BOOK_ID="$id" \
+    node "$SCRIPT_DIR/finish-book.mjs"
+  rm -f "$claude_json" "${claude_json%.json}.raw.txt"
+}
+
 log "watcher starting: WATCH_DIR=$WATCH_DIR OUTPUT_DIR=$OUTPUT_DIR CLAUDE_BIN=$CLAUDE_BIN (subscription auth, API key absent)"
 
 inotifywait -m -e close_write -e moved_to --format '%w%f' "$WATCH_DIR" | while IFS= read -r filepath; do
+  [ -f "$filepath" ] || continue
   case "${filepath,,}" in
-    *.jpg|*.jpeg|*.png|*.webp) ;;
+    *.jpg|*.jpeg|*.png|*.webp) process_image "$filepath" ;;
+    *.book.json) process_book "$filepath" ;;
     *) continue ;;
   esac
-  [ -f "$filepath" ] || continue
-  process_image "$filepath"
 done
 
 log "FATAL inotifywait exited; stopping so systemd can restart the service."

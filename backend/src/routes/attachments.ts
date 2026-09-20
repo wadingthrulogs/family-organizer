@@ -158,7 +158,10 @@ attachmentsRouter.get(
       return res.status(404).json({ error: { code: 'ATTACHMENT_NOT_FOUND', message: 'Attachment not found' } });
     }
 
-    if (attachment.ownerUserId !== null && attachment.ownerUserId !== req.session.userId && req.session.role !== 'ADMIN') {
+    // Guest-display book covers are household-wide: the wall display may be
+    // signed in as any member, and the cover was fetched on everyone's behalf.
+    const shared = attachment.ownerUserId === null || attachment.linkedEntityType === 'guestBook';
+    if (!shared && attachment.ownerUserId !== req.session.userId && req.session.role !== 'ADMIN') {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
     }
 

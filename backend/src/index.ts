@@ -5,6 +5,7 @@ import { logger } from './lib/logger.js';
 import { initMailer } from './lib/mailer.js';
 import { createApp } from './server.js';
 import { initVapid, setWebhookUrl, startNotificationTicker, stopNotificationTicker } from './services/notification-engine.js';
+import { startBookLookupTicker, stopBookLookupTicker } from './services/book-enrichment.js';
 import { initBackgroundSync } from './services/background-sync.js';
 import { cleanupOrphanEvents } from './services/google-calendar.js';
 import { loadServerConfig } from './routes/settings.js';
@@ -67,6 +68,10 @@ async function bootstrap() {
   // Start notification processing loop (every 60 seconds)
   startNotificationTicker(60_000);
 
+  // Fold finished guest-display book lookups back in (no-op unless the host
+  // bridge dirs are configured). GET /guest/content also ingests on demand.
+  startBookLookupTicker(60_000);
+
   server.listen(env.PORT, () => {
     logger.info('API server listening', { port: env.PORT });
   });
@@ -74,6 +79,7 @@ async function bootstrap() {
   const shutdown = () => {
     logger.info('Graceful shutdown requested');
     stopNotificationTicker();
+    stopBookLookupTicker();
     server.close(() => {
       logger.info('HTTP server closed');
       process.exit(0);

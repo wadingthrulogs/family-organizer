@@ -9,6 +9,8 @@ export default function ReadingWidget() {
 
   const showHeader = height > 80;
   const showCovers = !compact;
+  // Synopses need room; on a short card the list is the point.
+  const showSynopsis = !compact && height > 260;
 
   return (
     <div ref={ref} style={{ fontSize: baseFontSize * 0.6 }} className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-3 h-full overflow-hidden flex flex-col">
@@ -45,6 +47,12 @@ export default function ReadingWidget() {
                   <p className="text-[0.85em] text-[var(--color-text-secondary)] truncate">
                     {book.author}{book.author && book.reader ? ' · ' : ''}{book.reader && <span className="text-[var(--color-text-muted)]">{book.reader}</span>}
                   </p>
+                )}
+                {showSynopsis && book.synopsis && (
+                  <p className="mt-0.5 text-[0.82em] leading-snug text-[var(--color-text-secondary)] line-clamp-3">{book.synopsis}</p>
+                )}
+                {book.enrichStatus === 'pending' && !tiny && (
+                  <p className="mt-0.5 text-[0.75em] italic text-[var(--color-text-faint)]">Looking up details…</p>
                 )}
                 {book.progress != null && (
                   <div className="mt-1 flex items-center gap-1.5">

@@ -73,6 +73,7 @@ cd frontend && npm run dev
 | `prepared-meal.ts` | Mirrors an `isPreparedMeal` inventory item as a linked Recipe |
 | `task-recurrence.ts` | Spawns the next occurrence of a recurring task |
 | `task-retention.ts` | Auto-archives then hard-deletes stale tasks per household thresholds |
+| `book-enrichment.ts` | Guest-display reading list: queues book lookups to the host watcher, ingests cover + synopsis (§6) |
 
 ### Auth Pattern
 - Session-based (express-session + connect-sqlite3)
@@ -262,9 +263,10 @@ TZ                              # default UTC
 - `PATCH /me` — user preferences update
 
 **Guest display `/guest`**
-- `GET /content` — `{ wifi: { ssid, security, password, hidden } | null, books: [{ id, title, author, reader, progress, coverAttachmentId }] }`
-  (Wi-Fi password is `enc:` at rest but returned in plaintext — the display renders it into a QR)
-- `PATCH /content` (ADMIN, MEMBER) — `{ wifi?: … | null, books?: […] }`
+- `GET /content` — `{ wifi: { ssid, security, password, hidden } | null, books: [{ id, title, author, reader, progress, coverAttachmentId, synopsis, year, enrichStatus, enrichError, … }], lookupEnabled }`
+  (Wi-Fi password is `enc:` at rest but returned in plaintext — the display renders it into a QR). Also ingests finished book lookups.
+- `PATCH /content` (ADMIN, MEMBER) — `{ wifi?: … | null, books?: […] }`. A new book with no synopsis/cover is queued for lookup (§6).
+- `POST /books/:bookId/lookup` (ADMIN, MEMBER) — re-run the lookup; 503 `LOOKUP_NOT_CONFIGURED` if the bridge dirs aren't set
 
 **Reminders `/reminders`**
 - `GET /` — `?enabled&targetType`
@@ -528,10 +530,13 @@ Production target is a **Raspberry Pi** running Docker Compose (`docker-compose.
 
 ---
 
-## 6. Recipe Photo → Inventory Extraction
+## 6. Host AI Bridge: Recipe Photos → Inventory, Book Lookups → Reading List
 
-Uploading a photo of a recipe or ingredient list adds the items to inventory. The image
-analysis happens **outside** the container, in a host-side watcher.
+Two features run headless Claude **outside** the container, in one host-side watcher, over a
+pair of bind-mounted directories. The app only ever does file I/O.
+
+### Recipe photo → inventory
+Uploading a photo of a recipe or ingredient list adds the items to inventory.
 
 ### How it works
 1. Frontend posts the photo to `POST /api/v1/inventory/extract-from-image`.
@@ -556,6 +561,27 @@ bind mount. That keeps the credential outside the container entirely.
 > exits with `FATAL` if it's set, and the systemd unit adds `UnsetEnvironment=ANTHROPIC_API_KEY`
 > as a second guard. There is deliberately **no API-key fallback**: missing subscription auth
 > fails loudly rather than silently switching billing accounts.
+
+### Book lookup → cover + synopsis (guest display)
+Saving a book in Settings → Guest display with no synopsis or cover queues a lookup; a title alone
+is enough. Asynchronous, unlike recipes — the save returns immediately.
+1. `PATCH /guest/content` marks the book `enrichStatus: 'pending'` and `services/book-enrichment.ts`
+   writes `<bookId>.book.json` (`{ id, title, author }`) into `RECIPE_EXTRACT_UPLOAD_DIR` (atomic rename).
+2. The same watcher (`process_book` in `watch-recipes.sh`) runs `claude -p` with
+   `--allowedTools "WebFetch,WebSearch"` and `BOOK_MAX_TURNS` (12): Open Library first, Google Books
+   second, web search only as a fallback. It returns `{ found, title, author, year, synopsis, coverUrl }`.
+3. `finish-book.mjs` downloads the cover **on the host** (https only, image content-type, ≤5 MB, tiny
+   placeholders rejected) and writes `<bookId>.book.result.json` + `<bookId>.cover.<ext>` to
+   `RECIPE_EXTRACT_OUTPUT_DIR`. It always writes a result — `{ ok: false, error }` on failure — so the
+   app never waits on a lookup that already died.
+4. `ingestBookLookups()` (60 s ticker in `index.ts`, and on every `GET /guest/content`) folds results
+   into the `guest_books` row: author/synopsis fill only if empty, the cover becomes an `Attachment`
+   with `ownerUserId: null, linkedEntityType: 'guestBook'` (household-readable — see the download
+   check in `attachments.ts`), the previous cover attachment is deleted, temp files are removed.
+   Pending books older than 15 min are marked failed ("Timed out").
+- The UI polls `guestContent` every 10 s while any book is pending. "Look up again" re-queues.
+- ~20–40 s per book, serial, on the subscription. Google Books' keyless API rate-limits under bursts;
+  Open Library is the primary source for exactly that reason.
 
 Full deployment notes: `tools/recipe-image-watcher/README.md`.
 
@@ -808,6 +834,15 @@ dependency bump caused them:
 - `homeAddress` must be set and geocodable — it's the origin for every route
 - ETAs cache 2 minutes, geocodes 30 days (`GeocodeCache`); event locations that don't look like
   addresses are filtered out and negative-cached for 24 h
+
+### Book lookup stuck on "Looking up…" or failed
+- Same watcher as recipes: `systemctl status recipe-image-watcher`, `journalctl -u recipe-image-watcher -f`
+  (look for `LOOKUP book`, `COVER`, `WROTE … book.result.json`)
+- The deployed copy lives in `/home/wade/recipe-watcher/` — after editing `tools/recipe-image-watcher/`,
+  copy `watch-recipes.sh`, `parse-envelope.mjs`, `finish-book.mjs` there and restart the service
+- "Timed out" after 15 min means no result file ever appeared: watcher down, or dirs not writable
+- "Not found" is the model's honest answer; fix the title/author and "Look up again"
+- No cover but a synopsis: every candidate URL failed the host-side download checks (see journal `SKIP cover`)
 
 ### Recipe photo extraction hangs or 503s
 - 503 means `RECIPE_EXTRACT_UPLOAD_DIR` / `RECIPE_EXTRACT_OUTPUT_DIR` aren't configured

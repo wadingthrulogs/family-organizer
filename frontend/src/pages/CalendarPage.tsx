@@ -294,7 +294,7 @@ function CalendarPage() {
             <button type="button" onClick={() => handleNavigate(1)} aria-label="Next" className="rounded-full px-3 py-2 hover:bg-hover-bg">
               ›
             </button>
-            <button type="button" onClick={handleToday} className="rounded-full border border-th-border px-3 py-2 text-xs font-semibold">
+            <button type="button" onClick={handleToday} className="btn-secondary btn-pill px-3 py-2 text-xs">
               Today
             </button>
           </div>
@@ -303,7 +303,7 @@ function CalendarPage() {
               key={option.id}
               type="button"
               className={`rounded-full border px-4 py-2.5 text-sm font-medium ${
-                view === option.id ? 'border-btn-primary bg-btn-primary text-btn-primary-text' : 'border-th-border text-secondary'
+                view === option.id ? 'border-btn-primary btn-primary' : 'border-th-border text-secondary'
               }`}
               onClick={() => setView(option.id)}
             >
@@ -413,7 +413,7 @@ function CalendarPage() {
                 >
                   <div className="mb-1 flex items-center justify-between text-[11px] font-semibold">
                     <span>{date.getDate()}</span>
-                    {dayEvents.length ? <span className="rounded-full bg-btn-primary px-2 py-0.5 text-[10px] text-btn-primary-text">{dayEvents.length}</span> : null}
+                    {dayEvents.length ? <span className="btn-primary btn-pill px-2 py-0.5 text-[10px]">{dayEvents.length}</span> : null}
                   </div>
                   <div className="space-y-1">
                     {dayEvents.slice(0, 3).map((event) => (

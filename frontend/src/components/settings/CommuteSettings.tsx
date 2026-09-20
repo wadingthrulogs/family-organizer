@@ -269,7 +269,7 @@ export default function CommuteSettings() {
             <button
               type="submit"
               disabled={savingConfig}
-              className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+              className="btn-primary btn-pill px-5 py-2 text-sm disabled:opacity-50"
             >
               {savingConfig ? 'Saving…' : 'Save'}
             </button>
@@ -289,7 +289,7 @@ export default function CommuteSettings() {
           <button
             type="button"
             onClick={startAdd}
-            className="rounded-full border border-th-border px-4 py-1.5 text-xs font-medium text-primary hover:bg-hover-bg"
+            className="btn-secondary btn-pill px-4 py-1.5 text-xs text-primary"
           >
             + Add route
           </button>
@@ -491,14 +491,14 @@ function RouteFormEditor({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-full border border-th-border px-4 py-1.5 text-sm text-primary hover:bg-hover-bg"
+          className="btn-secondary btn-pill px-4 py-1.5 text-sm text-primary"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="rounded-full bg-btn-primary px-5 py-1.5 text-sm text-btn-primary-text disabled:opacity-50"
+          className="btn-primary btn-pill px-5 py-1.5 text-sm disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>

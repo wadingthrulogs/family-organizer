@@ -169,7 +169,7 @@ export function TaskRow({ task, expanded, onToggleExpand }: Props) {
               <button
                 type="button"
                 onClick={handleDelete}
-                className="min-h-[44px] rounded-full border border-th-border px-4 text-sm text-muted transition-colors hover:border-red-600 hover:text-red-600 touch-manipulation active:scale-95"
+                className="min-h-[44px] btn-secondary btn-pill px-4 text-sm text-muted transition-colors hover:border-red-600 hover:text-red-600 touch-manipulation active:scale-95"
               >
                 Delete task
               </button>

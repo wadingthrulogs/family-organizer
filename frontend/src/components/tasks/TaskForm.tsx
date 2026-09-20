@@ -212,7 +212,7 @@ export function TaskForm({ initialValues, onSubmit, onCancel, submitLabel, isSub
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-full border border-th-border px-4 py-2 text-sm"
+            className="btn-secondary btn-pill px-4 py-2 text-sm"
             disabled={isSubmitting}
           >
             Cancel
@@ -220,7 +220,7 @@ export function TaskForm({ initialValues, onSubmit, onCancel, submitLabel, isSub
         ) : null}
         <button
           type="submit"
-          className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+          className="btn-primary btn-pill px-4 py-2 text-sm disabled:opacity-50"
           disabled={isDisabled}
         >
           {isSubmitting ? 'Saving…' : submitLabel}

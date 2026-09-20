@@ -157,7 +157,7 @@ function RemindersContent() {
         <p className="text-sm text-muted">Push, email, or webhook notifications with quiet hours.</p>
         <button
           type="button"
-          className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text"
+          className="btn-primary btn-pill px-4 py-2 text-sm"
           onClick={composerOpen ? handleCancel : handleOpenCreate}
         >
           {composerOpen ? 'Close form' : 'New reminder'}
@@ -337,7 +337,7 @@ function RemindersContent() {
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
-                          className="rounded-full border border-th-border px-3 py-1 text-xs text-secondary"
+                          className="btn-secondary btn-pill px-3 py-1 text-xs text-secondary"
                           onClick={() => handleOpenEdit(reminder)}
                         >
                           Edit
@@ -479,10 +479,10 @@ function NotificationsContent() {
             {push.isSupported && push.state !== 'denied' && (
               <button
                 type="button"
-                className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
+                className={`px-4 py-1.5 text-sm ${
                   push.isSubscribed
-                    ? 'border border-red-200 text-red-600 hover:bg-red-50'
-                    : 'bg-btn-primary text-btn-primary-text hover:bg-btn-primary-hover'
+                    ? 'btn btn-pill border border-red-200 text-red-600 hover:bg-red-50'
+                    : 'btn-primary btn-pill'
                 }`}
                 onClick={push.isSubscribed ? push.unsubscribe : push.subscribe}
               >
@@ -513,7 +513,7 @@ function NotificationsContent() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+              className="btn-primary btn-pill px-5 py-2 text-sm disabled:opacity-50"
               onClick={handleProcess}
               disabled={processing}
             >
@@ -521,7 +521,7 @@ function NotificationsContent() {
             </button>
             <button
               type="button"
-              className="rounded-full border border-th-border px-5 py-2 text-sm disabled:opacity-50"
+              className="btn-secondary btn-pill px-5 py-2 text-sm disabled:opacity-50"
               onClick={handleDigest}
               disabled={processing}
             >
@@ -542,7 +542,7 @@ function NotificationsContent() {
           </div>
           <button
             type="button"
-            className="rounded-full border border-th-border px-4 py-1.5 text-xs font-semibold text-secondary hover:bg-hover-bg"
+            className="btn-secondary btn-pill px-4 py-1.5 text-xs text-secondary"
             onClick={loadLog}
             disabled={logLoading}
           >
@@ -779,14 +779,14 @@ function ReminderForm({
         <div className="flex gap-3">
           <button
             type="button"
-            className="rounded-full border border-th-border px-5 py-2 text-sm"
+            className="btn-secondary btn-pill px-5 py-2 text-sm"
             onClick={onCancel}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+            className="btn-primary btn-pill px-5 py-2 text-sm disabled:opacity-50"
             disabled={isSubmitting || !form.title.trim()}
           >
             {isSubmitting ? 'Saving…' : submitLabel}

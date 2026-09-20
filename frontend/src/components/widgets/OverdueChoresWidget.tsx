@@ -22,10 +22,10 @@ export default function OverdueChoresWidget() {
       <div
         ref={ref}
         style={{ fontSize: baseFontSize * 0.6 }}
-        className="rounded-2xl border-2 border-emerald-400 bg-emerald-50/40 dark:bg-emerald-900/20 p-3 h-full overflow-hidden flex flex-col items-center justify-center text-center gap-2"
+        className="rounded-2xl border-2 border-emerald-400 bg-emerald-500/10 p-3 h-full overflow-hidden flex flex-col items-center justify-center text-center gap-2"
       >
         <span className="text-[2.5em]">✨</span>
-        <p className="text-[1em] font-semibold text-emerald-600 dark:text-emerald-400">
+        <p className="text-[1em] font-semibold text-emerald-500">
           All caught up!
         </p>
       </div>

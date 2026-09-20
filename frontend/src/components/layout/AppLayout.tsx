@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useToday } from '../../hooks/useToday';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings } from '../../hooks/useSettings';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserPreferences } from '../../hooks/useUserPreferences';
@@ -31,6 +31,14 @@ export function AppLayout() {
   const bgImageUrl = isDashboard ? prefs?.dashboardConfig?.preferences?.backgroundImageUrl : undefined;
   const bgOpacity = isDashboard ? (prefs?.dashboardConfig?.preferences?.backgroundOverlay ?? 1) : 0;
   const bgFit = isDashboard ? (prefs?.dashboardConfig?.preferences?.backgroundFit ?? 'cover') : 'cover';
+
+  // A user-uploaded photo takes precedence over the theme's own background
+  // (painted by body::before — see index.css).
+  useEffect(() => {
+    if (bgImageUrl) document.body.dataset.userBg = '';
+    else delete document.body.dataset.userBg;
+    return () => { delete document.body.dataset.userBg; };
+  }, [bgImageUrl]);
   // Same frozen-at-mount trap the widgets had: with [] this header kept
   // showing whichever day the app was opened on.
   const dayKey = useToday();
@@ -68,7 +76,7 @@ export function AppLayout() {
   }, [displayName]);
 
   return (
-    <div className="min-h-screen bg-page">
+    <div className="page-root min-h-screen">
       {bgImageUrl && (
         <div
           className="fixed inset-0 pointer-events-none"
@@ -136,7 +144,7 @@ export function AppLayout() {
             <button
               type="button"
               onClick={logout}
-              className="hidden md:inline-flex items-center min-h-[44px] rounded-full border border-th-border px-4 text-sm font-medium text-secondary hover:bg-hover-bg touch-manipulation"
+              className="hidden md:inline-flex items-center min-h-[44px] btn-secondary btn-pill px-4 text-sm text-secondary touch-manipulation"
             >
               Sign out
             </button>
@@ -149,7 +157,7 @@ export function AppLayout() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `inline-flex items-center shrink-0 min-h-[48px] rounded-full px-5 text-[0.95em] font-medium touch-manipulation ${
+                `inline-flex items-center shrink-0 min-h-[48px] rounded-pill px-5 text-[0.95em] font-medium touch-manipulation ${
                   isActive ? 'bg-nav-active text-nav-active-text' : 'bg-nav-pill text-nav-pill-text'
                 }`
               }

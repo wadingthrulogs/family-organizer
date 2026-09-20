@@ -50,7 +50,7 @@ function RegisterPage() {
   const formValid = username.trim().length >= 2 && passwordValid && passwordsMatch;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-page px-4">
+    <div className="page-root flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
           <h1 className="font-display text-3xl text-heading">Create Account</h1>
@@ -146,7 +146,7 @@ function RegisterPage() {
 
           <button
             type="submit"
-            className="w-full rounded-full bg-btn-primary py-2.5 text-sm font-semibold text-btn-primary-text disabled:opacity-50"
+            className="w-full btn-primary btn-pill py-2.5 text-sm disabled:opacity-50"
             disabled={submitting || !formValid}
           >
             {submitting ? 'Creating account…' : 'Create account'}

@@ -261,7 +261,7 @@ function GroceryPage() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="rounded-full border border-th-border px-4 py-2 text-sm text-primary disabled:opacity-40"
+            className="btn-secondary btn-pill px-4 py-2 text-sm text-primary disabled:opacity-40"
             onClick={handleExportList}
             disabled={lists.length === 0}
           >
@@ -270,7 +270,7 @@ function GroceryPage() {
           <button
             type="button"
             className={`rounded-full border px-4 py-2 text-sm transition ${
-              shoppingMode ? 'border-btn-primary bg-btn-primary text-btn-primary-text' : 'border-th-border text-primary'
+              shoppingMode ? 'border-btn-primary btn-primary' : 'border-th-border text-primary'
             }`}
             aria-pressed={shoppingMode}
             onClick={() => setShoppingMode((value) => !value)}
@@ -278,7 +278,7 @@ function GroceryPage() {
             {shoppingMode ? 'Exit shopping mode' : 'Shopping mode'}
           </button>
           <button
-            className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text"
+            className="btn-primary btn-pill px-4 py-2 text-sm"
             onClick={() => setListComposerOpen((value) => !value)}
           >
             {listComposerOpen ? 'Close form' : 'New list'}
@@ -505,7 +505,7 @@ function GroceryPage() {
                         {/* Primary action always visible */}
                         <button
                           type="button"
-                          className="rounded-full border border-th-border px-3 py-2 text-xs text-primary"
+                          className="btn-secondary btn-pill px-3 py-2 text-xs text-primary"
                           onClick={() => handleOpenItemComposer(list.id)}
                         >
                           {composerOpen ? 'Close' : 'Add item'}
@@ -538,7 +538,7 @@ function GroceryPage() {
                           </button>
                           <button
                             type="button"
-                            className="rounded-full border border-th-border px-3 py-2 text-xs text-primary"
+                            className="btn-secondary btn-pill px-3 py-2 text-xs text-primary"
                             title="Add multiple items at once using plain text — one item per line"
                             onClick={() => handleOpenBulkAdd(list.id)}
                           >
@@ -556,7 +556,7 @@ function GroceryPage() {
                           )}
                           <button
                             type="button"
-                            className="rounded-full border border-th-border px-3 py-2 text-xs text-primary"
+                            className="btn-secondary btn-pill px-3 py-2 text-xs text-primary"
                             onClick={() => handleOpenListEditor(list.id)}
                           >
                             {editingListId === list.id ? 'Cancel edit' : 'Edit list'}
@@ -573,7 +573,7 @@ function GroceryPage() {
                               </button>
                               <button
                                 type="button"
-                                className="rounded-full border border-th-border px-3 py-2 text-xs text-muted"
+                                className="btn-secondary btn-pill px-3 py-2 text-xs text-muted"
                                 onClick={() => setConfirmDeleteListId(null)}
                               >
                                 Cancel
@@ -594,7 +594,7 @@ function GroceryPage() {
                         <div className="relative md:hidden">
                           <button
                             type="button"
-                            className="rounded-full border border-th-border px-3 py-2 text-xs text-primary"
+                            className="btn-secondary btn-pill px-3 py-2 text-xs text-primary"
                             aria-label="More actions"
                             onClick={() => setOpenMenuListId(openMenuListId === list.id ? null : list.id)}
                           >
@@ -704,7 +704,7 @@ function GroceryPage() {
                                 <div className="flex flex-wrap gap-1.5">
                                   <button
                                     type="button"
-                                    className="rounded-full border border-th-border px-3 py-1.5 text-xs text-secondary disabled:opacity-40"
+                                    className="btn-secondary btn-pill px-3 py-1.5 text-xs text-secondary disabled:opacity-40"
                                     disabled={isUpdating || isDeleting || isMoving}
                                     onClick={() => handleEditItem(list.id, item)}
                                   >
@@ -712,7 +712,7 @@ function GroceryPage() {
                                   </button>
                                   <button
                                     type="button"
-                                    className="rounded-full border border-th-border px-3 py-1.5 text-xs text-primary disabled:opacity-40"
+                                    className="btn-secondary btn-pill px-3 py-1.5 text-xs text-primary disabled:opacity-40"
                                     disabled={item.state === 'IN_CART' || item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
                                     onClick={() => handleStateChange(list.id, item.id, 'IN_CART')}
                                   >
@@ -720,7 +720,7 @@ function GroceryPage() {
                                   </button>
                                   <button
                                     type="button"
-                                    className="rounded-full bg-btn-primary px-3 py-1.5 text-xs text-btn-primary-text disabled:opacity-40"
+                                    className="btn-primary btn-pill px-3 py-1.5 text-xs disabled:opacity-40"
                                     disabled={item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
                                     onClick={() => handleStateChange(list.id, item.id, 'PURCHASED')}
                                   >
@@ -753,7 +753,7 @@ function GroceryPage() {
                                       </button>
                                       <button
                                         type="button"
-                                        className="rounded-full border border-th-border px-2 py-1.5 text-xs text-muted"
+                                        className="btn-secondary btn-pill px-2 py-1.5 text-xs text-muted"
                                         onClick={() => setConfirmDeleteItemKey(null)}
                                       >
                                         ✕
@@ -803,7 +803,7 @@ function GroceryPage() {
                                       <div className="flex justify-end gap-2">
                                         <button
                                           type="button"
-                                          className="rounded-full border border-th-border px-3 py-2 text-xs text-secondary disabled:opacity-40"
+                                          className="btn-secondary btn-pill px-3 py-2 text-xs text-secondary disabled:opacity-40"
                                           disabled={isUpdating || isDeleting || isMoving}
                                           onClick={() => handleEditItem(list.id, item)}
                                         >
@@ -811,7 +811,7 @@ function GroceryPage() {
                                         </button>
                                         <button
                                           type="button"
-                                          className="rounded-full border border-th-border px-3 py-2 text-xs text-primary disabled:opacity-40"
+                                          className="btn-secondary btn-pill px-3 py-2 text-xs text-primary disabled:opacity-40"
                                           disabled={item.state === 'IN_CART' || item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
                                           onClick={() => handleStateChange(list.id, item.id, 'IN_CART')}
                                         >
@@ -819,7 +819,7 @@ function GroceryPage() {
                                         </button>
                                         <button
                                           type="button"
-                                          className="rounded-full bg-btn-primary px-3 py-2 text-xs text-btn-primary-text disabled:opacity-40"
+                                          className="btn-primary btn-pill px-3 py-2 text-xs disabled:opacity-40"
                                           disabled={item.state === 'PURCHASED' || isUpdating || isDeleting || isMoving}
                                           onClick={() => handleStateChange(list.id, item.id, 'PURCHASED')}
                                         >
@@ -855,7 +855,7 @@ function GroceryPage() {
                                             </button>
                                             <button
                                               type="button"
-                                              className="rounded-full border border-th-border px-2 py-2 text-xs text-muted"
+                                              className="btn-secondary btn-pill px-2 py-2 text-xs text-muted"
                                               onClick={() => setConfirmDeleteItemKey(null)}
                                             >
                                               ✕
@@ -939,7 +939,7 @@ function GroceryPage() {
                         <div className="mt-3 flex gap-2">
                           <button
                             type="button"
-                            className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text disabled:opacity-40"
+                            className="btn-primary btn-pill px-4 py-2 text-sm disabled:opacity-40"
                             disabled={bulkAdd.isPending || !bulkAddText.trim()}
                             onClick={() => handleBulkAdd(list.id)}
                           >
@@ -947,7 +947,7 @@ function GroceryPage() {
                           </button>
                           <button
                             type="button"
-                            className="rounded-full border border-th-border px-4 py-2 text-sm text-secondary"
+                            className="btn-secondary btn-pill px-4 py-2 text-sm text-secondary"
                             onClick={() => { setBulkAddListId(null); setBulkAddText(''); }}
                           >
                             Cancel

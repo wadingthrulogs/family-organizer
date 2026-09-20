@@ -1,0 +1,13 @@
+/* Self-hosted fonts, latin subsets, all SIL Open Font License.
+   Variable families ship one file covering a weight range. Only the faces a
+   theme actually uses get downloaded — browsers fetch @font-face lazily. */
+@font-face{font-family:'Cabin';font-style:normal;font-weight:500 600;font-display:swap;src:url(/fonts/cabin.woff2) format('woff2');}
+@font-face{font-family:'Source Sans 3';font-style:normal;font-weight:400 600;font-display:swap;src:url(/fonts/source-sans-3.woff2) format('woff2');}
+@font-face{font-family:'Nunito';font-style:normal;font-weight:400 700;font-display:swap;src:url(/fonts/nunito.woff2) format('woff2');}
+@font-face{font-family:'Fraunces';font-style:normal;font-weight:600 700;font-display:swap;src:url(/fonts/fraunces.woff2) format('woff2');}
+@font-face{font-family:'Lora';font-style:normal;font-weight:400 600;font-display:swap;src:url(/fonts/lora.woff2) format('woff2');}
+@font-face{font-family:'Cinzel';font-style:normal;font-weight:600 700;font-display:swap;src:url(/fonts/cinzel.woff2) format('woff2');}
+@font-face{font-family:'Crimson Pro';font-style:normal;font-weight:400 600;font-display:swap;src:url(/fonts/crimson-pro.woff2) format('woff2');}
+@font-face{font-family:'Creepster';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/creepster-400.woff2) format('woff2');}
+@font-face{font-family:'Mountains of Christmas';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/mountains-of-christmas-400.woff2) format('woff2');}
+@font-face{font-family:'Mountains of Christmas';font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/mountains-of-christmas-700.woff2) format('woff2');}

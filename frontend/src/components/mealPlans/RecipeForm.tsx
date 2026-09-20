@@ -286,14 +286,14 @@ export function RecipeForm({ editingRecipe, inventoryItems, onSave, onCancel, is
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-th-border px-4 py-2 text-sm text-secondary hover:bg-hover-bg"
+          className="btn-secondary px-4 py-2 text-sm text-secondary"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isPending || !title.trim()}
-          className="rounded-lg bg-btn-primary px-4 py-2 text-sm font-medium text-btn-primary-text disabled:opacity-50"
+          className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
         >
           {isPending ? 'Saving…' : editingRecipe ? 'Save changes' : 'Create recipe'}
         </button>

@@ -115,11 +115,11 @@ export function GroceryItemForm({
       </div>
       <div className="flex justify-end gap-2">
         {onCancel ? (
-          <button type="button" className="rounded-full border border-th-border px-4 py-2 text-sm" onClick={onCancel} disabled={isSubmitting}>
+          <button type="button" className="btn-secondary btn-pill px-4 py-2 text-sm" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </button>
         ) : null}
-        <button type="submit" className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text disabled:opacity-50" disabled={isDisabled}>
+        <button type="submit" className="btn-primary btn-pill px-4 py-2 text-sm disabled:opacity-50" disabled={isDisabled}>
           {isSubmitting ? 'Saving…' : submitLabel}
         </button>
       </div>

@@ -182,7 +182,7 @@ function ChoresPage() {
             {focusMode ? '✕ Exit focus' : '⚡ Focus mode'}
           </button>
           <button
-            className="rounded-full bg-btn-primary px-4 py-2.5 text-sm text-btn-primary-text"
+            className="btn-primary btn-pill px-4 py-2.5 text-sm"
             onClick={() => setComposerOpen((value) => !value)}
           >
             {composerOpen ? 'Close form' : 'Add chore'}
@@ -244,7 +244,7 @@ function ChoresPage() {
                 type="button"
                 onClick={handleFocusDone}
                 disabled={updateAssignment.isPending}
-                className="w-full rounded-lg bg-btn-primary py-3 text-base font-semibold text-btn-primary-text disabled:opacity-50"
+                className="w-full btn-primary py-3 text-base disabled:opacity-50"
               >
                 {updateAssignment.isPending ? 'Saving…' : '✓ Mark Done'}
               </button>
@@ -253,7 +253,7 @@ function ChoresPage() {
                   type="button"
                   onClick={handleFocusSnooze}
                   disabled={focusAssignment.state === 'SNOOZED' || updateAssignment.isPending}
-                  className="flex-1 rounded-lg border border-th-border py-2.5 text-sm text-secondary disabled:opacity-30"
+                  className="flex-1 btn-secondary py-2.5 text-sm text-secondary disabled:opacity-30"
                 >
                   Snooze
                 </button>
@@ -271,7 +271,7 @@ function ChoresPage() {
                   type="button"
                   onClick={handleFocusPrev}
                   disabled={clampedFocusIndex === 0}
-                  className="flex-1 rounded-lg border border-th-border py-2.5 text-sm text-muted disabled:opacity-30"
+                  className="flex-1 btn-secondary py-2.5 text-sm text-muted disabled:opacity-30"
                 >
                   ← Prev
                 </button>

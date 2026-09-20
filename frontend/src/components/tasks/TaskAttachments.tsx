@@ -53,7 +53,7 @@ export function TaskAttachments({ taskId }: TaskAttachmentsProps) {
           />
           <button
             type="button"
-            className="rounded-full border border-th-border px-3 py-1 text-xs text-secondary disabled:opacity-40"
+            className="btn-secondary btn-pill px-3 py-1 text-xs text-secondary disabled:opacity-40"
             disabled={uploadMutation.isPending}
             onClick={() => fileInputRef.current?.click()}
           >

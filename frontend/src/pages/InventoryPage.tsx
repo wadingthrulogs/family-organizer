@@ -310,7 +310,7 @@ function InventoryPage() {
           </button>
           <button
             type="button"
-            className="rounded-full border border-th-border px-4 py-2 text-sm text-primary disabled:opacity-50"
+            className="btn-secondary btn-pill px-4 py-2 text-sm text-primary disabled:opacity-50"
             disabled={exporting || items.length === 0}
             onClick={handleExport}
           >
@@ -318,7 +318,7 @@ function InventoryPage() {
           </button>
           <button
             type="button"
-            className="rounded-full border border-th-border px-4 py-2 text-sm text-primary"
+            className="btn-secondary btn-pill px-4 py-2 text-sm text-primary"
             title="Add multiple items at once using plain text — one item per line"
             onClick={() => { setBulkAddOpen((v) => !v); setBulkAddText(''); setComposerOpen(false); setEditingItem(null); }}
           >
@@ -326,7 +326,7 @@ function InventoryPage() {
           </button>
           <button
             type="button"
-            className="rounded-full border border-th-border px-4 py-2 text-sm text-primary"
+            className="btn-secondary btn-pill px-4 py-2 text-sm text-primary"
             title="Upload a photo of a recipe or ingredient list and add the items with AI"
             onClick={() => { setRecipeUploadOpen(true); setBulkAddOpen(false); setComposerOpen(false); setEditingItem(null); }}
           >
@@ -334,7 +334,7 @@ function InventoryPage() {
           </button>
           <button
             type="button"
-            className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text"
+            className="btn-primary btn-pill px-4 py-2 text-sm"
             onClick={() => { setBulkAddOpen(false); composerOpen ? handleCancel() : handleOpenCreate(); }}
           >
             {composerOpen ? 'Close form' : 'Add item'}
@@ -393,7 +393,7 @@ function InventoryPage() {
           <div className="mt-3 flex gap-2">
             <button
               type="button"
-              className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text disabled:opacity-40"
+              className="btn-primary btn-pill px-4 py-2 text-sm disabled:opacity-40"
               disabled={bulkAdd.isPending || !bulkAddText.trim()}
               onClick={async () => {
                 await bulkAdd.mutateAsync(bulkAddText);
@@ -405,7 +405,7 @@ function InventoryPage() {
             </button>
             <button
               type="button"
-              className="rounded-full border border-th-border px-4 py-2 text-sm text-secondary"
+              className="btn-secondary btn-pill px-4 py-2 text-sm text-secondary"
               onClick={() => { setBulkAddOpen(false); setBulkAddText(''); }}
             >
               Cancel
@@ -702,7 +702,7 @@ function InventoryPage() {
                       type="button"
                       aria-label="Increase quantity"
                       disabled={loadingQtyItemId === item.id}
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-th-border text-lg text-muted disabled:opacity-40"
+                      className="flex h-10 w-10 items-center justify-center btn-secondary btn-pill text-lg text-muted disabled:opacity-40"
                       onClick={() => updateItem.mutate({ itemId: item.id, data: { quantity: item.quantity + 1 } })}
                     >+</button>
                     <button
@@ -954,7 +954,7 @@ function InventoryPage() {
                         )}
                         <button
                           type="button"
-                          className="rounded-full border border-th-border px-3 py-2 text-xs text-secondary"
+                          className="btn-secondary btn-pill px-3 py-2 text-xs text-secondary"
                           onClick={() => handleOpenEdit(item)}
                         >
                           Edit
@@ -971,7 +971,7 @@ function InventoryPage() {
                             </button>
                             <button
                               type="button"
-                              className="rounded-full border border-th-border px-2 py-2 text-xs text-muted"
+                              className="btn-secondary btn-pill px-2 py-2 text-xs text-muted"
                               onClick={() => setConfirmDeleteId(null)}
                             >
                               ✕
@@ -1108,14 +1108,14 @@ function InventoryForm({
       <div className="md:col-span-2 flex justify-end gap-3">
         <button
           type="button"
-          className="rounded-full border border-th-border px-5 py-2 text-sm"
+          className="btn-secondary btn-pill px-5 py-2 text-sm"
           onClick={onCancel}
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+          className="btn-primary btn-pill px-5 py-2 text-sm disabled:opacity-50"
           disabled={isSubmitting || !form.name.trim()}
         >
           {isSubmitting ? 'Saving…' : submitLabel}

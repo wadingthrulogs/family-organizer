@@ -62,7 +62,7 @@ export function AssignmentList({ assignments, onUpdateState, onSkip, onSwap, eli
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+              className="btn-primary btn-pill px-4 py-2 text-sm disabled:opacity-50"
               disabled={isDone || isUpdatingId === assignment.id}
               onClick={() => onUpdateState(assignment.id, 'COMPLETED')}
             >
@@ -74,7 +74,7 @@ export function AssignmentList({ assignments, onUpdateState, onSkip, onSwap, eli
             </button>
             <button
               type="button"
-              className="rounded-full border border-th-border px-4 py-2 text-sm text-secondary disabled:opacity-50"
+              className="btn-secondary btn-pill px-4 py-2 text-sm text-secondary disabled:opacity-50"
               disabled={assignment.state === 'SNOOZED' || isDone || isUpdatingId === assignment.id}
               onClick={() => onUpdateState(assignment.id, 'SNOOZED')}
             >

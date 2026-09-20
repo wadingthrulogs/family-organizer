@@ -176,7 +176,7 @@ export default function UserManagement() {
           <div className="flex gap-2">
             <button
               type="button"
-              className="rounded-full bg-btn-primary px-4 py-1.5 text-xs font-semibold text-btn-primary-text"
+              className="btn-primary btn-pill px-4 py-1.5 text-xs"
               onClick={() => {
                 setShowCreate(true);
                 setNotice(null);
@@ -186,7 +186,7 @@ export default function UserManagement() {
             </button>
             <button
               type="button"
-              className="rounded-full border border-th-border px-4 py-1.5 text-xs font-semibold text-secondary hover:bg-hover-bg"
+              className="btn-secondary btn-pill px-4 py-1.5 text-xs text-secondary"
               onClick={loadUsers}
               disabled={loading}
             >
@@ -381,7 +381,7 @@ export default function UserManagement() {
             <div className="mt-5 flex justify-end gap-3">
               <button
                 type="button"
-                className="rounded-full border border-th-border px-4 py-2 text-sm"
+                className="btn-secondary btn-pill px-4 py-2 text-sm"
                 onClick={() => {
                   setShowChangePw(false);
                   setChangePwCurrent('');
@@ -392,7 +392,7 @@ export default function UserManagement() {
               </button>
               <button
                 type="button"
-                className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+                className="btn-primary btn-pill px-4 py-2 text-sm disabled:opacity-50"
                 disabled={!changePwCurrent || changePwNew.length < 8 || changePwChanging}
                 onClick={handleChangeOwnPassword}
               >
@@ -424,7 +424,7 @@ export default function UserManagement() {
             <div className="mt-5 flex justify-end gap-3">
               <button
                 type="button"
-                className="rounded-full border border-th-border px-4 py-2 text-sm"
+                className="btn-secondary btn-pill px-4 py-2 text-sm"
                 onClick={() => {
                   setResetTarget(null);
                   setNewPassword('');
@@ -434,7 +434,7 @@ export default function UserManagement() {
               </button>
               <button
                 type="button"
-                className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+                className="btn-primary btn-pill px-4 py-2 text-sm disabled:opacity-50"
                 disabled={newPassword.length < 8 || resetting}
                 onClick={handleResetPassword}
               >
@@ -489,7 +489,7 @@ export default function UserManagement() {
             <div className="mt-5 flex justify-end gap-3">
               <button
                 type="button"
-                className="rounded-full border border-th-border px-4 py-2 text-sm"
+                className="btn-secondary btn-pill px-4 py-2 text-sm"
                 onClick={() => {
                   setShowCreate(false);
                   setCreateUsername('');
@@ -502,7 +502,7 @@ export default function UserManagement() {
               </button>
               <button
                 type="button"
-                className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+                className="btn-primary btn-pill px-4 py-2 text-sm disabled:opacity-50"
                 disabled={!usernameValid(createUsername) || !passwordMeetsComplexity(createPassword) || (createEmail !== '' && !emailValid(createEmail)) || creating}
                 onClick={handleCreateUser}
               >

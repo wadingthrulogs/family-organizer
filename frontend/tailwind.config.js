@@ -41,11 +41,13 @@ export default {
         surface: 'var(--color-bg-card)',
       },
       borderRadius: {
-        card: '10px',
+        card: 'var(--radius-card)',
+        btn: 'var(--radius-btn)',
+        pill: 'var(--radius-pill)',
       },
       fontFamily: {
-        display: ['"Cabin"', 'system-ui', 'sans-serif'],
-        body: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
+        display: 'var(--font-display)',
+        body: 'var(--font-body)',
       },
       boxShadow: {
         soft: '0 10px 30px var(--color-shadow)',

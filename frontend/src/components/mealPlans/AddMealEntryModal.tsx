@@ -85,7 +85,7 @@ export function AddMealEntryModal({
                   onClick={() => setDayOffset(i)}
                   className={`rounded py-1.5 text-xs font-medium transition-colors ${
                     dayOffset === i
-                      ? 'bg-btn-primary text-btn-primary-text'
+                      ? 'btn-primary'
                       : 'bg-input border border-input text-secondary hover:bg-hover-bg'
                   }`}
                 >
@@ -106,7 +106,7 @@ export function AddMealEntryModal({
                   onClick={() => setMealType(mt.value)}
                   className={`rounded py-1.5 text-xs font-medium transition-colors ${
                     mealType === mt.value
-                      ? 'bg-btn-primary text-btn-primary-text'
+                      ? 'btn-primary'
                       : 'bg-input border border-input text-secondary hover:bg-hover-bg'
                   }`}
                 >
@@ -177,14 +177,14 @@ export function AddMealEntryModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-th-border px-4 py-2 text-sm text-secondary hover:bg-hover-bg"
+              className="btn-secondary px-4 py-2 text-sm text-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isPending || !title.trim()}
-              className="rounded-lg bg-btn-primary px-4 py-2 text-sm font-medium text-btn-primary-text disabled:opacity-50"
+              className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
             >
               {isPending ? 'Saving…' : editingEntry ? 'Save changes' : 'Add meal'}
             </button>

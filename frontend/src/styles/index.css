@@ -1,3 +1,5 @@
+@import './fonts.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,6 +14,53 @@ dialog {
 }
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.45);
+}
+
+/* ═══════════════════════════════════════════════════
+   THEME SYSTEM — Type, shape and surface tokens
+   A theme may override any of these under its [data-theme] block. The
+   defaults reproduce the pre-theme look exactly, so themes that only set
+   colours are unaffected. Also reset on any [data-theme] element so a
+   picker preview card of a classic theme doesn't inherit the page's
+   seasonal fonts and shapes.
+   ═══════════════════════════════════════════════════ */
+:root,
+[data-theme] {
+  /* type */
+  --font-display: 'Cabin', system-ui, sans-serif;
+  --font-body: 'Source Sans 3', system-ui, sans-serif;
+  --heading-transform: none;
+  --heading-tracking: normal;
+
+  /* shape */
+  --radius-card: 10px;
+  --radius-btn: 0.5rem;
+  --radius-pill: 9999px;
+
+  /* buttons — see .btn in the components layer */
+  --btn-font: var(--font-body);
+  --btn-weight: 500;
+  --btn-transform: none;
+  --btn-tracking: normal;
+  --btn-border: 0;
+  --btn-shadow: none;
+  --btn-secondary-border: 1px solid var(--color-border);
+
+  /* surface — a fixed full-page layer painted by body::before, under all
+     content. Comma-separated lists compose multiple layers. */
+  --theme-bg-image: none;
+  --theme-bg-size: auto;
+  --theme-bg-position: 0 0;
+  --theme-bg-repeat: repeat;
+  --theme-bg-opacity: 1;
+
+  /* Short aliases. Components reference these directly in inline
+     `var(--color-card)`-style classes; before these existed they resolved
+     to nothing, which is why dashboard widgets were transparent. */
+  --color-card: var(--color-bg-card);
+  --color-bg: var(--color-bg-page);
+  --color-text: var(--color-text-primary);
+  --color-input: var(--color-bg-input);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -595,14 +644,330 @@ dialog::backdrop {
   --color-shopping-card: rgba(255,255,255,0.05);
 }
 
+/* ═══════════════════════════════════════════════════
+   SEASONAL & FUN THEMES
+   These set type, shape and surface tokens as well as colours. Artwork is
+   SVG under ./themes/ (Vite hashes the URLs); tiles are small and repeat.
+   ═══════════════════════════════════════════════════ */
+
+/* ─── Halloween ─── */
+[data-theme="halloween"] {
+  --color-bg-page: #0B0710;
+  --color-bg-card: #1A1024;
+  --color-bg-card-alt: #221533;
+  --color-bg-input: #2A1B3D;
+  --color-bg-hover: #241736;
+  --color-bg-skeleton: #1A1024;
+  --color-bg-skeleton-bright: #2A1B3D;
+  --color-bg-btn-primary: #FF7A1A;
+  --color-bg-btn-primary-hover: #FF8F3F;
+  --color-text-btn-primary: #1A0A00;
+  --color-bg-nav-active: #FF7A1A;
+  --color-text-nav-active: #1A0A00;
+  --color-bg-nav-pill: #221533;
+  --color-text-nav-pill: #E8DCC8;
+  --color-text-heading: #F4E9D8;
+  --color-text-primary: #EDE3D2;
+  --color-text-secondary: #C9BBA8;
+  --color-text-muted: #9A8AA8;
+  --color-text-faint: #6B5C7A;
+  --color-text-link: #8BE04A;
+  --color-border: #34244A;
+  --color-border-light: #241736;
+  --color-border-input: #4A3565;
+  --color-accent: #FF7A1A;
+  --color-accent-alt: #8BE04A;
+  --color-shadow: rgba(0, 0, 0, 0.55);
+  --color-overlay: rgba(5, 2, 10, 0.7);
+  --color-form-label: #E8DCC8;
+  --color-shopping-bg: #070410;
+  --color-shopping-text: #F4E9D8;
+  --color-shopping-muted: #9A8AA8;
+  --color-shopping-card: rgba(255, 122, 26, 0.08);
+
+  --font-display: 'Creepster', 'Cabin', system-ui, sans-serif;
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --heading-tracking: 0.05em;
+
+  --radius-card: 6px;
+  --radius-btn: 6px;
+  --radius-pill: 8px;
+
+  --btn-font: var(--font-display);
+  --btn-weight: 400;
+  --btn-tracking: 0.08em;
+  --btn-border: 1px solid #FFA45C;
+  --btn-shadow: 0 0 14px rgba(255, 122, 26, 0.4);
+  --btn-secondary-border: 1px solid #5B3F7A;
+
+  --theme-bg-image:
+    url(./themes/halloween-web.svg),
+    url(./themes/halloween-bats.svg),
+    radial-gradient(ellipse 90% 60% at 50% -10%, #2A1440 0%, rgba(11, 7, 16, 0) 70%);
+  --theme-bg-size: 260px 260px, 520px 520px, auto;
+  --theme-bg-position: right top, 0 0, center top;
+  --theme-bg-repeat: no-repeat, repeat, no-repeat;
+}
+
+/* ─── Thanksgiving ─── */
+[data-theme="thanksgiving"] {
+  --color-bg-page: #F3E6CF;
+  --color-bg-card: #FFF8EC;
+  --color-bg-card-alt: #F8ECD8;
+  --color-bg-input: #FFFDF7;
+  --color-bg-hover: #F4E4C8;
+  --color-bg-skeleton: #F1E3CB;
+  --color-bg-skeleton-bright: #E6D3B3;
+  --color-bg-btn-primary: #B7410E;
+  --color-bg-btn-primary-hover: #9E3609;
+  --color-text-btn-primary: #FFF8EC;
+  --color-bg-nav-active: #B7410E;
+  --color-text-nav-active: #FFF8EC;
+  --color-bg-nav-pill: #F8ECD8;
+  --color-text-nav-pill: #5A3E24;
+  --color-text-heading: #3B2A1A;
+  --color-text-primary: #3F2E1E;
+  --color-text-secondary: #5E4630;
+  --color-text-muted: #7C6244;
+  --color-text-faint: #A88E70;
+  --color-text-link: #8A4B12;
+  --color-border: #E4D2B4;
+  --color-border-light: #EFE2CB;
+  --color-border-input: #CDB894;
+  --color-accent: #B7410E;
+  --color-accent-alt: #D9A21B;
+  --color-shadow: rgba(90, 60, 20, 0.15);
+  --color-overlay: rgba(60, 35, 10, 0.45);
+  --color-form-label: #5E4630;
+  --color-shopping-bg: #2A1B0E;
+  --color-shopping-text: #FFF3DF;
+  --color-shopping-muted: #C9AE86;
+  --color-shopping-card: rgba(255, 255, 255, 0.06);
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Lora', Georgia, serif;
+
+  --radius-card: 14px;
+  --radius-btn: 12px;
+  --radius-pill: 9999px;
+
+  --btn-font: var(--font-display);
+  --btn-weight: 600;
+  --btn-shadow: 0 2px 0 rgba(90, 40, 10, 0.25);
+  --btn-secondary-border: 1px solid #CDB894;
+
+  --theme-bg-image:
+    url(./themes/thanksgiving-leaves.svg),
+    linear-gradient(180deg, #F6EAD3 0%, #EFDDBE 100%);
+  --theme-bg-size: 480px 480px, auto;
+  --theme-bg-position: 0 0, center;
+  --theme-bg-repeat: repeat, no-repeat;
+}
+
+/* ─── Christmas ─── */
+[data-theme="christmas"] {
+  --color-bg-page: #0F2A1E;
+  --color-bg-card: #163B2A;
+  --color-bg-card-alt: #1C4633;
+  --color-bg-input: #1F4D38;
+  --color-bg-hover: #1C4633;
+  --color-bg-skeleton: #163B2A;
+  --color-bg-skeleton-bright: #1F4D38;
+  --color-bg-btn-primary: #C8102E;
+  --color-bg-btn-primary-hover: #DC2340;
+  --color-text-btn-primary: #FFF7E6;
+  --color-bg-nav-active: #C8102E;
+  --color-text-nav-active: #FFF7E6;
+  --color-bg-nav-pill: #1C4633;
+  --color-text-nav-pill: #F1E9D2;
+  --color-text-heading: #F8F5EC;
+  --color-text-primary: #ECE6D6;
+  --color-text-secondary: #CFC6B0;
+  --color-text-muted: #9FB3A4;
+  --color-text-faint: #5F7C6C;
+  --color-text-link: #F2C94C;
+  --color-border: #245840;
+  --color-border-light: #1C4633;
+  --color-border-input: #3A6E52;
+  --color-accent: #D4AF37;
+  --color-accent-alt: #C8102E;
+  --color-shadow: rgba(0, 0, 0, 0.45);
+  --color-overlay: rgba(3, 15, 9, 0.7);
+  --color-form-label: #ECE6D6;
+  --color-shopping-bg: #071A11;
+  --color-shopping-text: #F8F5EC;
+  --color-shopping-muted: #9FB3A4;
+  --color-shopping-card: rgba(255, 255, 255, 0.05);
+
+  --font-display: 'Mountains of Christmas', 'Cabin', system-ui, sans-serif;
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --heading-tracking: 0.02em;
+
+  --radius-card: 12px;
+  --radius-btn: 9999px;
+  --radius-pill: 9999px;
+
+  --btn-font: var(--font-display);
+  --btn-weight: 700;
+  --btn-tracking: 0.02em;
+  --btn-border: 1px solid #D4AF37;
+  --btn-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --btn-secondary-border: 1px solid #3A6E52;
+
+  --theme-bg-image:
+    url(./themes/christmas-snow.svg),
+    radial-gradient(circle at 15% 20%, rgba(212, 175, 55, 0.14) 0, rgba(212, 175, 55, 0) 220px),
+    radial-gradient(circle at 85% 70%, rgba(200, 16, 46, 0.16) 0, rgba(200, 16, 46, 0) 260px),
+    radial-gradient(circle at 60% 10%, rgba(248, 245, 236, 0.07) 0, rgba(248, 245, 236, 0) 180px);
+  --theme-bg-size: 480px 480px, auto, auto, auto;
+  --theme-bg-position: 0 0, 0 0, 0 0, 0 0;
+  --theme-bg-repeat: repeat, no-repeat, no-repeat, no-repeat;
+}
+
+/* ─── Dungeons & Dragons ─── */
+[data-theme="dnd"] {
+  --color-bg-page: #E7D9BC;
+  --color-bg-card: #F5EBD3;
+  --color-bg-card-alt: #EFE2C6;
+  --color-bg-input: #FBF5E6;
+  --color-bg-hover: #EADCBE;
+  --color-bg-skeleton: #EFE2C6;
+  --color-bg-skeleton-bright: #E2D2AE;
+  --color-bg-btn-primary: #7A1C1C;
+  --color-bg-btn-primary-hover: #931F1F;
+  --color-text-btn-primary: #F8EFD9;
+  --color-bg-nav-active: #7A1C1C;
+  --color-text-nav-active: #F8EFD9;
+  --color-bg-nav-pill: #EFE2C6;
+  --color-text-nav-pill: #4A3620;
+  --color-text-heading: #2B1D12;
+  --color-text-primary: #33241A;
+  --color-text-secondary: #55402B;
+  --color-text-muted: #6E573C;
+  --color-text-faint: #A38B67;
+  --color-text-link: #7A1C1C;
+  --color-border: #CDBB93;
+  --color-border-light: #DDCFAE;
+  --color-border-input: #B8A277;
+  --color-accent: #7A1C1C;
+  --color-accent-alt: #B8860B;
+  --color-shadow: rgba(60, 40, 10, 0.22);
+  --color-overlay: rgba(30, 20, 8, 0.55);
+  --color-form-label: #55402B;
+  --color-shopping-bg: #1B1410;
+  --color-shopping-text: #F3E7CD;
+  --color-shopping-muted: #B8A48A;
+  --color-shopping-card: rgba(255, 255, 255, 0.06);
+
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-body: 'Crimson Pro', Georgia, serif;
+  --heading-tracking: 0.04em;
+
+  --radius-card: 3px;
+  --radius-btn: 3px;
+  --radius-pill: 3px;
+
+  --btn-font: var(--font-display);
+  --btn-weight: 700;
+  --btn-transform: uppercase;
+  --btn-tracking: 0.08em;
+  --btn-border: 2px double #C9A227;
+  --btn-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+  --btn-secondary-border: 2px double #B8A277;
+
+  --theme-bg-image:
+    url(./themes/dnd-dice.svg),
+    url(./themes/dnd-parchment.svg),
+    radial-gradient(ellipse 120% 90% at 50% 40%, rgba(255, 248, 230, 0.35) 0%, rgba(120, 80, 30, 0.18) 100%);
+  --theme-bg-size: 560px 560px, 256px 256px, auto;
+  --theme-bg-position: 0 0, 0 0, center;
+  --theme-bg-repeat: repeat, repeat, no-repeat;
+}
+
 :root {
   color: var(--color-text-primary);
   background-color: var(--color-bg-page);
+  font-family: var(--font-body);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+}
+
+/* Theme background: one fixed layer behind everything. Fixed positioning
+   (rather than background-attachment: fixed) avoids repaint-on-scroll on
+   WebKitGTK / the Pi. Hidden while a user-uploaded dashboard photo is
+   showing — the photo wins (see AppLayout / KioskPage). */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--theme-bg-image);
+  background-size: var(--theme-bg-size);
+  background-position: var(--theme-bg-position);
+  background-repeat: var(--theme-bg-repeat);
+  opacity: var(--theme-bg-opacity);
+}
+body[data-user-bg]::before {
+  display: none;
+}
+
+/* Theme picker preview: paints a theme's surface on an element carrying
+   its data-theme attribute. */
+.theme-preview {
+  background-color: var(--color-bg-page);
+  background-image: var(--theme-bg-image);
+  background-size: var(--theme-bg-size);
+  background-position: var(--theme-bg-position);
+  background-repeat: var(--theme-bg-repeat);
+}
+
+/* Full-viewport page roots are transparent so the theme layer shows
+   through; the page colour itself comes from :root. */
+.page-root {
+  background-color: transparent;
+}
+
+h1, h2, h3, .font-display {
+  text-transform: var(--heading-transform);
+  letter-spacing: var(--heading-tracking);
+}
+
+@layer components {
+  /* Buttons. Size (padding / font-size) stays in Tailwind utilities at the
+     call site; everything a theme might want to restyle lives here. */
+  .btn,
+  .btn-primary,
+  .btn-secondary {
+    font-family: var(--btn-font);
+    font-weight: var(--btn-weight);
+    text-transform: var(--btn-transform);
+    letter-spacing: var(--btn-tracking);
+    border-radius: var(--radius-btn);
+    border: var(--btn-border);
+    box-shadow: var(--btn-shadow);
+    transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+  }
+  .btn-primary {
+    background-color: var(--color-bg-btn-primary);
+    color: var(--color-text-btn-primary);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-bg-btn-primary-hover);
+  }
+  .btn-secondary {
+    background-color: transparent;
+    border: var(--btn-secondary-border);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-bg-hover);
+  }
+  .btn-pill {
+    border-radius: var(--radius-pill);
+  }
 }
 
 /* Keep input text always black regardless of theme */

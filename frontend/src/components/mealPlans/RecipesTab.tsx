@@ -274,7 +274,7 @@ export function RecipesTab({
             <button
               type="button"
               onClick={() => { setEditingRecipe(null); setShowForm(true); }}
-              className="rounded-lg bg-btn-primary px-3 py-1.5 text-sm font-medium text-btn-primary-text"
+              className="btn-primary px-3 py-1.5 text-sm"
             >
               + New recipe
             </button>
@@ -424,7 +424,7 @@ export function RecipesTab({
                           type="button"
                           onClick={() => setShowGroceryDropdown(showGroceryDropdown === recipe.id ? null : recipe.id)}
                           disabled={addMissing.isPending}
-                          className="text-xs font-medium text-btn-primary-text bg-btn-primary rounded-lg px-3 py-1.5 disabled:opacity-50"
+                          className="text-xs btn-primary px-3 py-1.5 disabled:opacity-50"
                         >
                           🛒 Add missing to grocery ▾
                         </button>
@@ -494,7 +494,7 @@ export function RecipesTab({
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            className="rounded-full border border-th-border px-4 py-2 text-sm text-secondary"
+            className="btn-secondary btn-pill px-4 py-2 text-sm text-secondary"
             onClick={() => setConfirmDeleteRecipe(null)}
           >
             Cancel
@@ -589,7 +589,7 @@ export function RecipesTab({
                   type="button"
                   onClick={handleTextImport}
                   disabled={bulkImport.isPending || !importText.trim()}
-                  className="rounded-lg bg-btn-primary px-4 py-2 text-sm font-medium text-btn-primary-text disabled:opacity-50"
+                  className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
                 >
                   {bulkImport.isPending ? 'Importing…' : 'Import'}
                 </button>
@@ -600,7 +600,7 @@ export function RecipesTab({
                 <button
                   type="button"
                   onClick={closeImport}
-                  className="rounded-lg bg-btn-primary px-4 py-2 text-sm font-medium text-btn-primary-text"
+                  className="btn-primary px-4 py-2 text-sm"
                 >
                   Done
                 </button>

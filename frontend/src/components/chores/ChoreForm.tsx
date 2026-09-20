@@ -176,13 +176,13 @@ export function ChoreForm({ onSubmit, onCancel, isSubmitting, errorMessage, subm
       <div className="flex justify-end gap-2">
         {onCancel ? (
           <button type="button" onClick={onCancel}
-            className="rounded-full border border-th-border px-4 py-2 text-sm">
+            className="btn-secondary btn-pill px-4 py-2 text-sm">
             Cancel
           </button>
         ) : null}
         <button
           type="submit"
-          className="rounded-full bg-btn-primary px-4 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+          className="btn-primary btn-pill px-4 py-2 text-sm disabled:opacity-50"
           disabled={disabled}
         >
           {isSubmitting ? 'Saving…' : (submitLabel ?? 'Create chore')}

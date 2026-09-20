@@ -33,7 +33,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-page">
+      <div className="page-root flex min-h-screen items-center justify-center">
         <div className="text-center space-y-3">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-th-border border-t-btn-primary" />
           <p className="text-sm text-muted">Loading…</p>

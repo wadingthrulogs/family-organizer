@@ -158,6 +158,14 @@ function KioskPage() {
   const bgOpacity = config.preferences?.backgroundOverlay ?? 1;
   const backgroundFit = config.preferences?.backgroundFit ?? 'cover';
 
+  // A user-uploaded photo takes precedence over the theme's own background
+  // (painted by body::before — see index.css).
+  useEffect(() => {
+    if (bgImageUrl) document.body.dataset.userBg = '';
+    else delete document.body.dataset.userBg;
+    return () => { delete document.body.dataset.userBg; };
+  }, [bgImageUrl]);
+
   const handleAddWidget = useCallback((slot: DashboardWidgetSlot) => {
     setConfig((prev) => {
       const next: DashboardConfig = { ...prev, slots: [...prev.slots, slot] };
@@ -309,7 +317,7 @@ function KioskPage() {
 
   return (
     <div
-      className={`min-h-screen w-full bg-page p-4 ${cursorHidden ? 'cursor-hidden' : ''}`}
+      className={`page-root min-h-screen w-full p-4 ${cursorHidden ? 'cursor-hidden' : ''}`}
       style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
     >
       {bgImageUrl && (

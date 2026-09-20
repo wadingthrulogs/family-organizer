@@ -153,7 +153,7 @@ export default function TasksPage() {
         <button
           type="submit"
           disabled={!quickAdd.trim() || createTask.isPending}
-          className="min-h-[44px] rounded-lg bg-btn-primary px-5 text-sm font-medium text-btn-primary-text disabled:opacity-50 touch-manipulation active:scale-95"
+          className="min-h-[44px] btn-primary px-5 text-sm disabled:opacity-50 touch-manipulation active:scale-95"
         >
           {createTask.isPending ? 'Adding…' : 'Add'}
         </button>
@@ -216,7 +216,7 @@ export default function TasksPage() {
                 type="button"
                 onClick={handleFocusDone}
                 disabled={updateTask.isPending}
-                className="w-full rounded-lg bg-btn-primary py-3 text-base font-semibold text-btn-primary-text disabled:opacity-50"
+                className="w-full btn-primary py-3 text-base disabled:opacity-50"
               >
                 {updateTask.isPending ? 'Saving…' : '✓ Mark Done'}
               </button>
@@ -225,7 +225,7 @@ export default function TasksPage() {
                   type="button"
                   onClick={handleFocusPrev}
                   disabled={clampedFocusIndex === 0}
-                  className="min-h-[44px] flex-1 rounded-lg border border-th-border text-sm text-secondary disabled:opacity-30 touch-manipulation active:scale-95"
+                  className="min-h-[44px] flex-1 btn-secondary text-sm text-secondary disabled:opacity-30 touch-manipulation active:scale-95"
                 >
                   ← Prev
                 </button>

@@ -130,7 +130,7 @@ export function RecipeUploadModal({
           </p>
           <button
             type="button"
-            className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text"
+            className="btn-primary btn-pill px-5 py-2 text-sm"
             onClick={() => fileRef.current?.click()}
           >
             📷 Choose photo
@@ -198,7 +198,7 @@ export function RecipeUploadModal({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button
               type="button"
-              className="rounded-full border border-th-border px-3 py-1.5 text-xs text-secondary"
+              className="btn-secondary btn-pill px-3 py-1.5 text-xs text-secondary"
               onClick={addRow}
             >
               + Add row
@@ -206,7 +206,7 @@ export function RecipeUploadModal({
             <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-full border border-th-border px-4 py-2 text-sm"
+                className="btn-secondary btn-pill px-4 py-2 text-sm"
                 onClick={() => {
                   setRows(null);
                   setTitle(null);
@@ -217,7 +217,7 @@ export function RecipeUploadModal({
               </button>
               <button
                 type="button"
-                className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+                className="btn-primary btn-pill px-5 py-2 text-sm disabled:opacity-50"
                 disabled={adding || rows.every((r) => !r.name.trim())}
                 onClick={handleConfirm}
               >

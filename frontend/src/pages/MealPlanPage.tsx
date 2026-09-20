@@ -210,7 +210,7 @@ export default function MealPlanPage() {
                 disabled={!currentPlan || groceryLists.length === 0}
                 title={groceryLists.length === 0 ? 'Create a grocery list first' : undefined}
                 onClick={() => setShowGroceryDropdown((v) => !v)}
-                className="rounded-lg bg-btn-primary px-3 py-2 text-sm font-medium text-btn-primary-text disabled:opacity-40"
+                className="btn-primary px-3 py-2 text-sm disabled:opacity-40"
               >
                 🛒 Send to Grocery ▾
               </button>
@@ -268,7 +268,7 @@ export default function MealPlanPage() {
                 type="button"
                 onClick={() => createPlan.mutateAsync({ weekStart: currentMonday.toISOString() })}
                 disabled={createPlan.isPending}
-                className="rounded-lg bg-btn-primary px-4 py-2 text-sm font-medium text-btn-primary-text disabled:opacity-50"
+                className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
               >
                 {createPlan.isPending ? 'Creating…' : "Start this week's plan"}
               </button>
@@ -341,7 +341,7 @@ export default function MealPlanPage() {
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            className="rounded-full border border-th-border px-4 py-2 text-sm text-secondary"
+            className="btn-secondary btn-pill px-4 py-2 text-sm text-secondary"
             onClick={() => setConfirmDeleteEntry(null)}
           >
             Cancel
@@ -370,7 +370,7 @@ export default function MealPlanPage() {
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            className="rounded-full border border-th-border px-4 py-2 text-sm text-secondary"
+            className="btn-secondary btn-pill px-4 py-2 text-sm text-secondary"
             onClick={() => setConfirmDeletePlan(false)}
           >
             Cancel

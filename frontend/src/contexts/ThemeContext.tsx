@@ -1,5 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
+import { useToday } from '../hooks/useToday';
+import { resolveSeasonalTheme } from '../lib/seasonalTheme';
 
 export type ThemeId =
   | 'default'
@@ -17,43 +19,75 @@ export type ThemeId =
   | 'catppuccin-latte'
   | 'gruvbox-dark'
   | 'tokyo-night'
-  | 'rose-pine';
+  | 'rose-pine'
+  | 'halloween'
+  | 'thanksgiving'
+  | 'christmas'
+  | 'dnd';
+
+export type ThemeGroup = 'classic' | 'seasonal';
 
 export interface ThemeMeta {
   id: ThemeId;
   name: string;
-  colors: { bg: string; card: string; accent: string; text: string };
+  group: ThemeGroup;
+  /** Short line under the name in the picker. Only the themed ones need one. */
+  blurb?: string;
 }
 
+/**
+ * Everything a theme looks like lives in CSS under `[data-theme="<id>"]`
+ * (src/styles/index.css). The picker previews a theme by rendering a card
+ * with that attribute, so there is nothing to keep in sync here beyond the id.
+ */
 export const THEMES: ThemeMeta[] = [
-  { id: 'default', name: 'Default', colors: { bg: '#F5F1EA', card: '#FFFFFF', accent: '#2F80ED', text: '#0F172A' } },
-  { id: 'dark-plus', name: 'Dark+', colors: { bg: '#1E1E1E', card: '#252526', accent: '#0E639C', text: '#D4D4D4' } },
-  { id: 'light-plus', name: 'Light+', colors: { bg: '#FFFFFF', card: '#F3F3F3', accent: '#007ACC', text: '#333333' } },
-  { id: 'monokai', name: 'Monokai', colors: { bg: '#272822', card: '#2E2E28', accent: '#F92672', text: '#F8F8F2' } },
-  { id: 'dracula', name: 'Dracula', colors: { bg: '#282A36', card: '#2C2F3E', accent: '#BD93F9', text: '#F8F8F2' } },
-  { id: 'solarized-dark', name: 'Solarized Dark', colors: { bg: '#002B36', card: '#073642', accent: '#268BD2', text: '#EEE8D5' } },
-  { id: 'solarized-light', name: 'Solarized Light', colors: { bg: '#FDF6E3', card: '#EEE8D5', accent: '#268BD2', text: '#073642' } },
-  { id: 'one-dark-pro', name: 'One Dark Pro', colors: { bg: '#282C34', card: '#2C313A', accent: '#61AFEF', text: '#ABB2BF' } },
-  { id: 'nord', name: 'Nord', colors: { bg: '#2E3440', card: '#3B4252', accent: '#88C0D0', text: '#D8DEE9' } },
-  { id: 'midnight', name: 'Midnight', colors: { bg: '#0D1117', card: '#161B22', accent: '#238636', text: '#C9D1D9' } },
-  { id: 'paper', name: 'Paper', colors: { bg: '#FFFFFF', card: '#F6F8FA', accent: '#2DA44E', text: '#1F2328' } },
-  { id: 'catppuccin-mocha', name: 'Catppuccin Mocha', colors: { bg: '#1E1E2E', card: '#242435', accent: '#CBA6F7', text: '#CDD6F4' } },
-  { id: 'catppuccin-latte', name: 'Catppuccin Latte', colors: { bg: '#EFF1F5', card: '#E6E9EF', accent: '#8839EF', text: '#4C4F69' } },
-  { id: 'gruvbox-dark', name: 'Gruvbox Dark', colors: { bg: '#282828', card: '#3C3836', accent: '#FB4934', text: '#EBDBB2' } },
-  { id: 'tokyo-night', name: 'Tokyo Night', colors: { bg: '#1A1B26', card: '#1F2335', accent: '#7AA2F7', text: '#A9B1D6' } },
-  { id: 'rose-pine', name: 'Rosé Pine', colors: { bg: '#191724', card: '#1F1D2E', accent: '#C4A7E7', text: '#E0DEF4' } },
+  { id: 'default', name: 'Default', group: 'classic' },
+  { id: 'dark-plus', name: 'Dark+', group: 'classic' },
+  { id: 'light-plus', name: 'Light+', group: 'classic' },
+  { id: 'monokai', name: 'Monokai', group: 'classic' },
+  { id: 'dracula', name: 'Dracula', group: 'classic' },
+  { id: 'solarized-dark', name: 'Solarized Dark', group: 'classic' },
+  { id: 'solarized-light', name: 'Solarized Light', group: 'classic' },
+  { id: 'one-dark-pro', name: 'One Dark Pro', group: 'classic' },
+  { id: 'nord', name: 'Nord', group: 'classic' },
+  { id: 'midnight', name: 'Midnight', group: 'classic' },
+  { id: 'paper', name: 'Paper', group: 'classic' },
+  { id: 'catppuccin-mocha', name: 'Catppuccin Mocha', group: 'classic' },
+  { id: 'catppuccin-latte', name: 'Catppuccin Latte', group: 'classic' },
+  { id: 'gruvbox-dark', name: 'Gruvbox Dark', group: 'classic' },
+  { id: 'tokyo-night', name: 'Tokyo Night', group: 'classic' },
+  { id: 'rose-pine', name: 'Rosé Pine', group: 'classic' },
+  { id: 'halloween', name: 'Halloween', group: 'seasonal', blurb: 'Pumpkin orange, bats and cobwebs' },
+  { id: 'thanksgiving', name: 'Thanksgiving', group: 'seasonal', blurb: 'Warm harvest cream and rust' },
+  { id: 'christmas', name: 'Christmas', group: 'seasonal', blurb: 'Pine green, red and gold, snowfall' },
+  { id: 'dnd', name: 'Dungeons & Dragons', group: 'seasonal', blurb: 'Parchment, crimson and d20s' },
 ];
 
+const THEME_IDS = new Set<string>(THEMES.map((t) => t.id));
+export function isThemeId(value: unknown): value is ThemeId {
+  return typeof value === 'string' && THEME_IDS.has(value);
+}
+
 const STORAGE_KEY = 'organizer-theme';
+const SEASONAL_STORAGE_KEY = 'organizer-theme-seasonal';
 
 interface ThemeContextValue {
+  /** The theme the user picked. Persisted; the fallback outside holiday windows. */
   theme: ThemeId;
   setTheme: (id: ThemeId) => void;
+  /** Auto-switch to a holiday theme by date (see lib/seasonalTheme.ts). */
+  seasonal: boolean;
+  setSeasonal: (on: boolean) => void;
+  /** What is actually applied right now: the seasonal pick if one is active, else `theme`. */
+  effectiveTheme: ThemeId;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: 'default',
   setTheme: () => {},
+  seasonal: false,
+  setSeasonal: () => {},
+  effectiveTheme: 'default',
 });
 
 function applyTheme(id: ThemeId) {
@@ -67,34 +101,49 @@ function applyTheme(id: ThemeId) {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { data: prefs } = useUserPreferences();
   const updatePrefs = useUpdateUserPreferencesMutation();
+  const today = useToday();
 
   const [theme, setThemeState] = useState<ThemeId>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as ThemeId | null;
-    return stored ?? 'default';
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return isThemeId(stored) ? stored : 'default';
   });
+  const [seasonal, setSeasonalState] = useState<boolean>(
+    () => localStorage.getItem(SEASONAL_STORAGE_KEY) === '1'
+  );
 
-  // On mount, apply whatever is in localStorage immediately (no flash)
+  // `today` is the wall display's midnight-rollover key, so the holiday
+  // switch happens on its own without anyone touching the screen.
+  const effectiveTheme = useMemo<ThemeId>(
+    () => (seasonal ? resolveSeasonalTheme() ?? theme : theme),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [seasonal, theme, today]
+  );
+
+  // Apply immediately from localStorage on mount (no flash), and whenever the
+  // effective theme changes after that.
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    applyTheme(effectiveTheme);
+  }, [effectiveTheme]);
 
   // When per-user preferences load, sync from server (server wins)
   useEffect(() => {
-    if (prefs?.theme && prefs.theme !== theme) {
-      const serverTheme = prefs.theme as ThemeId;
-      setThemeState(serverTheme);
-      localStorage.setItem(STORAGE_KEY, serverTheme);
-      applyTheme(serverTheme);
+    if (!prefs) return;
+    if (isThemeId(prefs.theme) && prefs.theme !== theme) {
+      setThemeState(prefs.theme);
+      localStorage.setItem(STORAGE_KEY, prefs.theme);
     }
-    // Only run when prefs.theme changes
+    if (typeof prefs.seasonalTheme === 'boolean' && prefs.seasonalTheme !== seasonal) {
+      setSeasonalState(prefs.seasonalTheme);
+      localStorage.setItem(SEASONAL_STORAGE_KEY, prefs.seasonalTheme ? '1' : '0');
+    }
+    // Only run when the server values change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs?.theme]);
+  }, [prefs?.theme, prefs?.seasonalTheme]);
 
   const setTheme = useCallback(
     (id: ThemeId) => {
       setThemeState(id);
       localStorage.setItem(STORAGE_KEY, id);
-      applyTheme(id);
       // Persist to server per-user (fire and forget)
       updatePrefs.mutate({ theme: id });
     },
@@ -102,8 +151,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const setSeasonal = useCallback(
+    (on: boolean) => {
+      setSeasonalState(on);
+      localStorage.setItem(SEASONAL_STORAGE_KEY, on ? '1' : '0');
+      updatePrefs.mutate({ seasonalTheme: on });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, seasonal, setSeasonal, effectiveTheme }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -3,7 +3,7 @@
 > This file is auto-loaded by Claude Code at the start of every session.
 > Keep it accurate and concise. For deep dives, see `docs/`.
 >
-> Last verified against the codebase: **2026-08-21** (through commit `e48202a`).
+> Last verified against the codebase: **2026-09-20** (theming work on top of `82110be`).
 
 ---
 
@@ -128,7 +128,7 @@ TZ                              # default UTC
 | Model | Key Fields |
 |-------|-----------|
 | User | id, username, email, passwordHash, pinHash, role, colorHex, authProvider, timezone, lastLoginAt, deletedAt |
-| UserPreference | userId, theme, dashboardConfig (JSON), kioskConfig (JSON), hiddenTabs |
+| UserPreference | userId, theme, seasonalTheme, dashboardConfig (JSON), kioskConfig (JSON), hiddenTabs |
 | UserSecret | userId, secretType, encryptedValue (Bytes) |
 | GoogleAccount | userId, email, displayName, encryptedRefreshToken, lastSyncedAt |
 | LinkedCalendar | userId, googleAccountId, googleId, displayName, colorHex, accessRole, syncToken, lastSyncedAt |
@@ -255,7 +255,7 @@ TZ                              # default UTC
   weatherUnits, taskRetention, homeAddress }` + `*Set` booleans for each encrypted secret
 - `PATCH /` — partial update; also accepts `googleClientId/Secret`, `openweatherApiKey`,
   `googleMapsApiKey`, `mapboxToken`, `homeAddress`, `smtp*`, `pushVapid*` (encrypted on write)
-- `GET /me` — user preferences `{ theme, dashboardConfig, kioskConfig, hiddenTabs }`
+- `GET /me` — user preferences `{ theme, seasonalTheme, dashboardConfig, kioskConfig, hiddenTabs }`
 - `PATCH /me` — user preferences update
 
 **Reminders `/reminders`**
@@ -403,9 +403,30 @@ interface GroceryItem { id, listId, name, category?, quantity, unit?, state, not
 ```
 
 ### Theming
-- 16 themes: `default, dark-plus, light-plus, monokai, dracula, solarized-dark, solarized-light, one-dark-pro, nord, midnight, paper, catppuccin-mocha, catppuccin-latte, gruvbox-dark, tokyo-night, rose-pine`
-- All colors are CSS custom properties consumed by Tailwind via `tailwind.config.js`
-- Key tokens: `bg-page, bg-card, text-heading, text-muted, text-secondary, text-faint, border-th-border, border-th-border-light, bg-btn-primary, text-btn-primary, bg-input, border-input, accent, rounded-card, shadow-soft`
+- 20 themes in two groups (`ThemeMeta.group` in `ThemeContext.tsx`):
+  - **classic** (colours only): `default, dark-plus, light-plus, monokai, dracula, solarized-dark, solarized-light, one-dark-pro, nord, midnight, paper, catppuccin-mocha, catppuccin-latte, gruvbox-dark, tokyo-night, rose-pine`
+  - **seasonal** (colours + fonts + shapes + background): `halloween, thanksgiving, christmas, dnd`
+- Everything a theme looks like is CSS custom properties under `[data-theme="<id>"]` in `src/styles/index.css`,
+  consumed by Tailwind via `tailwind.config.js`. Four token families:
+  - **colour** — `bg-page, bg-card, text-heading, text-muted, text-secondary, text-faint, border-th-border, border-th-border-light, bg-btn-primary, text-btn-primary, bg-input, border-input, accent, shadow-soft`.
+    `--color-card/bg/text/input` are aliases of the long names (components use them inline).
+  - **type** — `--font-display`, `--font-body`, `--heading-transform`, `--heading-tracking`
+  - **shape** — `--radius-card`, `--radius-btn`, `--radius-pill` (Tailwind `rounded-card/btn/pill`);
+    `--btn-font/weight/transform/tracking/border/shadow`, `--btn-secondary-border`
+  - **surface** — `--theme-bg-image/size/position/repeat/opacity`, painted by `body::before` as one fixed
+    full-page layer on every page. A user-uploaded dashboard photo wins: `AppLayout`/`KioskPage` set
+    `body[data-user-bg]`, which hides the theme layer. Artwork is SVG in `src/styles/themes/` (Vite inlines it).
+- Defaults live on `:root, [data-theme]` so a classic theme never inherits a seasonal theme's fonts — this is
+  also what makes the settings picker's live preview cards (`<div data-theme=…>`) render correctly.
+- **Buttons:** use `.btn-primary` / `.btn-secondary` (+ `.btn-pill`) from the components layer, never raw
+  `bg-btn-primary rounded-*`. Size (padding, text size) stays in Tailwind utilities at the call site.
+  The full-viewport page roots use `.page-root` (transparent) so the theme layer shows through.
+- **Fonts are self-hosted** (`public/fonts/*.woff2`, latin subsets, SIL OFL, declared in `src/styles/fonts.css`).
+  No Google Fonts CDN — the kiosk must render offline. Faces download lazily, only when a theme uses them.
+- **Seasonal auto-switch:** `UserPreference.seasonalTheme` (per user). `lib/seasonalTheme.ts` maps a date to
+  Halloween (Oct), Thanksgiving (Nov 1 → 4th Thursday), Christmas (day after → Jan 1), else `null` → the user's
+  own `theme`. `ThemeProvider` recomputes on `useToday()` so the wall display rolls over at midnight unattended.
+  `useTheme()` exposes `theme` (chosen), `effectiveTheme` (applied), `seasonal`, `setSeasonal`.
 - Shopping mode uses `color-shopping-*` tokens (dark theme regardless of active theme)
 
 ### Widgets (Dashboard)

@@ -48,6 +48,7 @@ model UserPreference {
   id              Int      @id @default(autoincrement())
   userId          Int      @unique
   theme           String   @default("default")
+  seasonalTheme   Boolean  @default(false)
   dashboardConfig String?
   kioskConfig     String?
   hiddenTabs      String?

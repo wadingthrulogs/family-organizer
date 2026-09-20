@@ -366,14 +366,16 @@ settingsRouter.patch(
 
 const patchMeSchema = z.object({
   theme: z.string().trim().min(1).max(40).optional(),
+  seasonalTheme: z.boolean().optional(),
   dashboardConfig: z.unknown().optional(),
   kioskConfig: z.unknown().optional(),
   hiddenTabs: z.array(z.string().trim().max(50)).max(20).optional(),
 }).strict();
 
-function serializePreference(pref: { theme: string; dashboardConfig: string | null; kioskConfig: string | null; hiddenTabs: string | null }) {
+function serializePreference(pref: { theme: string; seasonalTheme: boolean; dashboardConfig: string | null; kioskConfig: string | null; hiddenTabs: string | null }) {
   return {
     theme: pref.theme,
+    seasonalTheme: pref.seasonalTheme,
     dashboardConfig: pref.dashboardConfig ? JSON.parse(pref.dashboardConfig) : null,
     kioskConfig: pref.kioskConfig ? JSON.parse(pref.kioskConfig) : null,
     hiddenTabs: pref.hiddenTabs ? JSON.parse(pref.hiddenTabs) : [],
@@ -400,11 +402,14 @@ settingsRouter.patch(
   asyncHandler(async (req, res) => {
     const userId = req.session.userId!;
 
-    const { theme, dashboardConfig, kioskConfig, hiddenTabs } = patchMeSchema.parse(req.body ?? {});
+    const { theme, seasonalTheme, dashboardConfig, kioskConfig, hiddenTabs } = patchMeSchema.parse(req.body ?? {});
 
     const data: Record<string, unknown> = {};
     if (typeof theme === 'string' && theme.length > 0) {
       data.theme = theme;
+    }
+    if (typeof seasonalTheme === 'boolean') {
+      data.seasonalTheme = seasonalTheme;
     }
     if (dashboardConfig !== undefined) {
       data.dashboardConfig = dashboardConfig ? JSON.stringify(dashboardConfig) : null;

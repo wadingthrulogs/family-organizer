@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480" viewBox="0 0 480 480">
+  <defs>
+    <!-- simple maple-ish leaf, centered at origin, ~60px tall -->
+    <path id="maple" d="M0-30 L5-19 L10-22 L8-14 L24-18 L18-9 L26-5 L15-3 L26 6 L14 7 L12 14 L4 10 L2 22 L0 30 L-2 22 L-4 10 L-12 14 L-14 7 L-26 6 L-15-3 L-26-5 L-18-9 L-24-18 L-8-14 L-10-22 L-5-19 Z"/>
+    <!-- oak-ish leaf -->
+    <path id="oak" d="M0-32 C10-30 14-22 10-16 C18-16 20-8 14-4 C20 0 18 10 10 10 C12 18 6 24 0 32 C-6 24-12 18-10 10 C-18 10-20 0-14-4 C-20-8-18-16-10-16 C-14-22-10-30 0-32 Z"/>
+    <g id="acorn">
+      <ellipse cx="0" cy="6" rx="8" ry="11"/>
+      <path d="M-10-2 Q0-12 10-2 Q0 2 -10-2 Z"/>
+      <rect x="-1.5" y="-14" width="3" height="5" rx="1"/>
+    </g>
+  </defs>
+  <g opacity="0.55">
+    <use href="#maple" fill="#C9772A" transform="translate(70 80) rotate(20)"/>
+    <use href="#oak" fill="#A8582A" transform="translate(300 60) rotate(-35) scale(0.9)"/>
+    <use href="#maple" fill="#D9A21B" transform="translate(420 200) rotate(75) scale(0.7)"/>
+    <use href="#acorn" fill="#8B5A2B" transform="translate(180 210) rotate(-15)"/>
+    <use href="#oak" fill="#B7410E" transform="translate(90 330) rotate(50) scale(0.8)"/>
+    <use href="#maple" fill="#A8582A" transform="translate(330 340) rotate(-60) scale(0.85)"/>
+    <use href="#acorn" fill="#7A4A22" transform="translate(440 440) rotate(30) scale(0.8)"/>
+    <use href="#oak" fill="#D9A21B" transform="translate(230 440) rotate(10) scale(0.65)"/>
+    <use href="#maple" fill="#C9772A" transform="translate(20 460) rotate(-25) scale(0.55)"/>
+  </g>
+</svg>

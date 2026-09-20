@@ -14,7 +14,8 @@ import { api } from '../api/client';
 import type { HouseholdSettings } from '../types/settings';
 import UserManagement from '../components/UserManagement';
 import CommuteSettings from '../components/settings/CommuteSettings';
-import { useTheme, THEMES, type ThemeId } from '../contexts/ThemeContext';
+import { useTheme, THEMES, type ThemeGroup, type ThemeMeta } from '../contexts/ThemeContext';
+import { SEASONAL_SCHEDULE_TEXT } from '../lib/seasonalTheme';
 import { useAuth } from '../hooks/useAuth';
 
 const timezones = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
@@ -364,7 +365,7 @@ function SettingsPage() {
           <div className="md:col-span-2 flex justify-end gap-3">
             <button
               type="button"
-              className="rounded-full border border-th-border px-5 py-2 text-sm"
+              className="btn-secondary btn-pill px-5 py-2 text-sm"
               disabled={!isDirty || saving}
               onClick={() => {
                 setFormState(mapSettingsToFormState(data));
@@ -375,7 +376,7 @@ function SettingsPage() {
             </button>
             <button
               type="submit"
-              className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+              className="btn-primary btn-pill px-5 py-2 text-sm disabled:opacity-50"
               disabled={!isDirty || saving}
             >
               {saving ? 'Saving…' : 'Save changes'}
@@ -531,7 +532,7 @@ function SettingsPage() {
             {integrationFetching ? <span className="text-faint">Refreshing…</span> : null}
             <button
               type="button"
-              className="rounded-full border border-th-border px-4 py-1.5 text-xs font-medium text-heading"
+              className="btn-secondary btn-pill px-4 py-1.5 text-xs text-heading"
               onClick={() => handleGoogleConnect()}
               disabled={connecting}
             >
@@ -580,7 +581,7 @@ function SettingsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      className="rounded-full border border-th-border px-3 py-1 text-xs"
+                      className="btn-secondary btn-pill px-3 py-1 text-xs"
                       onClick={() => handleGoogleSync(account.id)}
                       disabled={syncing}
                     >
@@ -588,7 +589,7 @@ function SettingsPage() {
                     </button>
                     <button
                       type="button"
-                      className="rounded-full border border-th-border px-3 py-1 text-xs"
+                      className="btn-secondary btn-pill px-3 py-1 text-xs"
                       onClick={() => handleGoogleFullSync(account.id)}
                       disabled={syncing}
                       title="Clears sync tokens and re-fetches every event from Google. Use this to repair drift or remove stale events."
@@ -650,7 +651,7 @@ function SettingsPage() {
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               type="button"
-              className="rounded-full border border-th-border px-5 py-2 text-sm"
+              className="btn-secondary btn-pill px-5 py-2 text-sm"
               onClick={async () => {
                 try {
                   const result = await syncAllGoogle.mutateAsync();
@@ -911,7 +912,7 @@ function SettingsPage() {
               <div className="flex justify-end">
                 <button
                   type="button"
-                  className="rounded-full bg-btn-primary px-6 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+                  className="btn-primary btn-pill px-6 py-2 text-sm disabled:opacity-50"
                   disabled={srvSaving}
                   onClick={async () => {
                     setSrvSaving(true);
@@ -1077,7 +1078,7 @@ function BackupSection() {
       <div className="flex gap-3">
         <button
           type="button"
-          className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+          className="btn-primary btn-pill px-5 py-2 text-sm disabled:opacity-50"
           onClick={handleExport}
           disabled={exporting}
         >
@@ -1085,7 +1086,7 @@ function BackupSection() {
         </button>
         <button
           type="button"
-          className="rounded-full border border-th-border px-5 py-2 text-sm disabled:opacity-50"
+          className="btn-secondary btn-pill px-5 py-2 text-sm disabled:opacity-50"
           onClick={handleImportClick}
           disabled={importing}
         >
@@ -1129,46 +1130,88 @@ function mapGoogleReason(code?: string | null) {
 
 /* ─── Theme Picker ─── */
 
+const THEME_GROUPS: { group: ThemeGroup; title: string; hint: string }[] = [
+  { group: 'classic', title: 'Classic', hint: 'Colour palettes.' },
+  { group: 'seasonal', title: 'Seasonal & fun', hint: 'Fonts, buttons and backgrounds too.' },
+];
+
+function ThemePreviewCard({ meta, active, onSelect }: { meta: ThemeMeta; active: boolean; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={active}
+      className={`group relative flex flex-col overflow-hidden rounded-card border-2 text-left transition-all ${
+        active ? 'border-accent ring-2 ring-accent/30 shadow-soft' : 'border-th-border hover:border-muted'
+      }`}
+    >
+      {/* Live preview: everything inside inherits the previewed theme's tokens
+          from its data-theme attribute, so it's a real render, not a swatch. */}
+      <div data-theme={meta.id} className="theme-preview h-24 w-full">
+        <div className="mx-3 mt-3 rounded-card border border-th-border bg-card p-2 shadow-soft">
+          <p className="font-display text-base leading-tight text-heading truncate">Aa Family</p>
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <span className="btn-primary px-2.5 py-0.5 text-[11px] leading-4">Add</span>
+            <span className="btn-secondary btn-pill px-2.5 py-0.5 text-[11px] leading-4 text-secondary">Skip</span>
+            <span className="ml-auto h-3 w-3 shrink-0 rounded-full bg-accent" />
+          </div>
+        </div>
+      </div>
+      <div className="w-full px-3 py-2">
+        <p className="text-xs font-medium text-primary truncate">{meta.name}</p>
+        {meta.blurb && <p className="text-[11px] text-muted truncate">{meta.blurb}</p>}
+      </div>
+      {active && (
+        <span className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] text-btn-primary-text font-bold">
+          ✓
+        </span>
+      )}
+    </button>
+  );
+}
+
 function ThemePicker() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, seasonal, setSeasonal, effectiveTheme } = useTheme();
+  const activeSeasonal = seasonal && effectiveTheme !== theme
+    ? THEMES.find((t) => t.id === effectiveTheme)
+    : undefined;
 
   return (
     <section className="mt-10 border-t border-th-border-light pt-6">
       <h2 className="font-semibold text-heading">Theme</h2>
-      <p className="text-sm text-muted mb-4">Choose a color theme for the interface.</p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        {THEMES.map((t) => {
-          const active = theme === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTheme(t.id)}
-              className={`group relative flex flex-col items-center gap-2 rounded-card border-2 p-3 text-sm transition-all ${
-                active
-                  ? 'border-accent ring-2 ring-accent/30 shadow-soft'
-                  : 'border-th-border hover:border-muted'
-              }`}
-            >
-              {/* Color swatch row */}
-              <div className="flex w-full gap-1 rounded-md overflow-hidden h-6">
-                <div className="flex-1" style={{ backgroundColor: t.colors.bg }} />
-                <div className="flex-1" style={{ backgroundColor: t.colors.card }} />
-                <div className="flex-1" style={{ backgroundColor: t.colors.accent }} />
-                <div className="flex-1" style={{ backgroundColor: t.colors.text }} />
-              </div>
-              <span className="text-xs font-medium text-primary truncate w-full text-center">
-                {t.name}
-              </span>
-              {active && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] text-btn-primary-text font-bold">
-                  ✓
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <p className="text-sm text-muted mb-4">Choose a look for the interface.</p>
+
+      {THEME_GROUPS.map(({ group, title, hint }) => (
+        <div key={group} className="mb-6">
+          <div className="mb-2 flex items-baseline gap-2">
+            <h3 className="text-sm font-semibold text-heading">{title}</h3>
+            <span className="text-xs text-muted">{hint}</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {THEMES.filter((t) => t.group === group).map((t) => (
+              <ThemePreviewCard key={t.id} meta={t} active={theme === t.id} onSelect={() => setTheme(t.id)} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <label className="flex cursor-pointer items-start gap-3 rounded-card border border-th-border bg-card-alt p-4">
+        <input
+          type="checkbox"
+          className="mt-1 accent-emerald-600"
+          checked={seasonal}
+          onChange={(e) => setSeasonal(e.target.checked)}
+        />
+        <span>
+          <span className="block font-medium text-heading">Seasonal themes</span>
+          <span className="block text-sm text-muted">{SEASONAL_SCHEDULE_TEXT}</span>
+          {activeSeasonal && (
+            <span className="mt-1 block text-xs font-medium text-accent">
+              Showing {activeSeasonal.name} right now.
+            </span>
+          )}
+        </span>
+      </label>
     </section>
   );
 }
@@ -1233,7 +1276,7 @@ function WeatherSettings() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-full bg-btn-primary px-5 py-2 text-sm text-btn-primary-text disabled:opacity-50"
+            className="btn-primary btn-pill px-5 py-2 text-sm disabled:opacity-50"
           >
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
           </button>

@@ -11,7 +11,8 @@ Optional
 ---
 
 ## Features
-- **Dashboard** — Drag-and-resize widget grid, 16 themes, custom background photo with opacity and fit mode (fill/contain), customizable mobile bottom tab bar, kiosk display mode
+- **Dashboard** — Drag-and-resize widget grid, custom background photo with opacity and fit mode (fill/contain), customizable mobile bottom tab bar, kiosk display mode
+- **Themes** — 16 colour themes plus Halloween, Thanksgiving, Christmas and Dungeons & Dragons themes with their own fonts, button styles and backgrounds; optional seasonal auto-switch by date
 - **Calendar** — Google Calendar sync, day/week/month views, manual events
 - **Tasks** — Simple todo list with quick-add, open/closed status, assignees, due dates, and recurrence
 - **Chores** — Rotation scheduling (round-robin / weighted / manual), streaks, reward points

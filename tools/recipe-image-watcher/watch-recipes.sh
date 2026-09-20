@@ -216,7 +216,9 @@ Author: ${author:-unknown}"
   # on a lookup that already finished badly.
   FAIL_REASON="$fail_reason" CLAUDE_JSON="$claude_json" OUTPUT_DIR="$OUTPUT_DIR" BOOK_ID="$id" \
     node "$SCRIPT_DIR/finish-book.mjs"
-  rm -f "$claude_json" "${claude_json%.json}.raw.txt"
+  # Keep <id>.book.claude.raw.txt when the answer wasn't JSON — it's the only
+  # clue to what went wrong. The app removes it when it ingests the result.
+  rm -f "$claude_json"
 }
 
 log "watcher starting: WATCH_DIR=$WATCH_DIR OUTPUT_DIR=$OUTPUT_DIR CLAUDE_BIN=$CLAUDE_BIN (subscription auth, API key absent)"

@@ -49,11 +49,23 @@ let result = String(env.result ?? '').trim();
 const fence = result.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
 if (fence) result = fence[1].trim();
 
-try {
-  const parsed = JSON.parse(result);
+function parseLoosely(text) {
+  try { return JSON.parse(text); } catch { /* fall through */ }
+  // The model occasionally wraps the object in a sentence ("Here is the
+  // JSON: {...}"). Take the outermost {...} span and try that.
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch { /* fall through */ }
+  }
+  return undefined;
+}
+
+const parsed = parseLoosely(result);
+if (parsed !== undefined) {
   writeFileSync(OUT_FILE, JSON.stringify(parsed, null, 2) + '\n');
   log(`WROTE ${OUT_FILE}`);
-} catch {
+} else {
   const rawOut = OUT_FILE.replace(/\.json$/, '.raw.txt');
   writeFileSync(rawOut, result + '\n');
   log(`WARN result for ${BASE} was not valid JSON; saved raw text to ${rawOut}`);

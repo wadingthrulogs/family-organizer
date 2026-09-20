@@ -197,6 +197,9 @@ export async function ingestBookLookups(): Promise<boolean> {
 
       const book = books.find((b) => b.id === id);
       if (!book) { cleanup(result.coverFile); continue; }
+      // Books saved before lookups existed lack these fields entirely.
+      book.author ??= '';
+      book.synopsis ??= '';
 
       if (result.ok === false || result.error) {
         book.enrichStatus = 'failed';

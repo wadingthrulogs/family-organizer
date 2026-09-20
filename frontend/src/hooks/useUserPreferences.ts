@@ -17,7 +17,7 @@ export function useUpdateUserPreferencesMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: Partial<Pick<UserPreferences, 'theme' | 'seasonalTheme' | 'dashboardConfig' | 'kioskConfig' | 'hiddenTabs'>>) =>
+    mutationFn: (payload: Partial<Pick<UserPreferences, 'theme' | 'seasonalTheme' | 'dashboardConfig' | 'kioskConfig' | 'guestConfig' | 'hiddenTabs'>>) =>
       updateUserPreferences(payload),
     onSuccess: (data) => {
       queryClient.setQueryData(['userPreferences'], data);

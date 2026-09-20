@@ -51,6 +51,7 @@ model UserPreference {
   seasonalTheme   Boolean  @default(false)
   dashboardConfig String?
   kioskConfig     String?
+  guestConfig     String?
   hiddenTabs      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -279,6 +280,7 @@ model InventoryItem {
   lowStockThreshold Float?
   notes             String?
   isPreparedMeal    Boolean  @default(false)
+  isDrinkFridge     Boolean  @default(false)
   dateAdded         DateTime @default(now())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

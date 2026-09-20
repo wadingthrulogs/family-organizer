@@ -57,6 +57,7 @@ cd frontend && npm run dev
 | `backend/src/middleware/require-role.ts` | Role-based access guard |
 | `backend/src/lib/prisma.ts` | Prisma DB client singleton |
 | `backend/src/middleware/error-handler.ts` | Global error handler |
+| `backend/src/routes/guest.ts` | Guest-display content (Wi-Fi, reading list) as `HouseholdSetting` JSON |
 | `backend/prisma/schema.prisma` | Database schema |
 
 ### Services Layer (`backend/src/services/`)
@@ -128,7 +129,7 @@ TZ                              # default UTC
 | Model | Key Fields |
 |-------|-----------|
 | User | id, username, email, passwordHash, pinHash, role, colorHex, authProvider, timezone, lastLoginAt, deletedAt |
-| UserPreference | userId, theme, seasonalTheme, dashboardConfig (JSON), kioskConfig (JSON), hiddenTabs |
+| UserPreference | userId, theme, seasonalTheme, dashboardConfig (JSON), kioskConfig (JSON), guestConfig (JSON), hiddenTabs |
 | UserSecret | userId, secretType, encryptedValue (Bytes) |
 | GoogleAccount | userId, email, displayName, encryptedRefreshToken, lastSyncedAt |
 | LinkedCalendar | userId, googleAccountId, googleId, displayName, colorHex, accessRole, syncToken, lastSyncedAt |
@@ -141,13 +142,13 @@ TZ                              # default UTC
 | ChoreAssignment | choreId, userId, windowStart, windowEnd, state, rotationOrder, notes, completedAt, verifiedById |
 | GroceryList | ownerUserId, name, store, presetKey, isActive |
 | GroceryItem | listId, name, category, quantity, unit, state, assigneeUserId, claimedByUserId, pantryItemKey, sortOrder, movedToInventoryAt |
-| InventoryItem | name, category, quantity, unit, lowStockThreshold, pantryItemKey (unique), **isPreparedMeal** |
+| InventoryItem | name, category, quantity, unit, lowStockThreshold, pantryItemKey (unique), **isPreparedMeal**, **isDrinkFridge** |
 | Reminder | ownerUserId, targetType, targetId, channelMask, leadTimeMinutes, quietHoursStart, quietHoursEnd, enabled |
 | ReminderTrigger | reminderId, channel, nextFireAt, lastAttemptAt, lastStatus, retryCount |
 | Attachment | ownerUserId, fileName, filePath, contentType, byteSize, checksum, linkedEntityType/Id, scanned |
 | PushSubscription | userId, endpoint, p256dh, auth, userAgent |
 | NotificationLog | userId, reminderId, channel, title, body, status, sentAt |
-| HouseholdSetting | key (PK), value — also holds encrypted integration secrets |
+| HouseholdSetting | key (PK), value — also holds encrypted integration secrets and the guest-display content (`guest_wifi`, `guest_books`) |
 | CommuteRoute | name, destAddress, travelMode, showStartMin, showEndMin, daysOfWeek (CSV 0-6), sortOrder, active |
 | GeocodeCache | cached Mapbox address→coordinate lookups (30 day TTL) |
 | LocationGeocodeCache | cached geocodes for calendar event locations, incl. negative results (24 h TTL) |
@@ -176,6 +177,8 @@ TZ                              # default UTC
 - `GET /me` — current user
 - `PATCH /me` — `{ email?, timezone?, colorHex? }`
 - `POST /me/password` — `{ currentPassword, newPassword }`
+- `POST /me/pin` — `{ currentPassword, pin: '4–8 digits' | null }` → User (sets/clears the display PIN; `GET /me` returns `hasPin`)
+- `POST /me/pin/verify` — `{ pin }` → `{ ok, pinSet }`; 403 `WRONG_PIN`. Rate-limited like login.
 - `GET /users` (ADMIN) — list all users
 - `POST /users` (ADMIN) — create user
 - `PATCH /users/:id/role` (ADMIN) — `{ role }`
@@ -214,9 +217,9 @@ TZ                              # default UTC
 - `PATCH /lists/:listId/items/:itemId` / `DELETE /lists/:listId/items/:itemId`
 
 **Inventory `/inventory`**
-- `GET /` — `?search&category&lowStock`
+- `GET /` — `?search&category&lowStock&drinkFridge`
 - `GET /export` — text file download
-- `POST /` — `{ name, category?, quantity?, unit?, lowStockThreshold?, notes?, dateAdded? }`
+- `POST /` — `{ name, category?, quantity?, unit?, lowStockThreshold?, notes?, isPreparedMeal?, isDrinkFridge?, dateAdded? }`
 - `POST /bulk` — `{ text }` (natural language)
 - `POST /bulk-items` — `{ items: [{ name, quantity?, unit?, category? }] }` → created rows (201)
 - `POST /extract-from-image` — multipart `image` (JPG/PNG/WebP); routes the photo through the
@@ -255,8 +258,13 @@ TZ                              # default UTC
   weatherUnits, taskRetention, homeAddress }` + `*Set` booleans for each encrypted secret
 - `PATCH /` — partial update; also accepts `googleClientId/Secret`, `openweatherApiKey`,
   `googleMapsApiKey`, `mapboxToken`, `homeAddress`, `smtp*`, `pushVapid*` (encrypted on write)
-- `GET /me` — user preferences `{ theme, seasonalTheme, dashboardConfig, kioskConfig, hiddenTabs }`
+- `GET /me` — user preferences `{ theme, seasonalTheme, dashboardConfig, kioskConfig, guestConfig, hiddenTabs }`
 - `PATCH /me` — user preferences update
+
+**Guest display `/guest`**
+- `GET /content` — `{ wifi: { ssid, security, password, hidden } | null, books: [{ id, title, author, reader, progress, coverAttachmentId }] }`
+  (Wi-Fi password is `enc:` at rest but returned in plaintext — the display renders it into a QR)
+- `PATCH /content` (ADMIN, MEMBER) — `{ wifi?: … | null, books?: […] }`
 
 **Reminders `/reminders`**
 - `GET /` — `?enabled&targetType`
@@ -336,7 +344,8 @@ ErrorBoundary → QueryClientProvider → BrowserRouter → AuthProvider → The
 | `/reminders` | → redirect | Redirects to `/notifications` |
 | `/notifications` | NotificationsPage | Push notification history + reminder CRUD |
 | `/settings` | SettingsPage | Household config, Google, users, backup |
-| `/kiosk` | KioskPage | Minimal read-only family display |
+| `/kiosk` | KioskPage → DisplayPage mode=kiosk | Minimal read-only family display |
+| `/guest` | GuestPage → DisplayPage mode=guest | Guest display: guest-safe widgets only, optional PIN on exit |
 
 All authenticated routes wrapped in `AppLayout` (header + sidebar nav).
 
@@ -353,6 +362,7 @@ All authenticated routes wrapped in `AppLayout` (header + sidebar nav).
 | `['linkedCalendars']` | 60s | Google calendar list |
 | `['googleIntegration']` | ∞ | Connected Google accounts |
 | `['weather', location]` | 5m | Weather data |
+| `['guestContent']` | 5m | Guest display Wi-Fi + books |
 
 ### Mutation Hooks & Invalidation
 
@@ -444,9 +454,28 @@ interface GroceryItem { id, listId, name, category?, quantity, unit?, state, not
 | reminders | RemindersWidget | 4×3 |
 | inventory | InventoryWidget | 6×3 |
 | mealPlan | MealPlanWidget | 6×3 |
+| wifi ★ | WifiWidget | 4×3 — SSID + Wi-Fi QR (`uqr`), tap-to-reveal password |
+| drinkFridge ★ | DrinkFridgeWidget | 4×3 — inventory items tagged `isDrinkFridge`, grouped by category; qty 0 = "out" |
+| reading ★ | ReadingWidget | 4×3 — guest content books with progress + optional cover attachment |
+
+★ = `guestSafe` in `widgetRegistry.ts` (also Clock and Weather). Only these may appear on the guest display.
 
 Dashboard config stored in localStorage (`dashboard-config`) and synced to server via `/settings/me`.
 Kiosk config stored separately in localStorage (`kiosk-config`) and synced to server via `kioskConfig` field in `/settings/me`.
+Guest config likewise (`guest-config` / `guestConfig`), defaulting to `DEFAULT_GUEST_CONFIG` (has explicit `mdLayout` for portrait).
+
+### Guest display (`/guest`)
+`DisplayPage` is the one full-screen shell behind both `/kiosk` and `/guest`; a `MODES` table picks the
+config slot, refresh keys, defaults, and whether the widget allowlist applies. In guest mode:
+- Only `guestSafe` widgets are offered by the picker **and** rendered — a private widget id in a saved
+  config is dropped at render (`visibleSlots`), so a stale or hand-edited layout can't leak.
+- Exit and the ⚙ gear go through `withUnlock()`: if the user has a display PIN (`user.hasPin`), a
+  `PinPrompt` asks for it and the unlock lasts 5 min; with no PIN they're plain taps. The PIN is optional
+  by design — set/cleared in Settings → Guest display (`POST /auth/me/pin`, password required).
+- Guest mode is a *display* boundary, not a security boundary: it runs in the signed-in session, so the
+  API is still reachable from the device. The PIN stops a visitor tapping through, nothing more.
+- Content is edited in Settings → Guest display (`GuestDisplaySettings.tsx`); the drink board is edited
+  on the Inventory page via the 🥤 Drink fridge tag.
 
 ---
 

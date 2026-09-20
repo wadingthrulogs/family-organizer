@@ -45,7 +45,7 @@ const changePasswordSchema = z.object({
 
 /* ─── Public user shape ─── */
 
-function publicUser(user: { id: number; username: string; email: string | null; role: string; timezone: string; colorHex: string | null; createdAt: Date }) {
+function publicUser(user: { id: number; username: string; email: string | null; role: string; timezone: string; colorHex: string | null; createdAt: Date; pinHash?: string | null }) {
   return {
     id: user.id,
     username: user.username,
@@ -54,8 +54,18 @@ function publicUser(user: { id: number; username: string; email: string | null; 
     timezone: user.timezone,
     colorHex: user.colorHex,
     createdAt: user.createdAt.toISOString(),
+    // Whether a display PIN is set (guest mode asks for it on exit). Never the hash.
+    hasPin: Boolean(user.pinHash),
   };
 }
+
+// 4–8 digits: typed on the wall display's on-screen keyboard, so keep it short.
+const pinSchema = z.string().regex(/^\d{4,8}$/, 'PIN must be 4 to 8 digits');
+const setPinSchema = z.object({
+  currentPassword: z.string().min(1),
+  pin: pinSchema.nullable(),
+});
+const verifyPinSchema = z.object({ pin: z.string().min(1).max(16) });
 
 /* ─── POST /register ─── */
 
@@ -239,6 +249,56 @@ authRouter.post(
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: newHash } });
 
     res.json({ message: 'Password changed' });
+  })
+);
+
+/* ─── POST /me/pin — set or clear the display PIN (password required) ─── */
+
+authRouter.post(
+  '/me/pin',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const payload = setPinSchema.parse(req.body ?? {});
+
+    const user = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!user) {
+      return res.status(401).json({ error: { code: 'SESSION_INVALID', message: 'User not found' } });
+    }
+
+    const valid = await bcrypt.compare(payload.currentPassword, user.passwordHash);
+    if (!valid) {
+      return res.status(403).json({ error: { code: 'WRONG_PASSWORD', message: 'Current password is incorrect' } });
+    }
+
+    const pinHash = payload.pin === null ? null : await bcrypt.hash(payload.pin, SALT_ROUNDS);
+    const updated = await prisma.user.update({ where: { id: user.id }, data: { pinHash } });
+
+    res.json(publicUser(updated));
+  })
+);
+
+/* ─── POST /me/pin/verify — guest mode exit gate (rate-limited in server.ts) ─── */
+
+authRouter.post(
+  '/me/pin/verify',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { pin } = verifyPinSchema.parse(req.body ?? {});
+
+    const user = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!user) {
+      return res.status(401).json({ error: { code: 'SESSION_INVALID', message: 'User not found' } });
+    }
+    if (!user.pinHash) {
+      return res.json({ ok: true, pinSet: false });
+    }
+
+    const valid = await bcrypt.compare(pin, user.pinHash);
+    if (!valid) {
+      return res.status(403).json({ error: { code: 'WRONG_PIN', message: 'Incorrect PIN' } });
+    }
+
+    res.json({ ok: true, pinSet: true });
   })
 );
 

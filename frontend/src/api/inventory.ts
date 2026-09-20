@@ -5,6 +5,7 @@ export interface InventoryQuery {
   search?: string;
   category?: string;
   lowStock?: boolean;
+  drinkFridge?: boolean;
 }
 
 export interface CreateInventoryItemPayload {
@@ -16,6 +17,7 @@ export interface CreateInventoryItemPayload {
   lowStockThreshold?: number | null;
   notes?: string | null;
   isPreparedMeal?: boolean;
+  isDrinkFridge?: boolean;
   dateAdded?: string | null;
 }
 

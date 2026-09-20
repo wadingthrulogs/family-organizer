@@ -36,8 +36,23 @@ export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
   ],
 };
 
+/** Starting layout for the guest display: nothing on it is household data. */
+export const DEFAULT_GUEST_CONFIG: DashboardConfig = {
+  slots: [
+    // Explicit md (portrait, 8-col) coordinates: the Wi-Fi card is taller than
+    // its neighbours, and scaling the 12-col layout down rounds it into them.
+    { widgetId: 'clock',       layout: { i: 'slot-0', x: 0, y: 0, w: 4, h: 2, minW: 2, minH: 2 }, mdLayout: { i: 'slot-0', x: 0, y: 0, w: 4, h: 2, minW: 2, minH: 2 } },
+    { widgetId: 'weather',     layout: { i: 'slot-1', x: 4, y: 0, w: 4, h: 2, minW: 3, minH: 2 }, mdLayout: { i: 'slot-1', x: 4, y: 0, w: 4, h: 2, minW: 3, minH: 2 } },
+    { widgetId: 'wifi',        layout: { i: 'slot-2', x: 8, y: 0, w: 4, h: 3, minW: 3, minH: 3 }, mdLayout: { i: 'slot-2', x: 0, y: 2, w: 4, h: 3, minW: 3, minH: 3 } },
+    { widgetId: 'drinkFridge', layout: { i: 'slot-3', x: 0, y: 2, w: 4, h: 3, minW: 3, minH: 2 }, mdLayout: { i: 'slot-3', x: 4, y: 2, w: 4, h: 3, minW: 3, minH: 2 } },
+    { widgetId: 'reading',     layout: { i: 'slot-4', x: 4, y: 2, w: 4, h: 3, minW: 3, minH: 2 }, mdLayout: { i: 'slot-4', x: 0, y: 5, w: 8, h: 3, minW: 3, minH: 2 } },
+  ],
+};
+
 const STORAGE_KEY = 'dashboard-config';
 const KIOSK_STORAGE_KEY = 'kiosk-config';
+const GUEST_STORAGE_KEY = 'guest-config';
+const GUEST_TS_KEY = 'guest-config-ts';
 const DASHBOARD_TS_KEY = 'dashboard-config-ts';
 const KIOSK_TS_KEY = 'kiosk-config-ts';
 let nextSlotId = 100;
@@ -97,6 +112,20 @@ export function getKioskConfigTimestamp(): number {
 /** True if the user has ever saved a kiosk config on this device. */
 export function hasStoredKioskConfig(): boolean {
   return localStorage.getItem(KIOSK_STORAGE_KEY) !== null;
+}
+
+export function loadGuestConfig(): DashboardConfig {
+  return loadConfigFromStorage(GUEST_STORAGE_KEY) ?? DEFAULT_GUEST_CONFIG;
+}
+
+export function saveGuestConfig(config: DashboardConfig): void {
+  localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(config));
+  localStorage.setItem(GUEST_TS_KEY, String(Date.now()));
+}
+
+/** True if the user has ever saved a guest config on this device. */
+export function hasStoredGuestConfig(): boolean {
+  return localStorage.getItem(GUEST_STORAGE_KEY) !== null;
 }
 
 export function generateSlotId(): string {

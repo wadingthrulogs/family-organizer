@@ -68,3 +68,21 @@ export async function createUser(payload: CreateUserPayload): Promise<AuthUser> 
 export async function changePassword(payload: { currentPassword: string; newPassword: string }): Promise<void> {
   await api.post('/auth/me/password', payload);
 }
+
+/** Set (4–8 digits) or clear (`null`) the display PIN. Requires the current password. */
+export async function setDisplayPin(currentPassword: string, pin: string | null): Promise<AuthUser> {
+  const { data } = await api.post<AuthUser>('/auth/me/pin', { currentPassword, pin });
+  return data;
+}
+
+/** Resolves true on a correct PIN (or when no PIN is set); false on a wrong one. */
+export async function verifyDisplayPin(pin: string): Promise<boolean> {
+  try {
+    await api.post('/auth/me/pin/verify', { pin });
+    return true;
+  } catch (err) {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 403) return false;
+    throw err;
+  }
+}

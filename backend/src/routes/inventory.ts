@@ -27,6 +27,7 @@ const listQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
   category: z.string().trim().max(120).optional(),
   lowStock: z.string().optional().transform((val) => val === 'true'),
+  drinkFridge: z.string().optional().transform((val) => val === 'true'),
 });
 
 const createItemSchema = z.object({
@@ -38,6 +39,7 @@ const createItemSchema = z.object({
   lowStockThreshold: z.coerce.number().min(0).max(99_999).nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
   isPreparedMeal: z.boolean().optional(),
+  isDrinkFridge: z.boolean().optional(),
   dateAdded: z.coerce.date().nullable().optional(),
 });
 
@@ -62,7 +64,7 @@ const fromGroceryListSchema = z.object({
 inventoryRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const { search, category, lowStock } = listQuerySchema.parse(req.query);
+    const { search, category, lowStock, drinkFridge } = listQuerySchema.parse(req.query);
 
     const where: Prisma.InventoryItemWhereInput = {};
     if (search) {
@@ -70,6 +72,9 @@ inventoryRouter.get(
     }
     if (category) {
       where.category = category;
+    }
+    if (drinkFridge) {
+      where.isDrinkFridge = true;
     }
 
     const items = await prisma.inventoryItem.findMany({
@@ -377,6 +382,7 @@ inventoryRouter.post(
         lowStockThreshold: payload.lowStockThreshold ?? null,
         notes: payload.notes ?? null,
         isPreparedMeal: payload.isPreparedMeal ?? false,
+        isDrinkFridge: payload.isDrinkFridge ?? false,
         dateAdded: payload.dateAdded ?? new Date(),
       },
     });
@@ -414,6 +420,7 @@ inventoryRouter.patch(
     if (payload.lowStockThreshold !== undefined) data.lowStockThreshold = payload.lowStockThreshold ?? null;
     if (payload.notes !== undefined) data.notes = payload.notes ?? null;
     if (payload.isPreparedMeal !== undefined) data.isPreparedMeal = payload.isPreparedMeal;
+    if (payload.isDrinkFridge !== undefined) data.isDrinkFridge = payload.isDrinkFridge;
     if (payload.dateAdded !== undefined) data.dateAdded = payload.dateAdded ?? new Date();
 
     const updated = await prisma.inventoryItem.update({ where: { id: itemId }, data });

@@ -30,6 +30,7 @@ type FormState = {
   notes: string;
   dateAdded: string;
   isPreparedMeal: boolean;
+  isDrinkFridge: boolean;
 };
 
 const emptyForm: FormState = {
@@ -41,6 +42,7 @@ const emptyForm: FormState = {
   notes: '',
   dateAdded: toDateInputValue(),
   isPreparedMeal: false,
+  isDrinkFridge: false,
 };
 
 function formFromItem(item: InventoryItem): FormState {
@@ -53,6 +55,7 @@ function formFromItem(item: InventoryItem): FormState {
     notes: item.notes ?? '',
     dateAdded: item.dateAdded ? item.dateAdded.slice(0, 10) : '',
     isPreparedMeal: item.isPreparedMeal ?? false,
+    isDrinkFridge: item.isDrinkFridge ?? false,
   };
 }
 
@@ -227,6 +230,7 @@ function InventoryPage() {
       notes: form.notes || null,
       dateAdded: form.dateAdded || null,
       isPreparedMeal: form.isPreparedMeal,
+      isDrinkFridge: form.isDrinkFridge,
     });
     announce(`${form.name} added to inventory.`);
     setForm(emptyForm);
@@ -247,6 +251,7 @@ function InventoryPage() {
         notes: form.notes || null,
         dateAdded: form.dateAdded || null,
         isPreparedMeal: form.isPreparedMeal,
+      isDrinkFridge: form.isDrinkFridge,
       },
     });
     announce(`${form.name} updated.`);
@@ -532,6 +537,12 @@ function InventoryPage() {
                             className="rounded-full border border-th-border bg-page px-2 py-0.5 text-xs text-muted"
                             title="Prepared meal — available as a recipe in meal planning"
                           >🍱 Meal</span>
+                        )}
+                        {item.isDrinkFridge && (
+                          <span
+                            className="rounded-full border border-th-border bg-page px-2 py-0.5 text-xs text-muted"
+                            title="Drink fridge — shown on the guest display's drink board"
+                          >🥤 Drinks</span>
                         )}
                         {low && (
                           <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-700">Low</span>
@@ -830,6 +841,14 @@ function InventoryPage() {
                           🍱 Meal
                         </span>
                       )}
+                      {item.isDrinkFridge && (
+                        <span
+                          className="ml-2 rounded-full border border-th-border bg-page px-2 py-0.5 text-xs text-muted"
+                          title="Drink fridge — shown on the guest display's drink board"
+                        >
+                          🥤 Drinks
+                        </span>
+                      )}
                       {low && (
                         <span className="ml-2 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
                           Low
@@ -1102,6 +1121,20 @@ function InventoryForm({
           <span className="block text-xs font-normal text-muted">
             Frozen/ready-made meals (e.g. frozen pizza). Creates a matching recipe in meal planning;
             planning it uses one from stock.
+          </span>
+        </span>
+      </label>
+      <label className="md:col-span-2 flex items-start gap-2 text-sm font-semibold text-form-label">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4"
+          checked={form.isDrinkFridge}
+          onChange={(e) => onChange('isDrinkFridge', e.target.checked)}
+        />
+        <span>
+          🥤 Drink fridge
+          <span className="block text-xs font-normal text-muted">
+            Lists it on the guest display’s drink board. Quantity 0 shows as “out”.
           </span>
         </span>
       </label>

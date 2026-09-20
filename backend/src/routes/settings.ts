@@ -369,15 +369,17 @@ const patchMeSchema = z.object({
   seasonalTheme: z.boolean().optional(),
   dashboardConfig: z.unknown().optional(),
   kioskConfig: z.unknown().optional(),
+  guestConfig: z.unknown().optional(),
   hiddenTabs: z.array(z.string().trim().max(50)).max(20).optional(),
 }).strict();
 
-function serializePreference(pref: { theme: string; seasonalTheme: boolean; dashboardConfig: string | null; kioskConfig: string | null; hiddenTabs: string | null }) {
+function serializePreference(pref: { theme: string; seasonalTheme: boolean; dashboardConfig: string | null; kioskConfig: string | null; guestConfig: string | null; hiddenTabs: string | null }) {
   return {
     theme: pref.theme,
     seasonalTheme: pref.seasonalTheme,
     dashboardConfig: pref.dashboardConfig ? JSON.parse(pref.dashboardConfig) : null,
     kioskConfig: pref.kioskConfig ? JSON.parse(pref.kioskConfig) : null,
+    guestConfig: pref.guestConfig ? JSON.parse(pref.guestConfig) : null,
     hiddenTabs: pref.hiddenTabs ? JSON.parse(pref.hiddenTabs) : [],
   };
 }
@@ -402,7 +404,7 @@ settingsRouter.patch(
   asyncHandler(async (req, res) => {
     const userId = req.session.userId!;
 
-    const { theme, seasonalTheme, dashboardConfig, kioskConfig, hiddenTabs } = patchMeSchema.parse(req.body ?? {});
+    const { theme, seasonalTheme, dashboardConfig, kioskConfig, guestConfig, hiddenTabs } = patchMeSchema.parse(req.body ?? {});
 
     const data: Record<string, unknown> = {};
     if (typeof theme === 'string' && theme.length > 0) {
@@ -416,6 +418,9 @@ settingsRouter.patch(
     }
     if (kioskConfig !== undefined) {
       data.kioskConfig = kioskConfig ? JSON.stringify(kioskConfig) : null;
+    }
+    if (guestConfig !== undefined) {
+      data.guestConfig = guestConfig ? JSON.stringify(guestConfig) : null;
     }
     if (hiddenTabs !== undefined) {
       data.hiddenTabs = Array.isArray(hiddenTabs) ? JSON.stringify(hiddenTabs) : null;

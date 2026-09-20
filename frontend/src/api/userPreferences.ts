@@ -7,6 +7,8 @@ export interface UserPreferences {
   seasonalTheme: boolean;
   dashboardConfig: DashboardConfig | null;
   kioskConfig: DashboardConfig | null;
+  /** Guest display layout — only guest-safe widgets (see widgetRegistry). */
+  guestConfig: DashboardConfig | null;
   hiddenTabs: string[];
 }
 
@@ -16,7 +18,7 @@ export async function fetchUserPreferences(): Promise<UserPreferences> {
 }
 
 export async function updateUserPreferences(
-  payload: Partial<Pick<UserPreferences, 'theme' | 'seasonalTheme' | 'dashboardConfig' | 'kioskConfig' | 'hiddenTabs'>>
+  payload: Partial<Pick<UserPreferences, 'theme' | 'seasonalTheme' | 'dashboardConfig' | 'kioskConfig' | 'guestConfig' | 'hiddenTabs'>>
 ): Promise<UserPreferences> {
   const { data } = await api.patch<UserPreferences>('/settings/me', payload);
   return data;

@@ -82,6 +82,7 @@ export function createApp(env: AppEnv) {
   });
   app.use('/api/v1/auth/login', authLimiter);
   app.use('/api/v1/auth/register', authLimiter);
+  app.use('/api/v1/auth/me/pin/verify', authLimiter);
 
   app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
   app.use('/api/v1', buildApiRouter(env));

@@ -9,6 +9,12 @@ export interface WidgetDef {
   defaultH: number;
   minW: number;
   minH: number;
+  /**
+   * Safe to show on the guest display. Anything that surfaces household data
+   * (calendar, tasks, chores, grocery, inventory, meals, reminders, commute)
+   * is not; the guest layout refuses to place or render it.
+   */
+  guestSafe?: boolean;
 }
 
 const registry: WidgetDef[] = [
@@ -18,6 +24,7 @@ const registry: WidgetDef[] = [
     icon: '🕐',
     component: lazy(() => import('./ClockWidget')),
     defaultW: 4, defaultH: 2, minW: 2, minH: 2,
+    guestSafe: true,
   },
   {
     id: 'weather',
@@ -25,6 +32,31 @@ const registry: WidgetDef[] = [
     icon: '🌤️',
     component: lazy(() => import('./WeatherWidget')),
     defaultW: 4, defaultH: 2, minW: 3, minH: 2,
+    guestSafe: true,
+  },
+  {
+    id: 'wifi',
+    label: 'Wi-Fi',
+    icon: '📶',
+    component: lazy(() => import('./WifiWidget')),
+    defaultW: 4, defaultH: 3, minW: 3, minH: 3,
+    guestSafe: true,
+  },
+  {
+    id: 'drinkFridge',
+    label: 'Drink Fridge',
+    icon: '🥤',
+    component: lazy(() => import('./DrinkFridgeWidget')),
+    defaultW: 4, defaultH: 3, minW: 3, minH: 2,
+    guestSafe: true,
+  },
+  {
+    id: 'reading',
+    label: 'Currently Reading',
+    icon: '📚',
+    component: lazy(() => import('./ReadingWidget')),
+    defaultW: 4, defaultH: 3, minW: 3, minH: 2,
+    guestSafe: true,
   },
   {
     id: 'commute',
@@ -97,6 +129,14 @@ export function getWidget(id: string): WidgetDef | undefined {
 
 export function getAllWidgets(): WidgetDef[] {
   return registry;
+}
+
+export function getGuestSafeWidgets(): WidgetDef[] {
+  return registry.filter((w) => w.guestSafe);
+}
+
+export function isGuestSafe(id: string): boolean {
+  return Boolean(getWidget(id)?.guestSafe);
 }
 
 export default registry;

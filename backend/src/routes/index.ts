@@ -9,6 +9,7 @@ import { calendarRouter } from './calendar.js';
 import { choresRouter } from './chores.js';
 import { commuteRouter } from './commute.js';
 import { groceryRouter } from './grocery.js';
+import { guestRouter } from './guest.js';
 import { healthRouter } from './health.js';
 import { integrationsRouter } from './integrations.js';
 import { inventoryRouter } from './inventory.js';
@@ -30,6 +31,7 @@ export function buildApiRouter(env: AppEnv) {
   router.use('/chores', choresRouter);
   router.use('/commute', commuteRouter);
   router.use('/grocery', groceryRouter);
+  router.use('/guest', guestRouter);
   router.use('/meal-plans', mealPlansRouter);
   router.use('/inventory', inventoryRouter);
   router.use('/notifications', notificationsRouter);

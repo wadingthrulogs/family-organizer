@@ -1,0 +1,581 @@
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+// Note: useMemo was removed — inline getResponsiveLayouts avoids RGL deepEqual mismatch
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { ResponsiveGridLayout, useContainerWidth, noCompactor } from 'react-grid-layout';
+import type { Layout } from 'react-grid-layout';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
+
+import { DashboardSettingsSheet } from '../components/widgets/DashboardSettings';
+import { getWidget } from '../components/widgets/widgetRegistry';
+import type { DashboardConfig, DashboardWidgetSlot } from '../types/dashboard';
+import {
+  loadKioskConfig, saveKioskConfig, hasStoredKioskConfig, DEFAULT_DASHBOARD_CONFIG,
+  loadGuestConfig, saveGuestConfig, hasStoredGuestConfig, DEFAULT_GUEST_CONFIG,
+} from '../types/dashboard';
+import { useUserPreferences, useUpdateUserPreferencesMutation } from '../hooks/useUserPreferences';
+import { useAuth } from '../hooks/useAuth';
+import { isGuestSafe } from '../components/widgets/widgetRegistry';
+import { PinPrompt } from '../components/guest/PinPrompt';
+import { getResponsiveLayouts } from '../lib/dashboardLayouts';
+
+const AUTO_REFRESH_MS = 120_000; // 2 minutes — family kiosks don't need 60s freshness
+const CURSOR_HIDE_MS = 5_000;  // 5 seconds
+
+// Targeted invalidation keys for the kiosk auto-refresh tick. We deliberately
+// skip ∞-staleTime data (settings, userPreferences, googleIntegration,
+// linkedCalendars) and self-polling queries (weather already has its own 5m
+// refetchInterval). See perf-audit-2026-04 §3.
+const KIOSK_REFRESH_KEYS = [
+  ['tasks'],
+  ['chores'],
+  ['calendarEvents'],
+  ['groceryLists'],
+  ['inventory'],
+  ['reminders'],
+  ['mealPlanCalendar'],
+] as const;
+
+// The guest display shows no household data, so it only needs the two
+// queries its own widgets read.
+const GUEST_REFRESH_KEYS = [
+  ['inventory'],
+  ['guestContent'],
+] as const;
+
+export type DisplayMode = 'kiosk' | 'guest';
+
+/**
+ * Kiosk and guest are the same full-screen display with different layouts,
+ * persistence slots, and — for guest — a widget allowlist and an exit gate.
+ */
+const MODES = {
+  kiosk: {
+    load: loadKioskConfig,
+    save: saveKioskConfig,
+    hasStored: hasStoredKioskConfig,
+    prefKey: 'kioskConfig' as const,
+    defaults: DEFAULT_DASHBOARD_CONFIG,
+    refreshKeys: KIOSK_REFRESH_KEYS as readonly (readonly string[])[],
+    guestOnly: false,
+  },
+  guest: {
+    load: loadGuestConfig,
+    save: saveGuestConfig,
+    hasStored: hasStoredGuestConfig,
+    prefKey: 'guestConfig' as const,
+    defaults: DEFAULT_GUEST_CONFIG,
+    refreshKeys: GUEST_REFRESH_KEYS as readonly (readonly string[])[],
+    guestOnly: true,
+  },
+};
+
+// After a correct PIN, exit and settings stay unlocked this long so you can
+// tweak the layout and leave without typing it twice.
+const UNLOCK_MS = 5 * 60_000;
+
+interface RecentlyRemovedKiosk {
+  slot: DashboardWidgetSlot;
+  index: number;
+}
+
+const KIOSK_UNDO_TIMEOUT_MS = 5000;
+
+function DisplayPage({ mode }: { mode: DisplayMode }) {
+  const M = MODES[mode];
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [config, setConfig] = useState<DashboardConfig>(M.load);
+  // Guest exit gate: null = locked (or no gate needed), otherwise the pending action.
+  const [pendingUnlock, setPendingUnlock] = useState<null | (() => void)>(null);
+  const unlockedUntilRef = useRef(0);
+  const [editMode, setEditMode] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [cursorHidden, setCursorHidden] = useState(false);
+  const [showExit, setShowExit] = useState(true);
+  const [recentlyRemoved, setRecentlyRemoved] = useState<RecentlyRemovedKiosk | null>(null);
+  const { width, mounted, containerRef } = useContainerWidth();
+  const { data: prefs } = useUserPreferences();
+  const updatePrefs = useUpdateUserPreferencesMutation();
+  const serverSynced = useRef(false);
+  const editModeRef = useRef(editMode);
+  const widthRef = useRef(width);
+  const undoTimerRef = useRef<number | null>(null);
+  useEffect(() => { editModeRef.current = editMode; }, [editMode]);
+  useEffect(() => { widthRef.current = width; }, [width]);
+  useEffect(() => () => {
+    if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
+  }, []);
+
+
+  // On mount, consult the server copy ONLY if no local edit exists on this
+  // device. localStorage is authoritative once the user has edited — the
+  // server is only used for first-time visits (fresh browser / new device).
+  // See DashboardPage for the full rationale on why the previous timestamp-
+  // based guard was failing by design.
+  const serverConfig = prefs?.[M.prefKey];
+  useEffect(() => {
+    if (!serverConfig) return;
+    if (serverSynced.current) return;
+    serverSynced.current = true;
+    if (M.hasStored()) return;
+    if (Array.isArray(serverConfig.slots)) {
+      setConfig(serverConfig);
+      M.save(serverConfig);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverConfig]);
+
+  const persistConfig = useCallback((cfg: DashboardConfig) => {
+    M.save(cfg);
+    updatePrefs.mutate({ [M.prefKey]: cfg });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Guest mode: if the user set a display PIN, exiting and opening settings
+  // ask for it. No PIN → these are plain taps.
+  const withUnlock = useCallback((action: () => void) => {
+    if (mode !== 'guest' || !user?.hasPin || Date.now() < unlockedUntilRef.current) {
+      action();
+      return;
+    }
+    setPendingUnlock(() => action);
+  }, [mode, user?.hasPin]);
+
+  const handleUnlocked = useCallback(() => {
+    unlockedUntilRef.current = Date.now() + UNLOCK_MS;
+    const action = pendingUnlock;
+    setPendingUnlock(null);
+    action?.();
+  }, [pendingUnlock]);
+
+
+  // Auto-refresh only the widget-backing queries, not every query in cache.
+  // Previous behavior (queryClient.invalidateQueries() with no args) wiped
+  // settings/prefs/google integration too, causing 1,440 full-cache refetches
+  // per day. See perf-audit-2026-04 §3.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      M.refreshKeys.forEach((key) => {
+        queryClient.invalidateQueries({ queryKey: key as unknown as readonly unknown[] });
+      });
+    }, AUTO_REFRESH_MS);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient]);
+
+  // Wake Lock — prevent screen from sleeping
+  useEffect(() => {
+    let wakeLock: WakeLockSentinel | null = null;
+    let active = true;
+
+    const requestLock = async () => {
+      try {
+        if (navigator.wakeLock && active) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch {
+        // Wake Lock not supported or failed
+      }
+    };
+
+    requestLock();
+
+    // Re-acquire on visibility change (e.g., tab switch)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') requestLock();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      active = false;
+      wakeLock?.release();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
+  // Auto-hide cursor after inactivity
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+
+    const resetTimer = () => {
+      setCursorHidden(false);
+      setShowExit(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        setCursorHidden(true);
+        setShowExit(false);
+      }, CURSOR_HIDE_MS);
+    };
+
+    resetTimer();
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('touchstart', resetTimer);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('touchstart', resetTimer);
+    };
+  }, []);
+
+  const hideWidgetBorders = config.preferences?.hideWidgetBorders ?? false;
+  const bgImageUrl = config.preferences?.backgroundImageUrl;
+  const bgOpacity = config.preferences?.backgroundOverlay ?? 1;
+  const backgroundFit = config.preferences?.backgroundFit ?? 'cover';
+
+  // A user-uploaded photo takes precedence over the theme's own background
+  // (painted by body::before — see index.css).
+  useEffect(() => {
+    if (bgImageUrl) document.body.dataset.userBg = '';
+    else delete document.body.dataset.userBg;
+    return () => { delete document.body.dataset.userBg; };
+  }, [bgImageUrl]);
+
+  const handleAddWidget = useCallback((slot: DashboardWidgetSlot) => {
+    // Belt and braces: the picker already hides private widgets in guest mode.
+    if (M.guestOnly && !isGuestSafe(slot.widgetId)) return;
+    setConfig((prev) => {
+      const next: DashboardConfig = { ...prev, slots: [...prev.slots, slot] };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleFontScale = useCallback((slotKey: string, delta: number) => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        slots: prev.slots.map((s) =>
+          s.layout.i === slotKey
+            ? { ...s, fontScale: Math.max(0.4, Math.min(2.0, Math.round(((s.fontScale ?? 1) + delta) * 10) / 10)) }
+            : s
+        ),
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleReset = useCallback(() => {
+    setConfig(M.defaults);
+    persistConfig(M.defaults);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistConfig]);
+
+  const handleToggleBorders = useCallback(() => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          hideWidgetBorders: !prev.preferences?.hideWidgetBorders,
+        },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleSetBackground = useCallback((url: string, overlay?: number) => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          backgroundImageUrl: url,
+          backgroundOverlay: overlay ?? prev.preferences?.backgroundOverlay ?? 0.4,
+        },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleSetBackgroundFit = useCallback((fit: 'cover' | 'contain') => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: { ...prev.preferences, backgroundFit: fit },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleClearBackground = useCallback(() => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          backgroundImageUrl: undefined,
+          backgroundOverlay: undefined,
+        },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  // Apply kiosk class to root
+  useEffect(() => {
+    document.documentElement.classList.add('kiosk-mode');
+    return () => document.documentElement.classList.remove('kiosk-mode');
+  }, []);
+
+  const handleLayoutChange = useCallback((newLayout: Layout[]) => {
+    if (!editModeRef.current) return;
+    // Breakpoint-aware write: lg edits go to slot.layout, md edits to
+    // slot.mdLayout. sm/xs/xxs (stacked) layouts are never persisted.
+    const w = widthRef.current;
+    const isLg = w >= 1280;
+    const isMd = w >= 996 && w < 1280;
+    if (!isLg && !isMd) return;
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        slots: prev.slots.map((slot) => {
+          const updated = newLayout.find((l) => l.i === slot.layout.i);
+          if (!updated) return slot;
+          const coords = { x: updated.x, y: updated.y, w: updated.w, h: updated.h };
+          if (isLg) {
+            return { ...slot, layout: { ...slot.layout, ...coords } };
+          }
+          const base = slot.mdLayout ?? slot.layout;
+          return { ...slot, mdLayout: { ...base, ...coords } };
+        }),
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleRemoveWidget = useCallback((slotKey: string) => {
+    setConfig((prev) => {
+      const index = prev.slots.findIndex((s) => s.layout.i === slotKey);
+      if (index === -1) return prev;
+      const removed = prev.slots[index];
+      const next: DashboardConfig = { ...prev, slots: prev.slots.filter((_, i) => i !== index) };
+      persistConfig(next);
+      setRecentlyRemoved({ slot: removed, index });
+      if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = window.setTimeout(() => setRecentlyRemoved(null), KIOSK_UNDO_TIMEOUT_MS);
+      return next;
+    });
+  }, [persistConfig]);
+
+  const handleUndoRemove = useCallback(() => {
+    setRecentlyRemoved((current) => {
+      if (!current) return null;
+      setConfig((prev) => {
+        const slots = [...prev.slots];
+        const insertAt = Math.min(current.index, slots.length);
+        slots.splice(insertAt, 0, current.slot);
+        const next: DashboardConfig = { ...prev, slots };
+        persistConfig(next);
+        return next;
+      });
+      if (undoTimerRef.current) {
+        window.clearTimeout(undoTimerRef.current);
+        undoTimerRef.current = null;
+      }
+      return null;
+    });
+  }, [persistConfig]);
+
+  // Guest mode never renders a private widget, even if one is in the saved
+  // config (e.g. an older layout or a hand-edited server copy).
+  const visibleSlots = M.guestOnly ? config.slots.filter((s) => isGuestSafe(s.widgetId)) : config.slots;
+
+  return (
+    <div
+      className={`page-root min-h-screen w-full p-4 ${cursorHidden ? 'cursor-hidden' : ''}`}
+      style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+    >
+      {bgImageUrl && (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${bgImageUrl})`,
+            backgroundSize: backgroundFit,
+            backgroundPosition: 'center',
+            backgroundAttachment: 'fixed',
+            opacity: bgOpacity,
+            zIndex: 0,
+          }}
+        />
+      )}
+      {/* Exit button — fades in on mouse movement */}
+      <button
+        type="button"
+        onClick={() => withUnlock(() => navigate('/'))}
+        className={`fixed right-4 z-50 inline-flex items-center min-h-[48px] rounded-full bg-black/30 px-5 text-base text-white backdrop-blur-sm hover:bg-black/50 transition-all touch-manipulation active:scale-95 ${
+          showExit ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
+      >
+        {mode === 'guest' && user?.hasPin ? '🔒 Exit' : '✕ Exit'}
+      </button>
+
+      <PinPrompt
+        open={pendingUnlock !== null}
+        title="Enter display PIN"
+        onSuccess={handleUnlocked}
+        onCancel={() => setPendingUnlock(null)}
+      />
+
+      {/* Settings FAB — bottom-right, matches dashboard ⚙ placement */}
+      <button
+        type="button"
+        onClick={() => withUnlock(() => setSettingsOpen(true))}
+        aria-label="Dashboard settings"
+        className={`fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-[var(--color-accent)] text-white text-2xl shadow-lg flex items-center justify-center hover:opacity-90 transition-all touch-manipulation active:scale-95 ${
+          showExit || editMode ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
+      >
+        ⚙
+      </button>
+
+      {settingsOpen && (
+        <DashboardSettingsSheet
+          mode={mode}
+          config={config}
+          editMode={editMode}
+          onToggleEdit={() => setEditMode((v) => !v)}
+          onAddWidget={handleAddWidget}
+          onReset={handleReset}
+          hideWidgetBorders={hideWidgetBorders}
+          onToggleBorders={handleToggleBorders}
+          backgroundImageUrl={bgImageUrl}
+          backgroundFit={backgroundFit}
+          onSetBackground={handleSetBackground}
+          onSetBackgroundFit={handleSetBackgroundFit}
+          onClearBackground={handleClearBackground}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {visibleSlots.length === 0 ? (
+        <div className="flex items-center justify-center min-h-screen">
+          <p className="text-[var(--color-text-muted)] text-lg">
+            No widgets configured. Open ⚙ to add some.
+          </p>
+        </div>
+      ) : (
+        <div ref={containerRef} className={`relative w-full overflow-x-hidden ${hideWidgetBorders ? 'dashboard-no-borders' : ''} ${!editMode ? '[&_.react-resizable-handle]:!hidden' : ''}`}>
+          {mounted && (
+            <ResponsiveGridLayout
+              className="dashboard-grid"
+              width={width}
+              layouts={getResponsiveLayouts(visibleSlots)}
+              breakpoints={{ lg: 1280, md: 996, sm: 768, xs: 480, xxs: 0 }}
+              cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }}
+              rowHeight={120}
+              dragConfig={{ enabled: editMode, handle: editMode ? '.widget-drag-handle' : undefined }}
+              resizeConfig={{ enabled: editMode, handles: editMode ? ['se', 'sw', 'ne', 'nw'] : [] }}
+              compactor={noCompactor}
+              margin={[16, 16]}
+              onDragStop={handleLayoutChange}
+              onResizeStop={handleLayoutChange}
+            >
+            {visibleSlots.map((slot) => {
+              const def = getWidget(slot.widgetId);
+              const Widget = def?.component;
+              return (
+                <div key={slot.layout.i} className="relative h-full" data-font-scale={slot.fontScale ?? 1}>
+                  {editMode ? (
+                    <div className="flex flex-col h-full">
+                      <div
+                        className="widget-drag-handle flex items-center gap-2 px-3 py-2 bg-[var(--color-accent)] text-white rounded-t-2xl text-sm select-none shrink-0"
+                        style={{ touchAction: 'none' }}
+                      >
+                        <span className="text-base leading-none" aria-hidden>⠿</span>
+                        <span className="flex-1 truncate font-semibold">{def?.label ?? slot.widgetId}</span>
+                        <div className="flex items-center gap-1 shrink-0" onPointerDown={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleFontScale(slot.layout.i, -0.1); }}
+                            className="rounded bg-white/20 hover:bg-white/40 w-7 h-7 flex items-center justify-center text-xs font-bold transition-colors touch-manipulation active:scale-95"
+                            aria-label="Decrease font size"
+                          >
+                            A-
+                          </button>
+                          <span className="text-xs font-mono w-8 text-center tabular-nums">{Math.round((slot.fontScale ?? 1) * 100)}%</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleFontScale(slot.layout.i, 0.1); }}
+                            className="rounded bg-white/20 hover:bg-white/40 w-7 h-7 flex items-center justify-center text-xs font-bold transition-colors touch-manipulation active:scale-95"
+                            aria-label="Increase font size"
+                          >
+                            A+
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleRemoveWidget(slot.layout.i); }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          aria-label={`Remove ${def?.label ?? 'widget'}`}
+                          className="rounded-full bg-white/20 hover:bg-red-500 w-8 h-8 flex items-center justify-center text-white text-base font-bold transition-colors touch-manipulation active:scale-95"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="flex-1 min-h-0">
+                        <Suspense
+                          fallback={
+                            <div className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-5 animate-pulse h-full" />
+                          }
+                        >
+                          {Widget ? <Widget /> : <EmptySlot />}
+                        </Suspense>
+                      </div>
+                    </div>
+                  ) : (
+                    <Suspense
+                      fallback={
+                        <div className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-5 animate-pulse h-full" />
+                      }
+                    >
+                      {Widget ? <Widget /> : null}
+                    </Suspense>
+                  )}
+                </div>
+              );
+            })}
+            </ResponsiveGridLayout>
+          )}
+        </div>
+      )}
+
+      {recentlyRemoved && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-6 z-50 flex items-center gap-3 rounded-full bg-[var(--color-card)] border border-[var(--color-border)] shadow-xl px-5 py-3">
+          <span className="text-sm text-[var(--color-text)]">
+            Removed <strong>{getWidget(recentlyRemoved.slot.widgetId)?.label ?? 'widget'}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={handleUndoRemove}
+            className="min-h-[40px] px-4 rounded-full bg-[var(--color-accent)] text-white text-sm font-semibold hover:opacity-90 active:scale-95 touch-manipulation"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function EmptySlot() {
+  return (
+    <div className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] border-dashed p-5 h-full flex items-center justify-center">
+      <p className="text-sm text-[var(--color-text-secondary)]">Widget not found</p>
+    </div>
+  );
+}
+
+export default DisplayPage;

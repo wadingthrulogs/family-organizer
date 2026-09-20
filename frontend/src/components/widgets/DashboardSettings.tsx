@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllWidgets } from './widgetRegistry';
+import { getAllWidgets, getGuestSafeWidgets } from './widgetRegistry';
 import type { DashboardConfig, DashboardWidgetSlot } from '../../types/dashboard';
 import { generateSlotId, saveDashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '../../types/dashboard';
 import { api } from '../../api/client';
 
 interface DashboardSettingsSheetProps {
+  /** Which display this sheet is configuring. Guest mode only offers guest-safe widgets. */
+  mode?: 'dashboard' | 'kiosk' | 'guest';
   config: DashboardConfig;
   editMode: boolean;
   onToggleEdit: () => void;
@@ -24,6 +26,7 @@ interface DashboardSettingsSheetProps {
 type View = 'home' | 'widgets' | 'background';
 
 export function DashboardSettingsSheet({
+  mode = 'dashboard',
   config,
   editMode,
   onToggleEdit,
@@ -45,7 +48,7 @@ export function DashboardSettingsSheet({
   const [overlayValue, setOverlayValue] = useState(config.preferences?.backgroundOverlay ?? 1);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const widgets = getAllWidgets();
+  const widgets = mode === 'guest' ? getGuestSafeWidgets() : getAllWidgets();
   const placedIds = new Set(config.slots.map((s) => s.widgetId));
 
   // Close on Escape
@@ -180,15 +183,28 @@ export function DashboardSettingsSheet({
                 active={Boolean(backgroundImageUrl)}
                 onClick={() => setView('background')}
               />
-              <SettingButton
-                icon="🖥️"
-                label="Kiosk mode"
-                description="Open the read-only family display"
-                onClick={() => {
-                  onClose();
-                  navigate('/kiosk');
-                }}
-              />
+              {mode === 'dashboard' && (
+                <SettingButton
+                  icon="🖥️"
+                  label="Kiosk mode"
+                  description="Open the read-only family display"
+                  onClick={() => {
+                    onClose();
+                    navigate('/kiosk');
+                  }}
+                />
+              )}
+              {mode !== 'guest' && (
+                <SettingButton
+                  icon="🛎️"
+                  label="Guest mode"
+                  description="A display with no household data — Wi-Fi, drinks, books"
+                  onClick={() => {
+                    onClose();
+                    navigate('/guest');
+                  }}
+                />
+              )}
             </div>
           )}
 

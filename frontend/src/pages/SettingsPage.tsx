@@ -14,6 +14,7 @@ import { api } from '../api/client';
 import type { HouseholdSettings } from '../types/settings';
 import UserManagement from '../components/UserManagement';
 import CommuteSettings from '../components/settings/CommuteSettings';
+import GuestDisplaySettings from '../components/settings/GuestDisplaySettings';
 import { useTheme, THEMES, type ThemeGroup, type ThemeMeta } from '../contexts/ThemeContext';
 import { SEASONAL_SCHEDULE_TEXT } from '../lib/seasonalTheme';
 import { useAuth } from '../hooks/useAuth';
@@ -265,6 +266,7 @@ function SettingsPage() {
             { key: 'appearance', label: 'Appearance', desc: 'Theme and tab visibility' },
             { key: 'weather', label: 'Weather', desc: 'Location and weather widget' },
             { key: 'commute', label: 'Commute / Routes', desc: 'Home address, Maps API key, and route ETAs' },
+            { key: 'guest', label: 'Guest display', desc: 'Wi-Fi QR, reading list, display PIN' },
             { key: 'google', label: 'Google Calendar', desc: 'Sync events from Google' },
             { key: 'server', label: 'Server Configuration', desc: isAdmin ? 'API keys, SMTP, VAPID, OAuth' : 'Managed by administrator' },
             { key: 'backup', label: 'Backup & Export', desc: isAdmin ? 'Export or restore household data' : 'Managed by administrator' },
@@ -516,6 +518,11 @@ function SettingsPage() {
       </div>{/* end appearance section */}
 
       {/* ─── Google Calendar ─── */}
+      {/* ─── Guest display ─── */}
+      <div className={sectionClass('guest')}>
+        <GuestDisplaySettings />
+      </div>
+
       <div className={sectionClass('google')}>
       <section className="mt-0 md:mt-10 border-t border-th-border-light pt-6">
         <div className="flex flex-wrap items-center justify-between gap-3">

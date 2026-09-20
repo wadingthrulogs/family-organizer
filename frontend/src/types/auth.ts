@@ -6,6 +6,8 @@ export interface AuthUser {
   timezone: string;
   colorHex: string | null;
   createdAt: string;
+  /** A display PIN is set; guest mode asks for it before exiting. */
+  hasPin: boolean;
 }
 
 export interface LoginPayload {

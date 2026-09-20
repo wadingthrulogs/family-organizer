@@ -6,6 +6,7 @@ import { AppLayout } from './components/layout/AppLayout.tsx';
 // Eager: entry-point routes used on cold load (kiosk + dashboard + login).
 import DashboardPage from './pages/DashboardPage.tsx';
 import KioskPage from './pages/KioskPage.tsx';
+import GuestPage from './pages/GuestPage.tsx';
 import LoginPage from './pages/LoginPage.tsx';
 
 // Lazy: everything else. Keeps react-grid-layout, calendar/meal-plan deps,
@@ -58,6 +59,7 @@ function App() {
     <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="kiosk" element={<KioskPage />} />
+        <Route path="guest" element={<GuestPage />} />
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="calendar" element={<CalendarPage />} />

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/require-auth.js';
+import { requireRole } from '../middleware/require-role.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { prisma } from '../lib/prisma.js';
 import { encryptSecret, decryptSecret } from '../lib/secrets.js';
@@ -359,6 +360,49 @@ settingsRouter.patch(
     }
 
     res.json(await loadHouseholdSettings());
+  })
+);
+
+/* ─── Remote display control ─── */
+// Which layout the wall display should show. The display polls this (only
+// devices flagged as the wall display act on it — see lib/displayControl.ts in
+// the frontend) so a phone, a Claude skill, or the MCP can flip it to guest
+// mode from anywhere. requestedAt lets the display tell a new command from one
+// it already followed, so a manual change on the display isn't fought.
+
+const DISPLAY_MODE_KEY = 'display_mode';
+const displayModeSchema = z.object({ mode: z.enum(['dashboard', 'kiosk', 'guest']) }).strict();
+
+async function readDisplayMode(): Promise<{ mode: 'dashboard' | 'kiosk' | 'guest'; requestedAt: string | null }> {
+  const row = await prisma.householdSetting.findUnique({ where: { key: DISPLAY_MODE_KEY } });
+  if (!row) return { mode: 'dashboard', requestedAt: null };
+  try {
+    const parsed = JSON.parse(row.value) as { mode?: unknown; requestedAt?: unknown };
+    const mode = displayModeSchema.shape.mode.safeParse(parsed.mode);
+    return {
+      mode: mode.success ? mode.data : 'dashboard',
+      requestedAt: typeof parsed.requestedAt === 'string' ? parsed.requestedAt : null,
+    };
+  } catch {
+    return { mode: 'dashboard', requestedAt: null };
+  }
+}
+
+settingsRouter.get(
+  '/display',
+  asyncHandler(async (_req, res) => {
+    res.json(await readDisplayMode());
+  })
+);
+
+settingsRouter.patch(
+  '/display',
+  requireRole('ADMIN', 'MEMBER'),
+  asyncHandler(async (req, res) => {
+    const { mode } = displayModeSchema.parse(req.body ?? {});
+    const value = JSON.stringify({ mode, requestedAt: new Date().toISOString() });
+    await prisma.householdSetting.upsert({ where: { key: DISPLAY_MODE_KEY }, create: { key: DISPLAY_MODE_KEY, value }, update: { value } });
+    res.json(await readDisplayMode());
   })
 );
 

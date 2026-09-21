@@ -7,6 +7,10 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { AnnouncementProvider } from './contexts/AnnouncementContext';
 import App from './App.tsx';
 import './styles/index.css';
+import { applyWallFlagFromUrl } from './lib/displayControl';
+
+// `?wall=1` marks this device as the wall display (see lib/displayControl.ts).
+applyWallFlagFromUrl();
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },

@@ -62,7 +62,12 @@ fn config_file_path() -> Option<PathBuf> {
 }
 
 fn is_healthy(base_url: &str) -> bool {
-    let url = format!("{}{}", base_url.trim_end_matches('/'), HEALTH_PATH);
+    // Build from the origin, not the raw string: the configured URL may carry a
+    // path or query (e.g. `?wall=1`, which flags this device as the wall display).
+    let url = match Url::parse(base_url) {
+        Ok(parsed) => format!("{}{}", parsed.origin().ascii_serialization(), HEALTH_PATH),
+        Err(_) => format!("{}{}", base_url.trim_end_matches('/'), HEALTH_PATH),
+    };
     ureq::get(&url)
         .timeout(REQUEST_TIMEOUT)
         .call()

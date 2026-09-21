@@ -7,6 +7,7 @@ import { AppLayout } from './components/layout/AppLayout.tsx';
 import DashboardPage from './pages/DashboardPage.tsx';
 import KioskPage from './pages/KioskPage.tsx';
 import GuestPage from './pages/GuestPage.tsx';
+import { useFollowDisplayCommands } from './lib/displayControl';
 import LoginPage from './pages/LoginPage.tsx';
 
 // Lazy: everything else. Keeps react-grid-layout, calendar/meal-plan deps,
@@ -27,6 +28,12 @@ function RouteFallback() {
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-th-border border-t-btn-primary" />
     </div>
   );
+}
+
+/** Renders nothing; makes the wall display follow remote layout commands. */
+function DisplayCommandFollower() {
+  useFollowDisplayCommands();
+  return null;
 }
 
 function App() {
@@ -57,6 +64,7 @@ function App() {
 
   return (
     <Suspense fallback={<RouteFallback />}>
+      <DisplayCommandFollower />
       <Routes>
         <Route path="kiosk" element={<KioskPage />} />
         <Route path="guest" element={<GuestPage />} />

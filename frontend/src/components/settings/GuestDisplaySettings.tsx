@@ -4,6 +4,7 @@ import { setDisplayPin } from '../../api/auth';
 import type { GuestBook, GuestBookInput, GuestWifi, WifiSecurity } from '../../api/guest';
 import { useGuestContent, useRequestBookLookupMutation, useUpdateGuestContentMutation } from '../../hooks/useGuestContent';
 import { useAuth } from '../../hooks/useAuth';
+import { isWallDisplay, setWallDisplay, setDisplayMode } from '../../lib/displayControl';
 
 /**
  * Settings → Guest display. Everything the guest mode shows that isn't
@@ -23,6 +24,7 @@ export default function GuestDisplaySettings() {
         <WifiEditor />
         <BooksEditor />
         <DisplayPinEditor />
+        <RemoteControlEditor />
       </div>
     </section>
   );
@@ -398,6 +400,53 @@ function DisplayPinEditor() {
           </div>
         </form>
       )}
+    </div>
+  );
+}
+
+/* ─── Remote control ─── */
+
+function RemoteControlEditor() {
+  const [wall, setWall] = useState(isWallDisplay);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+
+  const send = async (mode: 'dashboard' | 'kiosk' | 'guest') => {
+    setBusy(mode);
+    setNote('');
+    try {
+      await setDisplayMode(mode);
+      setNote(`Sent — the wall display switches to ${mode} within about 20 seconds.`);
+    } catch {
+      setNote('Couldn’t send the command.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-heading">🖥️ Remote control</h3>
+      <p className="text-xs text-muted">
+        Switch the wall display’s layout from here (or from a Claude skill). Only devices marked as the wall display follow these commands.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {(['dashboard', 'kiosk', 'guest'] as const).map((m) => (
+          <button key={m} type="button" onClick={() => send(m)} disabled={busy !== null} className="btn-secondary btn-pill px-4 py-2 text-sm capitalize disabled:opacity-50">
+            {busy === m ? 'Sending…' : `Show ${m}`}
+          </button>
+        ))}
+      </div>
+      {note && <p className="text-xs text-muted">{note}</p>}
+      <label className="flex items-center gap-2 text-sm text-form-label">
+        <input
+          type="checkbox"
+          className="h-4 w-4"
+          checked={wall}
+          onChange={(e) => { setWallDisplay(e.target.checked); setWall(e.target.checked); }}
+        />
+        This device is the wall display (follow remote commands)
+      </label>
     </div>
   );
 }

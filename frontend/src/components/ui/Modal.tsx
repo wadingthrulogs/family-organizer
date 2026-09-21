@@ -52,7 +52,10 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
   return (
     <dialog
       ref={dialogRef}
-      className={`w-full ${maxWidth} rounded-card border border-th-border bg-card shadow-soft max-h-[90dvh] overflow-y-auto`}
+      // text-base resets font-size: a dialog opened from inside a widget would
+      // otherwise inherit the widget's scaled-down px size (it lives in the top
+      // layer visually, but still inherits from its DOM parent).
+      className={`w-full ${maxWidth} text-base rounded-card border border-th-border bg-card shadow-soft max-h-[90dvh] overflow-y-auto`}
       onClick={handleBackdropClick}
     >
       <div className="p-6">

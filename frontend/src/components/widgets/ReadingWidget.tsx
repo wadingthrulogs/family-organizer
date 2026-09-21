@@ -1,11 +1,71 @@
+import { useState } from 'react';
+import type { GuestBook } from '../../api/guest';
 import { useGuestContent } from '../../hooks/useGuestContent';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
+import { Modal } from '../ui/Modal';
+
+const coverUrl = (id: number) => `/api/v1/attachments/${id}/download`;
+
+/** Centered detail view: big cover, full synopsis at a comfortable reading size. */
+function BookDetailModal({ book, onClose }: { book: GuestBook | null; onClose: () => void }) {
+  return (
+    <Modal open={book !== null} onClose={onClose} title={book?.title ?? ''} maxWidth="max-w-3xl">
+      {book && (
+        <div className="flex flex-col gap-6 sm:flex-row">
+          <div className="shrink-0 self-center sm:self-start">
+            {book.coverAttachmentId ? (
+              <img
+                src={coverUrl(book.coverAttachmentId)}
+                alt={`Cover of ${book.title}`}
+                className="w-48 max-h-[60dvh] rounded-lg object-contain shadow-soft sm:w-56"
+              />
+            ) : (
+              <div className="flex h-72 w-48 items-center justify-center rounded-lg border border-th-border bg-page text-6xl sm:w-56" aria-hidden>📖</div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1 space-y-3">
+            {(book.author || book.year) && (
+              <p className="text-lg text-secondary">
+                {book.author}{book.author && book.year ? ' · ' : ''}{book.year ?? ''}
+              </p>
+            )}
+            {book.reader && (
+              <p className="text-base text-muted">Being read by <span className="font-medium text-primary">{book.reader}</span></p>
+            )}
+            {book.progress != null && (
+              <div className="flex items-center gap-3">
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-page">
+                  <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max(0, Math.min(100, book.progress))}%` }} />
+                </div>
+                <span className="text-sm tabular-nums text-muted">{Math.round(book.progress)}% read</span>
+              </div>
+            )}
+            {book.synopsis ? (
+              <p className="text-lg leading-relaxed text-primary whitespace-pre-line">{book.synopsis}</p>
+            ) : (
+              <p className="text-base italic text-muted">
+                {book.enrichStatus === 'pending' ? 'Looking up a synopsis…' : 'No synopsis yet.'}
+              </p>
+            )}
+            <div className="pt-2">
+              <button type="button" onClick={onClose} className="btn-secondary btn-pill min-h-[48px] px-6 text-base touch-manipulation">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
 
 /** What the household is currently reading — a conversation starter, not data. */
 export default function ReadingWidget() {
   const { ref, height, compact, tiny, baseFontSize } = useWidgetSize();
   const { data, isLoading } = useGuestContent();
   const books = data?.books ?? [];
+  const [openId, setOpenId] = useState<string | null>(null);
+  const openBook = books.find((b) => b.id === openId) ?? null;
 
   const showHeader = height > 80;
   const showCovers = !compact;
@@ -29,11 +89,17 @@ export default function ReadingWidget() {
       ) : (
         <ul className="flex-1 min-h-0 overflow-y-auto scroll-area space-y-2 pr-1">
           {books.map((book) => (
-            <li key={book.id} className="flex gap-2.5 items-start">
+            <li key={book.id}>
+            <button
+              type="button"
+              onClick={() => setOpenId(book.id)}
+              aria-label={`Details for ${book.title}`}
+              className="flex w-full gap-2.5 items-start rounded-lg p-1 -m-1 text-left hover:bg-[var(--color-bg-hover)] active:bg-[var(--color-bg-hover)] touch-manipulation transition-colors"
+            >
               {showCovers && (
                 book.coverAttachmentId ? (
                   <img
-                    src={`/api/v1/attachments/${book.coverAttachmentId}/download`}
+                    src={coverUrl(book.coverAttachmentId)}
                     alt=""
                     className="h-[4.2em] w-[2.9em] shrink-0 rounded object-cover shadow-sm"
                   />
@@ -63,10 +129,12 @@ export default function ReadingWidget() {
                   </div>
                 )}
               </div>
+            </button>
             </li>
           ))}
         </ul>
       )}
+      <BookDetailModal book={openBook} onClose={() => setOpenId(null)} />
     </div>
   );
 }

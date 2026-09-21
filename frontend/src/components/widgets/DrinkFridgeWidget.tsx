@@ -27,7 +27,9 @@ export default function DrinkFridgeWidget() {
   const available = items.filter((i) => i.quantity > 0).length;
 
   return (
-    <div ref={ref} style={{ fontSize: baseFontSize * 0.6 }} className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-3 h-full overflow-hidden flex flex-col">
+    // A menu board read from across the room: noticeably larger than the
+    // inventory widget it's modelled on (0.6). Edit-mode font buttons scale on top.
+    <div ref={ref} style={{ fontSize: baseFontSize * 0.9 }} className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-3 h-full overflow-hidden flex flex-col">
       {showHeader && (
         <h2 className="font-semibold text-[var(--color-text)] text-[1.3em] mb-2 shrink-0">
           🥤 {!tiny && 'Drink fridge'}{' '}
@@ -48,13 +50,13 @@ export default function DrinkFridgeWidget() {
           {groups.map(([category, groupItems]) => (
             <div key={category || '__none'}>
               {category && groups.length > 1 && (
-                <p className="text-[0.75em] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-0.5">{category}</p>
+                <p className="text-[0.7em] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-0.5 mt-1">{category}</p>
               )}
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {groupItems.map((item) => {
                   const out = item.quantity <= 0;
                   return (
-                    <li key={item.id} className={`flex items-baseline justify-between gap-2 text-[1em] ${out ? 'text-[var(--color-text-faint)] line-through' : 'text-[var(--color-text)]'}`}>
+                    <li key={item.id} className={`flex items-baseline justify-between gap-2 text-[1.05em] leading-snug ${out ? 'text-[var(--color-text-faint)] line-through' : 'text-[var(--color-text)]'}`}>
                       <span className="truncate">{item.name}</span>
                       {!tiny && (
                         <span className="shrink-0 text-[0.8em] text-[var(--color-text-secondary)] no-underline">

@@ -13,6 +13,7 @@ Optional
 ## Features
 - **Dashboard** — Drag-and-resize widget grid, custom background photo with opacity and fit mode (fill/contain), customizable mobile bottom tab bar, kiosk display mode
 - **Guest mode** — a second wall-display layout with no household data: Wi-Fi QR code, what's in the drink fridge (inventory items tagged *Drink fridge*), and what everyone's reading — add a title and Claude looks up the cover, author and a spoiler-free synopsis; optional PIN to leave it
+- **Claude skills & CLI** — `fo` command-line client and Claude Code skills to add tasks, grocery and inventory items, and flip the wall display into guest mode from anywhere
 - **Themes** — 16 colour themes plus Halloween, Thanksgiving, Christmas and Dungeons & Dragons themes with their own fonts, button styles and backgrounds; optional seasonal auto-switch by date
 - **Calendar** — Google Calendar sync, day/week/month views, manual events
 - **Tasks** — Simple todo list with quick-add, open/closed status, assignees, due dates, and recurrence

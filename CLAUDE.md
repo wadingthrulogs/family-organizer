@@ -18,7 +18,7 @@ family-organizer/
 ├── frontend/  # React + Vite SPA
 ├── desktop/   # Tauri desktop shell for the Pi display (§8)  — see also §9
 ├── mcp/       # MCP server exposing the API to Claude (§7)
-├── tools/     # Host-side helpers, incl. the recipe-image watcher (§6)
+├── tools/     # Host-side helpers: recipe/book watcher (§6), fo CLI + Claude skills (§7b)
 ├── agents/    # One-off codegen/design agent scripts
 ├── e2e/       # Playwright end-to-end tests
 └── docs/      # Deep dives: architecture, data model, API, deployment
@@ -259,6 +259,7 @@ TZ                              # default UTC
   weatherUnits, taskRetention, homeAddress }` + `*Set` booleans for each encrypted secret
 - `PATCH /` — partial update; also accepts `googleClientId/Secret`, `openweatherApiKey`,
   `googleMapsApiKey`, `mapboxToken`, `homeAddress`, `smtp*`, `pushVapid*` (encrypted on write)
+- `GET /display` / `PATCH /display` (ADMIN, MEMBER) — `{ mode: dashboard|kiosk|guest, requestedAt }`: remote wall-display control (§7b)
 - `GET /me` — user preferences `{ theme, seasonalTheme, dashboardConfig, kioskConfig, guestConfig, hiddenTabs }`
 - `PATCH /me` — user preferences update
 
@@ -606,6 +607,35 @@ Lets Claude read and write the household data directly. Wired up by `.mcp.json` 
 
 ---
 
+## 7b. `fo` CLI, Claude Code skills, remote display control (`tools/fo-cli/`)
+
+`fo.mjs` is a zero-dependency Node client for the REST API, signed in as the dedicated **`claude-bot`**
+MEMBER account (created 2026-09-20). Credentials: `~/.config/family-organizer/cli.env` (0600), session
+cookie cached beside it so repeated calls stay under the 15/15-min login limit. `FO_ENV_FILE` overrides
+the config path (used to point at the preview harness).
+
+```
+fo task add "…" [--due today|tomorrow|YYYY-MM-DD] [--priority N] [--assign user] [--notes …]
+fo task list [--status …]           fo grocery add "a, b, c" [--list name]     fo grocery lists
+fo inventory add "…" [--qty N] [--unit u] [--category c] [--threshold N] [--drinks]
+fo inventory list [--search x] [--drinks] [--low]      fo display [dashboard|kiosk|guest]      fo whoami
+```
+
+`--assign` needs `GET /auth/users`, which is ADMIN-only — with a MEMBER bot it fails with a clear message
+and the task is not created. Promote the bot if assignment from skills matters.
+
+**Skills** live in `tools/fo-cli/skills/<name>/SKILL.md` and are symlinked into `~/.claude/skills/` by
+`install.sh` (which also puts `fo` on PATH): `fo-task`, `fo-grocery`, `fo-inventory`, `fo-display`. They
+translate natural language into `fo` invocations and relay the CLI's confirmation line; the grocery skill
+asks which list when several are active and none was named.
+
+**Remote display control.** `PATCH /settings/display` stores `{ mode, requestedAt }`. Only a device
+flagged as the wall display follows it (`lib/displayControl.ts`): the flag is set by opening the app with
+`?wall=1` once (the Tauri shell's configured URL, `~/.config/family-organizer/url`, does this) or via the
+checkbox in Settings → Guest display → Remote control. The flagged device polls every 20 s, applies each
+`requestedAt` once, and otherwise leaves a hand-made layout change alone. Switching *out* of guest mode
+this way bypasses the display PIN by design — the command needs a signed-in household account.
+
 ## 8. Desktop Shell (`desktop/`)
 
 A [Tauri v2](https://tauri.app) app so the Pi's display isn't a browser window. **The web
@@ -635,7 +665,9 @@ It earns its place by solving two things a browser window doesn't:
 
 ### Server URL resolution
 `FAMILY_ORGANIZER_URL` env var → `~/.config/family-organizer/url` → compiled-in default.
-One build therefore works on any household's Pi without a recompile.
+One build therefore works on any household's Pi without a recompile. The URL may carry a path or query —
+this Pi's is `https://familyorganizer.tail411eff.ts.net/?wall=1` (the wall-display flag, §7b); the health
+check is built from the URL's origin, not the raw string.
 
 ### Build
 ```bash

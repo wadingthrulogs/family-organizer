@@ -3,7 +3,7 @@
 > This file is auto-loaded by Claude Code at the start of every session.
 > Keep it accurate and concise. For deep dives, see `docs/`.
 >
-> Last verified against the codebase: **2026-09-20** (theming work on top of `82110be`).
+> Last verified against the codebase: **2026-09-22** (finished-books shelf on top of `e6cf684`).
 
 ---
 
@@ -264,9 +264,10 @@ TZ                              # default UTC
 - `PATCH /me` — user preferences update
 
 **Guest display `/guest`**
-- `GET /content` — `{ wifi: { ssid, security, password, hidden } | null, books: [{ id, title, author, reader, progress, coverAttachmentId, synopsis, year, enrichStatus, enrichError, … }], lookupEnabled }`
+- `GET /content` — `{ wifi: { ssid, security, password, hidden } | null, books: [{ id, title, author, reader, progress, coverAttachmentId, synopsis, year, finishedAt, enrichStatus, enrichError, … }], lookupEnabled }`
   (Wi-Fi password is `enc:` at rest but returned in plaintext — the display renders it into a QR). Also ingests finished book lookups.
 - `PATCH /content` (ADMIN, MEMBER) — `{ wifi?: … | null, books?: […] }`. A new book with no synopsis/cover is queued for lookup (§6).
+  A book with `finishedAt` set is finished; the newest `MAX_FINISHED` (12) are kept and older ones are pruned on write. Books still being read are never pruned.
 - `POST /books/:bookId/lookup` (ADMIN, MEMBER) — re-run the lookup; 503 `LOOKUP_NOT_CONFIGURED` if the bridge dirs aren't set
 
 **Reminders `/reminders`**
@@ -459,7 +460,7 @@ interface GroceryItem { id, listId, name, category?, quantity, unit?, state, not
 | mealPlan | MealPlanWidget | 6×3 |
 | wifi ★ | WifiWidget | 4×3 — SSID + Wi-Fi QR (`uqr`), tap-to-reveal password |
 | drinkFridge ★ | DrinkFridgeWidget | 4×3 — inventory items tagged `isDrinkFridge`, grouped by category; qty 0 = "out" |
-| reading ★ | ReadingWidget | 4×3 — guest content books with progress + optional cover attachment |
+| reading ★ | ReadingWidget | 4×3 — guest content books with progress + optional cover attachment; finished books drop to a "Recently finished" cover strip (shown when the card is taller than 240px, or when nothing is in progress) |
 
 ★ = `guestSafe` in `widgetRegistry.ts` (also Clock and Weather). Only these may appear on the guest display.
 
@@ -479,6 +480,9 @@ config slot, refresh keys, defaults, and whether the widget allowlist applies. I
   API is still reachable from the device. The PIN stops a visitor tapping through, nothing more.
 - Content is edited in Settings → Guest display (`GuestDisplaySettings.tsx`); the drink board is edited
   on the Inventory page via the 🥤 Drink fridge tag.
+- The reading list splits on `finishedAt`: "✓ Finished" on a book stamps the date and fills its progress
+  bar, moving it to the editor's **Recently finished** shelf; "Reading again" clears the stamp. Both are
+  ordinary draft edits — nothing is written until **Save books**.
 
 ---
 

@@ -6,6 +6,25 @@ import { Modal } from '../ui/Modal';
 
 const coverUrl = (id: number) => `/api/v1/attachments/${id}/download`;
 
+/** "September 22, 2026" — or just "Finished" if the stored value is unusable. */
+function finishedLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'Finished';
+  return `Finished ${date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}`;
+}
+
+/** "Sep 22" for the shelf captions, where there's no room for the long form. */
+function shortFinishedLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/** Newest first; books with an unreadable date sort last. */
+function byFinishedDesc(a: GuestBook, b: GuestBook): number {
+  return (b.finishedAt ?? '').localeCompare(a.finishedAt ?? '');
+}
+
 /** Centered detail view: big cover, full synopsis at a comfortable reading size. */
 function BookDetailModal({ book, onClose }: { book: GuestBook | null; onClose: () => void }) {
   return (
@@ -30,15 +49,24 @@ function BookDetailModal({ book, onClose }: { book: GuestBook | null; onClose: (
               </p>
             )}
             {book.reader && (
-              <p className="text-base text-muted">Being read by <span className="font-medium text-primary">{book.reader}</span></p>
+              <p className="text-base text-muted">
+                {book.finishedAt ? 'Read by ' : 'Being read by '}
+                <span className="font-medium text-primary">{book.reader}</span>
+              </p>
             )}
-            {book.progress != null && (
-              <div className="flex items-center gap-3">
-                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-page">
-                  <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max(0, Math.min(100, book.progress))}%` }} />
+            {book.finishedAt ? (
+              <p className="inline-flex items-center gap-1.5 rounded-pill bg-page px-3 py-1 text-sm text-muted">
+                <span aria-hidden>✓</span>{finishedLabel(book.finishedAt)}
+              </p>
+            ) : (
+              book.progress != null && (
+                <div className="flex items-center gap-3">
+                  <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-page">
+                    <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max(0, Math.min(100, book.progress))}%` }} />
+                  </div>
+                  <span className="text-sm tabular-nums text-muted">{Math.round(book.progress)}% read</span>
                 </div>
-                <span className="text-sm tabular-nums text-muted">{Math.round(book.progress)}% read</span>
-              </div>
+              )
             )}
             {book.synopsis ? (
               <p className="text-lg leading-relaxed text-primary whitespace-pre-line">{book.synopsis}</p>
@@ -67,10 +95,16 @@ export default function ReadingWidget() {
   const [openId, setOpenId] = useState<string | null>(null);
   const openBook = books.find((b) => b.id === openId) ?? null;
 
+  const current = books.filter((b) => !b.finishedAt);
+  const finished = books.filter((b) => b.finishedAt).sort(byFinishedDesc);
+
   const showHeader = height > 80;
   const showCovers = !compact;
   // Synopses need room; on a short card the list is the point.
   const showSynopsis = !compact && height > 260;
+  // The shelf is a nicety — it only earns its strip when the card is tall enough
+  // that giving it up doesn't squeeze what's actually being read.
+  const showShelf = finished.length > 0 && !tiny && (height > 240 || current.length === 0);
 
   return (
     <div ref={ref} style={{ fontSize: baseFontSize * 0.6 }} className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] p-3 h-full overflow-hidden flex flex-col">
@@ -86,9 +120,13 @@ export default function ReadingWidget() {
         <div className="flex-1 flex items-center justify-center text-center text-[var(--color-text-muted)] text-[0.95em] px-2">
           {compact ? 'No books yet' : 'Add what you’re reading in Settings → Guest display'}
         </div>
+      ) : current.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center text-center text-[var(--color-text-muted)] text-[0.95em] px-2">
+          Between books right now
+        </div>
       ) : (
         <ul className="flex-1 min-h-0 overflow-y-auto scroll-area space-y-2 pr-1">
-          {books.map((book) => (
+          {current.map((book) => (
             <li key={book.id}>
             <button
               type="button"
@@ -134,6 +172,38 @@ export default function ReadingWidget() {
           ))}
         </ul>
       )}
+
+      {showShelf && (
+        <div className="shrink-0 mt-2 pt-2 border-t border-[var(--color-border)]">
+          <p className="text-[0.7em] uppercase tracking-wide text-[var(--color-text-muted)] mb-1">
+            Recently finished · {finished.length}
+          </p>
+          <ul className="flex gap-1.5 overflow-x-auto scroll-area pb-0.5">
+            {finished.map((book) => (
+              <li key={book.id} className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setOpenId(book.id)}
+                  aria-label={`Details for ${book.title}, ${finishedLabel(book.finishedAt!).toLowerCase()}`}
+                  title={`${book.title} — ${shortFinishedLabel(book.finishedAt!)}`}
+                  className="block w-[2.4em] rounded hover:opacity-75 active:opacity-75 touch-manipulation transition-opacity"
+                >
+                  {book.coverAttachmentId ? (
+                    <img
+                      src={coverUrl(book.coverAttachmentId)}
+                      alt=""
+                      className="h-[3.4em] w-full rounded object-cover shadow-sm"
+                    />
+                  ) : (
+                    <div className="h-[3.4em] w-full rounded bg-[var(--color-bg)] border border-[var(--color-border)] flex items-center justify-center text-[1.1em]" aria-hidden>📖</div>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <BookDetailModal book={openBook} onClose={() => setOpenId(null)} />
     </div>
   );

@@ -21,6 +21,8 @@ export interface GuestBook {
   /** Filled by the lookup service unless written by hand. */
   synopsis: string;
   year: number | null;
+  /** ISO timestamp of when it was finished; null while it's still being read. */
+  finishedAt: string | null;
   /** Lookup bookkeeping — server-owned, ignored on write. */
   enrichStatus: 'pending' | 'done' | 'failed' | null;
   enrichError: string | null;
@@ -40,7 +42,7 @@ export async function fetchGuestContent(): Promise<GuestContent> {
   return data;
 }
 
-export type GuestBookInput = Partial<Pick<GuestBook, 'id' | 'author' | 'reader' | 'progress' | 'coverAttachmentId' | 'synopsis' | 'year'>> & Pick<GuestBook, 'title'>;
+export type GuestBookInput = Partial<Pick<GuestBook, 'id' | 'author' | 'reader' | 'progress' | 'coverAttachmentId' | 'synopsis' | 'year' | 'finishedAt'>> & Pick<GuestBook, 'title'>;
 
 export async function updateGuestContent(
   payload: { wifi?: GuestWifi | null; books?: GuestBookInput[] }

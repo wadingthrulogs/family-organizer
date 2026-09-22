@@ -23,6 +23,9 @@ export const guestRouter = Router();
 const WIFI_KEY = 'guest_wifi';
 const BOOKS_KEY = 'guest_books';
 
+/** How many finished books the shelf keeps. Older ones fall off on the next save. */
+const MAX_FINISHED = 12;
+
 const wifiSchema = z.object({
   ssid: z.string().trim().min(1).max(64),
   security: z.enum(['WPA', 'WEP', 'nopass']).default('WPA'),
@@ -42,6 +45,8 @@ const bookSchema = z.object({
   /** Filled by the lookup (services/book-enrichment.ts) unless the user wrote one. */
   synopsis: z.string().trim().max(2000).default(''),
   year: z.number().int().nullable().default(null),
+  /** Set when the book moves to the "recently finished" shelf; null while it's being read. */
+  finishedAt: z.string().max(40).nullable().default(null),
   enrichStatus: z.enum(['pending', 'done', 'failed']).nullable().default(null),
   enrichError: z.string().max(300).nullable().default(null),
   enrichRequestedAt: z.string().nullable().default(null),
@@ -82,6 +87,22 @@ async function readContent(): Promise<{ wifi: Wifi | null; books: Book[]; lookup
     }
   }
   return { wifi, books, lookupEnabled: bookLookupEnabled() };
+}
+
+/**
+ * Drop all but the newest MAX_FINISHED finished books. Books still being read
+ * are never pruned, and order is otherwise preserved.
+ */
+function pruneFinished(books: Book[]): Book[] {
+  const finished = books.filter((b) => b.finishedAt);
+  if (finished.length <= MAX_FINISHED) return books;
+  const keep = new Set(
+    [...finished]
+      .sort((a, b) => (b.finishedAt ?? '').localeCompare(a.finishedAt ?? ''))
+      .slice(0, MAX_FINISHED)
+      .map((b) => b.id)
+  );
+  return books.filter((b) => !b.finishedAt || keep.has(b.id));
 }
 
 /** Mark a book pending and hand it to the watcher. Returns the (mutated) book. */
@@ -141,13 +162,14 @@ guestRouter.patch(
           enrichRequestedAt: prev?.enrichRequestedAt ?? null,
           enrichedAt: prev?.enrichedAt ?? null,
           year: b.year ?? prev?.year ?? null,
+          finishedAt: b.finishedAt ?? null,
         };
         // New (or never looked up) books with nothing filled in get a lookup.
         const untouched = !book.synopsis && !book.coverAttachmentId;
         if (untouched && book.enrichStatus === null && bookLookupEnabled()) requestLookup(book);
         return book;
       });
-      const value = JSON.stringify(next);
+      const value = JSON.stringify(pruneFinished(next));
       await prisma.householdSetting.upsert({ where: { key: BOOKS_KEY }, create: { key: BOOKS_KEY, value }, update: { value } });
     }
 

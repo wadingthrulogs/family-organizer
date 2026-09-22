@@ -120,7 +120,18 @@ function WifiEditor() {
 type BookDraft = Omit<GuestBook, 'id'> & { id?: string };
 const EMPTY_BOOK: BookDraft = {
   title: '', author: '', reader: '', progress: null, coverAttachmentId: null,
-  synopsis: '', year: null, enrichStatus: null, enrichError: null, enrichRequestedAt: null, enrichedAt: null,
+  synopsis: '', year: null, finishedAt: null,
+  enrichStatus: null, enrichError: null, enrichRequestedAt: null, enrichedAt: null,
+};
+
+/** How many finished books the server keeps — mirrors MAX_FINISHED in routes/guest.ts. */
+const MAX_FINISHED = 12;
+
+const finishedOn = (iso: string) => {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? ''
+    : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 function LookupStatus({ book, onRetry, busy }: { book: BookDraft; onRetry?: () => void; busy: boolean }) {
@@ -175,6 +186,9 @@ function BooksEditor() {
     setDirty(true);
     setBooks((list) => [...list, { ...EMPTY_BOOK }]);
   };
+  /** Finishing a book implies you read all of it, so the bar fills too. */
+  const finish = (i: number) => edit(i, { finishedAt: new Date().toISOString(), progress: 100 });
+  const unfinish = (i: number) => edit(i, { finishedAt: null });
 
   const uploadCover = async (i: number, file: File | undefined) => {
     if (!file) return;
@@ -199,6 +213,7 @@ function BooksEditor() {
       .map((b) => ({
         id: b.id, title: b.title.trim(), author: b.author.trim(), reader: b.reader.trim(),
         progress: b.progress, coverAttachmentId: b.coverAttachmentId, synopsis: b.synopsis.trim(), year: b.year,
+        finishedAt: b.finishedAt,
       }))
       .filter((b) => b.title.length > 0);
     await update.mutateAsync({ books: cleaned });
@@ -212,6 +227,13 @@ function BooksEditor() {
     await lookup.mutateAsync(id);
   };
 
+  // Both sections edit the same flat list, so each entry carries its index.
+  const entries = books.map((book, i) => ({ book, i }));
+  const reading = entries.filter((e) => !e.book.finishedAt);
+  const finished = entries
+    .filter((e) => e.book.finishedAt)
+    .sort((a, b) => (b.book.finishedAt ?? '').localeCompare(a.book.finishedAt ?? ''));
+
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-heading">📚 Currently reading</h3>
@@ -224,11 +246,11 @@ function BooksEditor() {
 
       {isLoading ? (
         <p className="text-sm text-muted">Loading…</p>
-      ) : books.length === 0 ? (
-        <p className="text-sm text-muted">No books yet.</p>
+      ) : reading.length === 0 ? (
+        <p className="text-sm text-muted">{books.length === 0 ? 'No books yet.' : 'Nothing in progress.'}</p>
       ) : (
         <ul className="space-y-3">
-          {books.map((book, i) => (
+          {reading.map(({ book, i }) => (
             <li key={book.id ?? `new-${i}`} className="rounded-card border border-th-border bg-card-alt p-3">
               <div className="flex gap-3">
                 <div className="shrink-0">
@@ -294,11 +316,53 @@ function BooksEditor() {
                     )}
                   </label>
                 </div>
-                <button type="button" onClick={() => remove(i)} aria-label="Remove book" className="self-start text-muted hover:text-red-600 text-lg leading-none">×</button>
+                <div className="flex flex-col items-end gap-2 self-start">
+                  <button type="button" onClick={() => remove(i)} aria-label="Remove book" className="text-muted hover:text-red-600 text-lg leading-none">×</button>
+                  <button
+                    type="button"
+                    onClick={() => finish(i)}
+                    disabled={!book.title.trim()}
+                    className="btn-secondary btn-pill whitespace-nowrap px-3 py-1 text-xs disabled:opacity-50"
+                  >
+                    ✓ Finished
+                  </button>
+                </div>
               </div>
             </li>
           ))}
         </ul>
+      )}
+
+      {finished.length > 0 && (
+        <div className="space-y-2 pt-1">
+          <h4 className="text-sm font-semibold text-heading">✓ Recently finished</h4>
+          <p className="text-xs text-muted">
+            Shown as a shelf under the reading list on the guest display. The newest {MAX_FINISHED} are
+            kept; older ones drop off when you save.
+          </p>
+          <ul className="space-y-2">
+            {finished.map(({ book, i }) => (
+              <li key={book.id ?? `finished-${i}`} className="flex items-center gap-3 rounded-card border border-th-border bg-card-alt p-2">
+                {book.coverAttachmentId ? (
+                  <img src={`/api/v1/attachments/${book.coverAttachmentId}/download`} alt="" className="h-12 w-8 shrink-0 rounded object-cover" />
+                ) : (
+                  <div className="h-12 w-8 shrink-0 rounded border border-dashed border-th-border flex items-center justify-center text-sm" aria-hidden>📖</div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-primary">{book.title}</p>
+                  <p className="truncate text-xs text-muted">
+                    {book.author}{book.author && book.finishedAt ? ' · ' : ''}
+                    {book.finishedAt ? finishedOn(book.finishedAt) : ''}
+                  </p>
+                </div>
+                <button type="button" onClick={() => unfinish(i)} className="btn-secondary btn-pill whitespace-nowrap px-3 py-1 text-xs">
+                  Reading again
+                </button>
+                <button type="button" onClick={() => remove(i)} aria-label={`Remove ${book.title}`} className="text-muted hover:text-red-600 text-lg leading-none">×</button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}

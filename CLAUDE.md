@@ -429,7 +429,9 @@ interface GroceryItem { id, listId, name, category?, quantity, unit?, state, not
     `--btn-font/weight/transform/tracking/border/shadow`, `--btn-secondary-border`
   - **surface** — `--theme-bg-image/size/position/repeat/opacity`, painted by `body::before` as one fixed
     full-page layer on every page. A user-uploaded dashboard photo wins: `AppLayout`/`KioskPage` set
-    `body[data-user-bg]`, which hides the theme layer. Artwork is SVG in `src/styles/themes/` (Vite inlines it).
+    `body[data-user-bg]`, which hides the theme layer. Artwork is SVG in `src/styles/themes/`. Vite inlines a tile as a data URI only under
+    `assetsInlineLimit` (4096 bytes, not overridden); `dnd-dice.svg` is over it since the d4/d6/d8/d12 were
+    added, so it ships as a separate `dist/assets/` file — fine on the wall display, which is same-origin.
 - Defaults live on `:root, [data-theme]` so a classic theme never inherits a seasonal theme's fonts — this is
   also what makes the settings picker's live preview cards (`<div data-theme=…>`) render correctly.
 - **Buttons:** use `.btn-primary` / `.btn-secondary` (+ `.btn-pill`) from the components layer, never raw

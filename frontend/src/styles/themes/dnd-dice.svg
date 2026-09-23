@@ -1,5 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="560" height="560" viewBox="0 0 560 560">
   <defs>
+    <!-- Each die is line art centred on the origin at radius 30, so the
+         placements below can scale and rotate them interchangeably. Stroke
+         scales with the die, which is what gives the smaller ones their
+         sense of distance. -->
+
     <!-- icosahedron (d20) outline, centered at origin, radius 30 -->
     <g id="d20" fill="none" stroke="#5A3E1E" stroke-width="1.4" stroke-linejoin="round">
       <polygon points="0,-30 26,-15 26,15 0,30 -26,15 -26,-15"/>
@@ -14,20 +19,72 @@
       <line x1="26" y1="-15" x2="0" y2="-18"/>
       <line x1="-26" y1="-15" x2="0" y2="-18"/>
     </g>
+
+    <!-- tetrahedron (d4): face-on triangle, edges falling to the far vertex -->
+    <g id="d4" fill="none" stroke="#5A3E1E" stroke-width="1.4" stroke-linejoin="round">
+      <polygon points="0,-30 26,15 -26,15"/>
+      <line x1="0" y1="-30" x2="0" y2="0"/>
+      <line x1="26" y1="15" x2="0" y2="0"/>
+      <line x1="-26" y1="15" x2="0" y2="0"/>
+    </g>
+
+    <!-- cube (d6): isometric, three faces meeting at the centre -->
+    <g id="d6" fill="none" stroke="#5A3E1E" stroke-width="1.4" stroke-linejoin="round">
+      <polygon points="0,-30 26,-15 26,15 0,30 -26,15 -26,-15"/>
+      <line x1="0" y1="0" x2="0" y2="-30"/>
+      <line x1="0" y1="0" x2="26" y2="15"/>
+      <line x1="0" y1="0" x2="-26" y2="15"/>
+    </g>
+
+    <!-- octahedron (d8): two pyramids base to base, three facets showing -->
+    <g id="d8" fill="none" stroke="#5A3E1E" stroke-width="1.4" stroke-linejoin="round">
+      <polygon points="0,-30 26,0 0,30 -26,0"/>
+      <line x1="-26" y1="0" x2="26" y2="0"/>
+      <line x1="0" y1="-30" x2="-9" y2="0"/>
+      <line x1="0" y1="-30" x2="9" y2="0"/>
+      <line x1="0" y1="30" x2="-9" y2="0"/>
+      <line x1="0" y1="30" x2="9" y2="0"/>
+    </g>
+
+    <!-- dodecahedron (d12): decagon silhouette, pentagonal face, five edges -->
+    <g id="d12" fill="none" stroke="#5A3E1E" stroke-width="1.4" stroke-linejoin="round">
+      <polygon points="0,-30 17.6,-24.3 28.5,-9.3 28.5,9.3 17.6,24.3 0,30 -17.6,24.3 -28.5,9.3 -28.5,-9.3 -17.6,-24.3"/>
+      <polygon points="0,-13 12.4,-4 7.6,10.5 -7.6,10.5 -12.4,-4"/>
+      <line x1="0" y1="-13" x2="0" y2="-30"/>
+      <line x1="12.4" y1="-4" x2="28.5" y2="-9.3"/>
+      <line x1="7.6" y1="10.5" x2="17.6" y2="24.3"/>
+      <line x1="-7.6" y1="10.5" x2="-17.6" y2="24.3"/>
+      <line x1="-12.4" y1="-4" x2="-28.5" y2="-9.3"/>
+    </g>
+
     <path id="hex" fill="none" stroke="#5A3E1E" stroke-width="0.8" d="M28 0 L14 24.2 L-14 24.2 L-28 0 L-14 -24.2 L14 -24.2 Z"/>
   </defs>
+
+  <!-- Scattered so nothing crosses a tile edge: at 560 the pattern repeats,
+       and a die clipped at the seam reads as a mistake rather than a motif. -->
   <g opacity="0.16">
     <use href="#d20" transform="translate(90 90) rotate(-12)"/>
     <use href="#d20" transform="translate(380 60) rotate(25) scale(0.7)"/>
     <use href="#d20" transform="translate(470 300) rotate(-30)"/>
-    <use href="#d20" transform="translate(220 260) rotate(40) scale(0.6)"/>
     <use href="#d20" transform="translate(80 420) rotate(10) scale(0.85)"/>
-    <use href="#d20" transform="translate(340 470) rotate(-18) scale(0.7)"/>
+
+    <use href="#d6"  transform="translate(200 160) rotate(15) scale(0.8)"/>
+    <use href="#d6"  transform="translate(480 440) rotate(-8) scale(0.7)"/>
+
+    <use href="#d12" transform="translate(470 150) rotate(-12) scale(0.7)"/>
+    <use href="#d12" transform="translate(165 480) rotate(18) scale(0.65)"/>
+
+    <use href="#d8"  transform="translate(330 330) rotate(20) scale(0.9)"/>
+    <use href="#d8"  transform="translate(60 230) rotate(-20) scale(0.6)"/>
+
+    <use href="#d4"  transform="translate(150 310) rotate(-25) scale(0.7)"/>
+    <use href="#d4"  transform="translate(355 470) rotate(12) scale(0.75)"/>
   </g>
+
   <g opacity="0.07">
-    <use href="#hex" transform="translate(280 130)"/><use href="#hex" transform="translate(322 154.2)"/><use href="#hex" transform="translate(238 154.2)"/>
-    <use href="#hex" transform="translate(280 178.4)"/>
-    <use href="#hex" transform="translate(500 480)"/><use href="#hex" transform="translate(458 504.2)"/>
-    <use href="#hex" transform="translate(40 260)"/><use href="#hex" transform="translate(82 284.2)"/>
+    <use href="#hex" transform="translate(265 41)"/><use href="#hex" transform="translate(307 65)"/><use href="#hex" transform="translate(223 65)"/>
+    <use href="#hex" transform="translate(265 89)"/>
+    <use href="#hex" transform="translate(271 398)"/><use href="#hex" transform="translate(229 422)"/>
+    <use href="#hex" transform="translate(441 208)"/><use href="#hex" transform="translate(399 232)"/>
   </g>
 </svg>

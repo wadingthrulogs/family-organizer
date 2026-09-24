@@ -471,6 +471,11 @@ interface GroceryItem { id, listId, name, category?, quantity, unit?, state, not
 
 ★ = `guestSafe` in `widgetRegistry.ts` (also Clock and Weather). Only these may appear on the guest display.
 
+**Reset layout resets only the display you are on.** The sheet is shared by all three modes, so every
+action names its display ("Reset guest display layout"), and reset/restore both go through the page's own
+`persistConfig`. `e2e/tests/reset-isolation.spec.ts` guards this — it fails if a guest reset touches
+`dashboard-config`.
+
 **Saved layouts.** ⚙ → *Saved layouts* stores named copies of a display's arrangement
 (`UserPreference.layoutSnapshots`, per user, one list shared by all three modes and filtered by `mode`).
 Restoring calls the page's own `persistConfig`, the same path as *Reset layout*, so it writes the right
@@ -955,6 +960,8 @@ cd frontend && npm run lint
 cd e2e && npx playwright test     # Playwright; see e2e/playwright.config.ts
                                   # global-setup.ts logs in and writes auth-state.json
                                   # includes a portrait project for the md-breakpoint layout
+                                  # E2E_BASE_URL / E2E_USERNAME / E2E_PASSWORD point it at a
+                                  # scratch preview stack instead of localhost:80 (§ preview harness)
 ```
 
 ### Before Committing

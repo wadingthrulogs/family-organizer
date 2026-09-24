@@ -56,6 +56,8 @@ export function DashboardSettingsSheet({
   const [overlayValue, setOverlayValue] = useState(config.preferences?.backgroundOverlay ?? 1);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const displayName = mode === 'dashboard' ? 'dashboard' : mode === 'kiosk' ? 'kiosk display' : 'guest display';
+
   const widgets = mode === 'guest' ? getGuestSafeWidgets() : getAllWidgets();
   const placedIds = new Set(config.slots.map((s) => s.widgetId));
 
@@ -124,7 +126,7 @@ export function DashboardSettingsSheet({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] shrink-0">
           <h2 className="text-xl font-semibold text-[var(--color-text)]">
-            {view === 'home' && 'Dashboard Settings'}
+            {view === 'home' && (mode === 'dashboard' ? 'Dashboard Settings' : mode === 'kiosk' ? 'Kiosk Display Settings' : 'Guest Display Settings')}
             {view === 'widgets' && 'Add Widget'}
             {view === 'background' && 'Background Image'}
             {view === 'layouts' && 'Saved Layouts'}
@@ -156,7 +158,7 @@ export function DashboardSettingsSheet({
             <div className="space-y-3">
               <SettingButton
                 icon="✏️"
-                label={editMode ? 'Exit edit mode' : 'Edit dashboard'}
+                label={editMode ? 'Exit edit mode' : `Edit ${displayName}`}
                 description={editMode ? 'Stop rearranging widgets' : 'Drag, resize, or remove widgets'}
                 active={editMode}
                 onClick={() => onToggleEdit()}
@@ -165,15 +167,19 @@ export function DashboardSettingsSheet({
                 <SettingButton
                   icon="➕"
                   label="Add widget"
-                  description="Place a new widget on the dashboard"
+                  description={`Place a new widget on the ${displayName}`}
                   onClick={() => setView('widgets')}
                 />
               )}
               {editMode && (
                 <SettingButton
                   icon="↩"
-                  label="Reset layout"
-                  description="Restore the default dashboard layout"
+                  label={mode === 'dashboard' ? 'Reset layout' : `Reset ${displayName} layout`}
+                  description={
+                    mode === 'dashboard'
+                      ? 'Restore the default dashboard layout — other displays are untouched'
+                      : `Restore the default ${displayName} layout — your dashboard is untouched`
+                  }
                   onClick={handleReset}
                 />
               )}

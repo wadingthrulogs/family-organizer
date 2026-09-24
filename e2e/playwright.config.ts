@@ -7,7 +7,7 @@ export default defineConfig({
   workers: 1,
   globalSetup: './global-setup.ts',
   use: {
-    baseURL: 'http://localhost',
+    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost',
     screenshot: 'on',
     trace: 'retain-on-failure',
     storageState: 'auth-state.json',

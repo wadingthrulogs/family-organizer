@@ -264,7 +264,7 @@ function BooksEditor() {
                     <input type="file" accept="image/*" className="hidden" disabled={uploadingIndex !== null} onChange={(e) => uploadCover(i, e.target.files?.[0])} />
                   </label>
                 </div>
-                <div className="grid flex-1 gap-2 md:grid-cols-2">
+                <div className="grid min-w-0 flex-1 gap-2 md:grid-cols-2">
                   <input
                     type="text"
                     placeholder="Title"
@@ -300,7 +300,7 @@ function BooksEditor() {
                       onRetry={lookupEnabled && book.id ? () => retry(book.id!) : undefined}
                     />
                   </div>
-                  <label className="flex items-center gap-2 text-xs text-muted md:col-span-2">
+                  <label className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted md:col-span-2">
                     Progress
                     <input
                       type="range"
@@ -308,25 +308,25 @@ function BooksEditor() {
                       max={100}
                       value={book.progress ?? 0}
                       onChange={(e) => edit(i, { progress: Number(e.target.value) })}
-                      className="flex-1 accent-emerald-600"
+                      className="min-w-0 flex-1 accent-emerald-600"
                     />
-                    <span className="w-10 text-right tabular-nums">{book.progress == null ? '—' : `${book.progress}%`}</span>
+                    <span className="w-10 shrink-0 text-right tabular-nums">{book.progress == null ? '—' : `${book.progress}%`}</span>
                     {book.progress != null && (
                       <button type="button" onClick={() => edit(i, { progress: null })} className="text-link">clear</button>
                     )}
                   </label>
                 </div>
-                <div className="flex flex-col items-end gap-2 self-start">
-                  <button type="button" onClick={() => remove(i)} aria-label="Remove book" className="text-muted hover:text-red-600 text-lg leading-none">×</button>
-                  <button
-                    type="button"
-                    onClick={() => finish(i)}
-                    disabled={!book.title.trim()}
-                    className="btn-secondary btn-pill whitespace-nowrap px-3 py-1 text-xs disabled:opacity-50"
-                  >
-                    ✓ Finished
-                  </button>
-                </div>
+                <button type="button" onClick={() => remove(i)} aria-label="Remove book" className="shrink-0 self-start text-muted hover:text-red-600 text-lg leading-none">×</button>
+              </div>
+              <div className="mt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => finish(i)}
+                  disabled={!book.title.trim()}
+                  className="btn-secondary btn-pill whitespace-nowrap px-3 py-1.5 text-xs disabled:opacity-50"
+                >
+                  ✓ Finished
+                </button>
               </div>
             </li>
           ))}

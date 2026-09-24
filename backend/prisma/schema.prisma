@@ -52,6 +52,8 @@ model UserPreference {
   dashboardConfig String?
   kioskConfig     String?
   guestConfig     String?
+  /// JSON array of named layout snapshots the user can restore (see routes/settings.ts).
+  layoutSnapshots String?
   hiddenTabs      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

@@ -161,6 +161,11 @@ function DashboardPage() {
     persistConfig(DEFAULT_DASHBOARD_CONFIG);
   }, [persistConfig]);
 
+  const handleRestore = useCallback((restored: DashboardConfig) => {
+    setConfig(restored);
+    persistConfig(restored);
+  }, [persistConfig]);
+
   const hideWidgetBorders = config.preferences?.hideWidgetBorders ?? false;
   const backgroundImageUrl = config.preferences?.backgroundImageUrl;
   const backgroundFit = config.preferences?.backgroundFit ?? 'cover';
@@ -239,6 +244,7 @@ function DashboardPage() {
           onToggleEdit={() => setEditMode((v) => !v)}
           onAddWidget={handleAddWidget}
           onReset={handleReset}
+          onRestore={handleRestore}
           hideWidgetBorders={hideWidgetBorders}
           onToggleBorders={handleToggleBorders}
           backgroundImageUrl={backgroundImageUrl}

@@ -265,6 +265,11 @@ function DisplayPage({ mode }: { mode: DisplayMode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persistConfig]);
 
+  const handleRestore = useCallback((restored: DashboardConfig) => {
+    setConfig(restored);
+    persistConfig(restored);
+  }, [persistConfig]);
+
   const handleToggleBorders = useCallback(() => {
     setConfig((prev) => {
       const next: DashboardConfig = {
@@ -448,6 +453,7 @@ function DisplayPage({ mode }: { mode: DisplayMode }) {
           onToggleEdit={() => setEditMode((v) => !v)}
           onAddWidget={handleAddWidget}
           onReset={handleReset}
+          onRestore={handleRestore}
           hideWidgetBorders={hideWidgetBorders}
           onToggleBorders={handleToggleBorders}
           backgroundImageUrl={bgImageUrl}

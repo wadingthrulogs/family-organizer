@@ -3,7 +3,7 @@
 > This file is auto-loaded by Claude Code at the start of every session.
 > Keep it accurate and concise. For deep dives, see `docs/`.
 >
-> Last verified against the codebase: **2026-09-22** (finished-books shelf on top of `e6cf684`).
+> Last verified against the codebase: **2026-09-24** (saved dashboard layouts on top of `0786290`).
 
 ---
 
@@ -130,7 +130,7 @@ TZ                              # default UTC
 | Model | Key Fields |
 |-------|-----------|
 | User | id, username, email, passwordHash, pinHash, role, colorHex, authProvider, timezone, lastLoginAt, deletedAt |
-| UserPreference | userId, theme, seasonalTheme, dashboardConfig (JSON), kioskConfig (JSON), guestConfig (JSON), hiddenTabs |
+| UserPreference | userId, theme, seasonalTheme, dashboardConfig (JSON), kioskConfig (JSON), guestConfig (JSON), **layoutSnapshots** (JSON array of saved layouts), hiddenTabs |
 | UserSecret | userId, secretType, encryptedValue (Bytes) |
 | GoogleAccount | userId, email, displayName, encryptedRefreshToken, lastSyncedAt |
 | LinkedCalendar | userId, googleAccountId, googleId, displayName, colorHex, accessRole, syncToken, lastSyncedAt |
@@ -262,6 +262,11 @@ TZ                              # default UTC
 - `GET /display` / `PATCH /display` (ADMIN, MEMBER) — `{ mode: dashboard|kiosk|guest, requestedAt }`: remote wall-display control (§7b)
 - `GET /me` — user preferences `{ theme, seasonalTheme, dashboardConfig, kioskConfig, guestConfig, hiddenTabs }`
 - `PATCH /me` — user preferences update
+- `GET /me/layouts` — `{ items: [{ id, name, mode, savedAt, config }] }` — the user's saved layout snapshots
+- `POST /me/layouts` — `{ name, mode: dashboard|kiosk|guest, config }` → 201 with the new list. Saving under a
+  name already used *for that mode* replaces it. 409 `SNAPSHOT_LIMIT_REACHED` past 20 per mode,
+  413 `SNAPSHOT_TOO_LARGE` past 128 KB.
+- `DELETE /me/layouts/:snapshotId` — 404 `SNAPSHOT_NOT_FOUND` if unknown
 
 **Guest display `/guest`**
 - `GET /content` — `{ wifi: { ssid, security, password, hidden } | null, books: [{ id, title, author, reader, progress, coverAttachmentId, synopsis, year, finishedAt, enrichStatus, enrichError, … }], lookupEnabled }`
@@ -465,6 +470,11 @@ interface GroceryItem { id, listId, name, category?, quantity, unit?, state, not
 | reading ★ | ReadingWidget | 4×3 — guest content books with progress + optional cover attachment; finished books drop to a "Recently finished" cover strip (shown when the card is taller than 240px, or when nothing is in progress) |
 
 ★ = `guestSafe` in `widgetRegistry.ts` (also Clock and Weather). Only these may appear on the guest display.
+
+**Saved layouts.** ⚙ → *Saved layouts* stores named copies of a display's arrangement
+(`UserPreference.layoutSnapshots`, per user, one list shared by all three modes and filtered by `mode`).
+Restoring calls the page's own `persistConfig`, the same path as *Reset layout*, so it writes the right
+localStorage key and syncs to the server — a snapshot of one display can never be restored onto another.
 
 Dashboard config stored in localStorage (`dashboard-config`) and synced to server via `/settings/me`.
 Kiosk config stored separately in localStorage (`kiosk-config`) and synced to server via `kioskConfig` field in `/settings/me`.

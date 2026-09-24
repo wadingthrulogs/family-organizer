@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -427,6 +428,125 @@ function serializePreference(pref: { theme: string; seasonalTheme: boolean; dash
     hiddenTabs: pref.hiddenTabs ? JSON.parse(pref.hiddenTabs) : [],
   };
 }
+
+/* ─── Saved layout snapshots ─── */
+
+/**
+ * Named copies of a display's layout that the user can restore after
+ * rearranging (or breaking) the live one. Stored as a JSON array on the same
+ * UserPreference row as the layouts themselves, because they are per-user,
+ * small, and only ever read and written as a whole.
+ */
+
+const MAX_SNAPSHOTS_PER_MODE = 20;
+/** A layout is a handful of grid coordinates; anything this big is not one. */
+const MAX_SNAPSHOT_BYTES = 128 * 1024;
+
+const LAYOUT_MODES = ['dashboard', 'kiosk', 'guest'] as const;
+
+const snapshotConfigSchema = z.object({
+  slots: z.array(z.unknown()).max(60),
+}).passthrough();
+
+const createSnapshotSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  mode: z.enum(LAYOUT_MODES),
+  config: snapshotConfigSchema,
+}).strict();
+
+const snapshotIdParams = z.object({ snapshotId: z.string().regex(/^[A-Za-z0-9-]{1,64}$/) });
+
+interface LayoutSnapshot {
+  id: string;
+  name: string;
+  mode: (typeof LAYOUT_MODES)[number];
+  savedAt: string;
+  config: unknown;
+}
+
+function parseSnapshots(raw: string | null): LayoutSnapshot[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as LayoutSnapshot[]) : [];
+  } catch {
+    // A corrupt row shouldn't cost the user their live layout too.
+    return [];
+  }
+}
+
+async function readSnapshots(userId: number): Promise<LayoutSnapshot[]> {
+  const pref = await prisma.userPreference.upsert({ where: { userId }, create: { userId }, update: {} });
+  return parseSnapshots(pref.layoutSnapshots);
+}
+
+async function writeSnapshots(userId: number, snapshots: LayoutSnapshot[]) {
+  const value = JSON.stringify(snapshots);
+  await prisma.userPreference.upsert({
+    where: { userId },
+    create: { userId, layoutSnapshots: value },
+    update: { layoutSnapshots: value },
+  });
+}
+
+settingsRouter.get(
+  '/me/layouts',
+  asyncHandler(async (req, res) => {
+    res.json({ items: await readSnapshots(req.session.userId!) });
+  })
+);
+
+settingsRouter.post(
+  '/me/layouts',
+  asyncHandler(async (req, res) => {
+    const userId = req.session.userId!;
+    const { name, mode, config } = createSnapshotSchema.parse(req.body ?? {});
+
+    if (JSON.stringify(config).length > MAX_SNAPSHOT_BYTES) {
+      return res.status(413).json({
+        error: { code: 'SNAPSHOT_TOO_LARGE', message: 'That layout is too large to save.' },
+      });
+    }
+
+    const existing = await readSnapshots(userId);
+    if (existing.filter((s) => s.mode === mode).length >= MAX_SNAPSHOTS_PER_MODE) {
+      return res.status(409).json({
+        error: {
+          code: 'SNAPSHOT_LIMIT_REACHED',
+          message: `You can keep ${MAX_SNAPSHOTS_PER_MODE} saved layouts per display. Delete one first.`,
+        },
+      });
+    }
+
+    // Saving under a name that's already used for this display replaces it,
+    // which is what "save over my good layout" is expected to do.
+    const rest = existing.filter(
+      (s) => !(s.mode === mode && s.name.toLowerCase() === name.toLowerCase())
+    );
+    const snapshot: LayoutSnapshot = { id: randomUUID(), name, mode, savedAt: new Date().toISOString(), config };
+    const next = [...rest, snapshot];
+    await writeSnapshots(userId, next);
+
+    res.status(201).json({ items: next, saved: snapshot });
+  })
+);
+
+settingsRouter.delete(
+  '/me/layouts/:snapshotId',
+  asyncHandler(async (req, res) => {
+    const userId = req.session.userId!;
+    const { snapshotId } = snapshotIdParams.parse(req.params);
+
+    const existing = await readSnapshots(userId);
+    const next = existing.filter((s) => s.id !== snapshotId);
+    if (next.length === existing.length) {
+      return res.status(404).json({ error: { code: 'SNAPSHOT_NOT_FOUND', message: 'Saved layout not found' } });
+    }
+    await writeSnapshots(userId, next);
+
+    res.json({ items: next });
+  })
+);
 
 settingsRouter.get(
   '/me',

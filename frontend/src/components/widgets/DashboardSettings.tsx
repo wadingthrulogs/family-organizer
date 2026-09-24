@@ -2,8 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllWidgets, getGuestSafeWidgets } from './widgetRegistry';
 import type { DashboardConfig, DashboardWidgetSlot } from '../../types/dashboard';
-import { generateSlotId, saveDashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '../../types/dashboard';
+import { generateSlotId } from '../../types/dashboard';
 import { api } from '../../api/client';
+import {
+  useDeleteLayoutSnapshotMutation,
+  useLayoutSnapshots,
+  useSaveLayoutSnapshotMutation,
+} from '../../hooks/useLayoutSnapshots';
 
 interface DashboardSettingsSheetProps {
   /** Which display this sheet is configuring. Guest mode only offers guest-safe widgets. */
@@ -13,6 +18,8 @@ interface DashboardSettingsSheetProps {
   onToggleEdit: () => void;
   onAddWidget: (slot: DashboardWidgetSlot) => void;
   onReset: () => void;
+  /** Replace the live layout with a saved one. */
+  onRestore: (config: DashboardConfig) => void;
   hideWidgetBorders: boolean;
   onToggleBorders: () => void;
   backgroundImageUrl?: string;
@@ -23,7 +30,7 @@ interface DashboardSettingsSheetProps {
   onClose: () => void;
 }
 
-type View = 'home' | 'widgets' | 'background';
+type View = 'home' | 'widgets' | 'background' | 'layouts';
 
 export function DashboardSettingsSheet({
   mode = 'dashboard',
@@ -32,6 +39,7 @@ export function DashboardSettingsSheet({
   onToggleEdit,
   onAddWidget,
   onReset,
+  onRestore,
   hideWidgetBorders,
   onToggleBorders,
   backgroundImageUrl,
@@ -100,7 +108,6 @@ export function DashboardSettingsSheet({
   };
 
   const handleReset = () => {
-    saveDashboardConfig(DEFAULT_DASHBOARD_CONFIG);
     onReset();
     onClose();
   };
@@ -120,6 +127,7 @@ export function DashboardSettingsSheet({
             {view === 'home' && 'Dashboard Settings'}
             {view === 'widgets' && 'Add Widget'}
             {view === 'background' && 'Background Image'}
+            {view === 'layouts' && 'Saved Layouts'}
           </h2>
           <div className="flex items-center gap-2">
             {view !== 'home' && (
@@ -169,6 +177,12 @@ export function DashboardSettingsSheet({
                   onClick={handleReset}
                 />
               )}
+              <SettingButton
+                icon="💾"
+                label="Saved layouts"
+                description="Save this arrangement, or put a saved one back"
+                onClick={() => setView('layouts')}
+              />
               <SettingButton
                 icon={hideWidgetBorders ? '▫️' : '🔲'}
                 label={hideWidgetBorders ? 'Show widget borders' : 'Hide widget borders'}
@@ -334,8 +348,170 @@ export function DashboardSettingsSheet({
               )}
             </div>
           )}
+
+          {view === 'layouts' && (
+            <SavedLayoutsPanel
+              mode={mode}
+              config={config}
+              onRestore={(cfg) => {
+                onRestore(cfg);
+                onClose();
+              }}
+            />
+          )}
         </div>
       </aside>
+    </div>
+  );
+}
+
+/**
+ * Save the current arrangement under a name, and put a saved one back.
+ *
+ * Each display (dashboard / kiosk / guest) keeps its own list, so restoring
+ * here can never drop the guest layout onto the family dashboard. Restoring
+ * goes through the page's own persist path, exactly like "Reset layout", so
+ * it lands in the right localStorage key and syncs to the server.
+ */
+function SavedLayoutsPanel({
+  mode,
+  config,
+  onRestore,
+}: {
+  mode: 'dashboard' | 'kiosk' | 'guest';
+  config: DashboardConfig;
+  onRestore: (config: DashboardConfig) => void;
+}) {
+  const { items, isLoading } = useLayoutSnapshots(mode);
+  const save = useSaveLayoutSnapshotMutation();
+  const remove = useDeleteLayoutSnapshotMutation();
+  const [name, setName] = useState('');
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  const trimmed = name.trim();
+  const clash = items.some((s) => s.name.toLowerCase() === trimmed.toLowerCase());
+
+  const handleSave = async () => {
+    if (!trimmed) return;
+    await save.mutateAsync({ name: trimmed, mode, config });
+    setName('');
+  };
+
+  const saveError = save.isError
+    ? ((save.error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
+       ?? 'Couldn\u2019t save this layout.')
+    : null;
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-[var(--color-text-secondary)]">
+        A saved layout keeps the widgets, their positions and sizes for{' '}
+        <span className="font-medium text-[var(--color-text)]">
+          {mode === 'dashboard' ? 'the dashboard' : mode === 'kiosk' ? 'the kiosk display' : 'the guest display'}
+        </span>
+        . Restoring one replaces whatever is on screen now.
+      </p>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-[var(--color-text-secondary)]" htmlFor="layout-name">
+          Save the current arrangement as
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="layout-name"
+            type="text"
+            value={name}
+            maxLength={60}
+            placeholder="e.g. good layout"
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+            className="min-w-0 flex-1 min-h-[56px] rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 text-base text-[var(--color-text)]"
+          />
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!trimmed || save.isPending}
+            className="shrink-0 min-h-[56px] rounded-xl bg-[var(--color-accent)] px-5 text-base font-semibold text-white disabled:opacity-40 touch-manipulation active:scale-[0.98]"
+          >
+            {save.isPending ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+        {clash && trimmed && (
+          <p className="text-sm text-[var(--color-text-muted)]">
+            A layout called “{trimmed}” already exists — saving replaces it.
+          </p>
+        )}
+        {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-[var(--color-text-secondary)]">
+          Saved layouts{items.length > 0 ? ` (${items.length})` : ''}
+        </p>
+        {isLoading ? (
+          <p className="text-sm text-[var(--color-text-muted)]">Loading…</p>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Nothing saved yet. Save one now and you can always get back to it.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {items.map((snap) => (
+              <li
+                key={snap.id}
+                className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-semibold text-[var(--color-text)]">{snap.name}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">
+                      {snap.config.slots.length} widget{snap.config.slots.length === 1 ? '' : 's'} ·{' '}
+                      {new Date(snap.savedAt).toLocaleDateString(undefined, {
+                        month: 'short', day: 'numeric', year: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onRestore(snap.config)}
+                    className="shrink-0 min-h-[48px] rounded-xl border border-[var(--color-accent)] px-4 text-sm font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 touch-manipulation active:scale-[0.98]"
+                  >
+                    Restore
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingId(confirmingId === snap.id ? null : snap.id)}
+                    aria-label={`Delete ${snap.name}`}
+                    className="shrink-0 h-12 w-12 rounded-xl text-xl text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] touch-manipulation"
+                  >
+                    ×
+                  </button>
+                </div>
+                {confirmingId === snap.id && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="flex-1 text-sm text-[var(--color-text-secondary)]">Delete this saved layout?</span>
+                    <button
+                      type="button"
+                      onClick={async () => { await remove.mutateAsync(snap.id); setConfirmingId(null); }}
+                      disabled={remove.isPending}
+                      className="min-h-[44px] rounded-xl border-2 border-red-400 px-4 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 touch-manipulation"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(null)}
+                      className="min-h-[44px] rounded-xl px-4 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] touch-manipulation"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

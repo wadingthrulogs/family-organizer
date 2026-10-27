@@ -169,6 +169,7 @@ function BooksEditor() {
   const [dirty, setDirty] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState('');
+  const [finishedOpen, setFinishedOpen] = useState(false);
 
   useEffect(() => {
     if (data && !dirty) setBooks(data.books);
@@ -187,7 +188,12 @@ function BooksEditor() {
     setBooks((list) => [...list, { ...EMPTY_BOOK }]);
   };
   /** Finishing a book implies you read all of it, so the bar fills too. */
-  const finish = (i: number) => edit(i, { finishedAt: new Date().toISOString(), progress: 100 });
+  const finish = (i: number) => {
+    edit(i, { finishedAt: new Date().toISOString(), progress: 100 });
+    // The book has just moved to the shelf below; show it landing there rather
+    // than letting it vanish into a collapsed section.
+    setFinishedOpen(true);
+  };
   const unfinish = (i: number) => edit(i, { finishedAt: null });
 
   const uploadCover = async (i: number, file: File | undefined) => {
@@ -333,15 +339,36 @@ function BooksEditor() {
         </ul>
       )}
 
+      {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={add} className="btn-secondary btn-pill px-4 py-2 text-sm">+ Add book</button>
+        <button type="button" onClick={save} disabled={!dirty || update.isPending} className="btn-primary btn-pill px-5 py-2 text-sm disabled:opacity-50">
+          {update.isPending ? 'Saving…' : 'Save books'}
+        </button>
+        {update.isError && <span className="text-sm text-red-600">Couldn’t save.</span>}
+      </div>
+
       {finished.length > 0 && (
         <div className="space-y-2 pt-1">
-          <h4 className="text-sm font-semibold text-heading">✓ Recently finished</h4>
-          <p className="text-xs text-muted">
-            Shown as a shelf under the reading list on the guest display. The newest {MAX_FINISHED} are
-            kept; older ones drop off when you save.
-          </p>
-          <ul className="space-y-2">
-            {finished.map(({ book, i }) => (
+          <button
+            type="button"
+            onClick={() => setFinishedOpen((v) => !v)}
+            aria-expanded={finishedOpen}
+            aria-controls="finished-books"
+            className="flex w-full items-center justify-between gap-2 rounded-card py-1 text-left hover:bg-hover-bg"
+          >
+            <span className="text-sm font-semibold text-heading">
+              ✓ Recently finished ({finished.length})
+            </span>
+            <span className="shrink-0 text-xs text-faint" aria-hidden>{finishedOpen ? '▲' : '▼'}</span>
+          </button>
+          <div id="finished-books" hidden={!finishedOpen} className="space-y-2">
+            <p className="text-xs text-muted">
+              Shown as a shelf under the reading list on the guest display. The newest {MAX_FINISHED} are
+              kept; older ones drop off when you save.
+            </p>
+            <ul className="space-y-2">
+              {finished.map(({ book, i }) => (
               <li key={book.id ?? `finished-${i}`} className="flex items-center gap-3 rounded-card border border-th-border bg-card-alt p-2">
                 {book.coverAttachmentId ? (
                   <img src={`/api/v1/attachments/${book.coverAttachmentId}/download`} alt="" className="h-12 w-8 shrink-0 rounded object-cover" />
@@ -361,18 +388,10 @@ function BooksEditor() {
                 <button type="button" onClick={() => remove(i)} aria-label={`Remove ${book.title}`} className="text-muted hover:text-red-600 text-lg leading-none">×</button>
               </li>
             ))}
-          </ul>
+            </ul>
+          </div>
         </div>
       )}
-
-      {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}
-      <div className="flex items-center gap-3">
-        <button type="button" onClick={add} className="btn-secondary btn-pill px-4 py-2 text-sm">+ Add book</button>
-        <button type="button" onClick={save} disabled={!dirty || update.isPending} className="btn-primary btn-pill px-5 py-2 text-sm disabled:opacity-50">
-          {update.isPending ? 'Saving…' : 'Save books'}
-        </button>
-        {update.isError && <span className="text-sm text-red-600">Couldn’t save.</span>}
-      </div>
     </div>
   );
 }

@@ -499,7 +499,9 @@ config slot, refresh keys, defaults, and whether the widget allowlist applies. I
   on the Inventory page via the 🥤 Drink fridge tag.
 - The reading list splits on `finishedAt`: "✓ Finished" on a book stamps the date and fills its progress
   bar, moving it to the editor's **Recently finished** shelf; "Reading again" clears the stamp. Both are
-  ordinary draft edits — nothing is written until **Save books**.
+  ordinary draft edits — nothing is written until **Save books**, which sits directly under the reading
+  list, above the shelf. The shelf is a disclosure (count in the header, collapsed on load) that springs
+  open when you finish a book, so the book isn't swallowed by a closed section as you tap.
 
 ---
 

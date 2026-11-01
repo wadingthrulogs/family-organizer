@@ -1,6 +1,8 @@
 # Family Organizer — MCP Server
 
-An MCP (Model Context Protocol) server that lets Claude interact with the self-hosted Family Organizer backend. Default transport is stdio (Claude Code locally); HTTP/SSE is available behind an env flag for Tailscale / remote use.
+An MCP (Model Context Protocol) server that lets Claude read and write Family Organizer data through the normal REST API. The default transport is **stdio**, for Claude Code running on the same machine. **HTTP/SSE** is opt-in for remote Claude Code clients, for example over Tailscale.
+
+The server is a plain API client. It logs in as a household user, keeps the session cookie, and calls `/api/v1/*`. It has no direct database access.
 
 ## What it exposes (15 tools)
 
@@ -14,91 +16,136 @@ An MCP (Model Context Protocol) server that lets Claude interact with the self-h
 | `list_calendars` / `list_calendar_events` / `create_calendar_event` | calendars / events | local events |
 | `list_reminders` / `create_reminder` | reminders | reminders |
 
-Outputs are lean projections — id/title/state-style fields only — so Claude burns minimal context per call.
+Outputs are lean projections, mostly id, title and state fields, so each call uses little of Claude's context.
+
+## Configuration
+
+The server reads **only `process.env`** (`src/config/env.ts`). It does **not** load a `.env` file. `mcp/.env.example` is just a reference list of variables. Set them in your shell, a systemd unit, or the `env` block of `.mcp.json`.
+
+| Variable | Required | Default | Notes |
+|----------|----------|---------|-------|
+| `ORGANIZER_BASE_URL` | no | `http://localhost:3000` | Base URL of the app (no `/api/v1`). See below. |
+| `ORGANIZER_USERNAME` | **yes** | – | Use a dedicated bot user, e.g. `claude-bot`. |
+| `ORGANIZER_PASSWORD` | **yes** | – | |
+| `MCP_TRANSPORT` | no | `stdio` | `stdio` or `http` |
+| `MCP_HTTP_HOST` | no | `127.0.0.1` | HTTP mode only |
+| `MCP_HTTP_PORT` | no | `3100` | HTTP mode only |
+| `MCP_HTTP_BEARER` | no, but set it | – | HTTP mode only; every request must send `Authorization: Bearer <value>` |
+
+### Which `ORGANIZER_BASE_URL`?
+
+- **Docker deployment (the normal case):** the backend container's port 3000 is only `expose`d inside the Compose network. It is **not** published on the host, so `http://localhost:3000` won't connect. Point at nginx instead:
+  - HTTP mode: `http://localhost` (or `http://<host>:<HTTP_PORT>`)
+  - HTTPS / Tailscale mode: `https://<your-host>.<tailnet>.ts.net`
+- **Local dev (`npm run dev` in `backend/`):** the default `http://localhost:3000` works.
 
 ## One-time setup
 
-1. **Create a `claude-bot` user** in the running Family Organizer app (Settings → Users → Add User). Role `MEMBER` is sufficient. Note its password.
-2. **Install + build** the MCP:
+1. **Create a `claude-bot` user** in the running app (Settings → Users → Add User). Role `MEMBER` is enough. Note its password.
+2. **Install and build:**
 
-   ```powershell
+   ```bash
    cd mcp
    npm install
    npm run build
    ```
 
-   The `preinstall` script refuses to run if the lockfile ever resolves to `axios@1.14.1` or `axios@0.30.4` (the versions compromised in the March 31, 2026 supply-chain attack). `npm run build` also runs `npm audit --omit=dev --audit-level=high` so a future advisory fails the build loudly.
+   - The `preinstall` script refuses to run if the lockfile ever resolves to `axios@1.14.1` or `axios@0.30.4`. Those are the versions compromised in the March 31, 2026 supply-chain attack.
+   - `npm run build` also runs `npm audit --omit=dev --audit-level=high`, so a future advisory fails the build loudly.
+   - `mcp/dist/` is not committed. If you skip this step, Claude Code reports the server as failing to connect.
 
-3. **Configure env**: copy `mcp/.env.example` to `mcp/.env`, set `ORGANIZER_USERNAME=claude-bot` and the password. *Do not commit `.env`.*
+3. **Export credentials** in the shell you start Claude Code from:
 
-4. **Restart Claude Code** in the repo. The committed `.mcp.json` at the repo root wires up the server. You may need to set `ORGANIZER_PASSWORD` in your shell environment first so the substitution `${env:ORGANIZER_PASSWORD}` resolves:
-
-   ```powershell
-   $env:ORGANIZER_PASSWORD = '...'
+   ```bash
+   export ORGANIZER_BASE_URL=https://familyorganizer.<tailnet>.ts.net   # or http://localhost
+   export ORGANIZER_USERNAME=claude-bot
+   export ORGANIZER_PASSWORD='...'
    ```
 
-5. **Verify**: in Claude Code, run `/mcp`. Expect `family-organizer` listed with 15 tools. Try "what's on my plate today?" — Claude should call `get_today_summary`.
+   The committed `.mcp.json` at the repo root passes these through to the server process.
 
-   You can also run the standalone stdio smoke test which spawns the server, performs an MCP handshake, and lists tools (no backend required):
+4. **Restart Claude Code** in the repo root.
 
-   ```powershell
+5. **Verify:** run `/mcp` in Claude Code. `family-organizer` should be listed with 15 tools. Try "what's on my plate today?"; Claude should call `get_today_summary`.
+
+   The standalone smoke test spawns the server over stdio, does an MCP handshake and lists the tools. It doesn't need a running backend.
+
+   ```bash
    node mcp/smoke-test.mjs
    ```
 
+## Scripts
+
+| Script | What it does |
+|--------|--------------|
+| `npm run dev` | `tsx watch src/index.ts` |
+| `npm run build` | `tsc` + `npm audit` |
+| `npm run start` | `node dist/index.js` (transport from `MCP_TRANSPORT`) |
+| `npm run start:http` | same, with `MCP_TRANSPORT=http` forced |
+| `npm run typecheck` | `tsc --noEmit` |
+
 ## Transports
 
-### stdio (default — Claude Code locally)
+### stdio (default)
 
-The committed `.mcp.json` spawns `node mcp/dist/index.js` as a child process. Nothing else to do.
+`.mcp.json` launches `node mcp/dist/index.js` as a child process of Claude Code. You don't need to do anything else.
 
-### HTTP/SSE (Tailscale / remote — opt in)
+### HTTP/SSE (opt in)
 
-```powershell
-$env:MCP_TRANSPORT = 'http'
-$env:MCP_HTTP_HOST = '0.0.0.0'      # or your Tailscale IP
-$env:MCP_HTTP_PORT = '3100'
-$env:MCP_HTTP_BEARER = '<random-token>'  # required in practice
-npm run start
+```bash
+export MCP_HTTP_HOST=0.0.0.0          # or your Tailscale IP
+export MCP_HTTP_PORT=3100
+export MCP_HTTP_BEARER="$(openssl rand -hex 32)"
+npm run start:http
 ```
 
-Smoke-test the SSE endpoint:
+Endpoints:
 
-```powershell
-curl.exe -N -H "Authorization: Bearer <token>" http://127.0.0.1:3100/sse
+| Path | Purpose |
+|------|---------|
+| `GET /sse` | Opens an SSE session; the first event names the `/messages?sessionId=…` endpoint |
+| `POST /messages?sessionId=…` | Client → server JSON-RPC messages |
+| `GET /healthz` | `{ status, timestamp }` |
+
+When `MCP_HTTP_BEARER` is set, the bearer check applies to **every** path, `/healthz` included.
+
+```bash
+curl -N -H "Authorization: Bearer $MCP_HTTP_BEARER" http://127.0.0.1:3100/sse
 # expect: event: endpoint
 #         data: /messages?sessionId=...
+curl -H "Authorization: Bearer $MCP_HTTP_BEARER" http://127.0.0.1:3100/healthz
 ```
 
-**Important caveat**: claude.ai's web custom-connector flow today expects OAuth-style auth (Dynamic Client Registration), not a static bearer header. The HTTP transport works for **Claude Code on a remote machine** connecting over Tailscale; it is **not** sufficient for claude.ai-web/mobile yet.
+**Caveat:** claude.ai's web custom-connector flow expects OAuth-style auth (Dynamic Client Registration), not a static bearer header. The HTTP transport works for **Claude Code on a remote machine** connecting over Tailscale. It does **not** yet work for claude.ai on the web or mobile.
 
-Default `MCP_HTTP_HOST` is `127.0.0.1` so misconfiguration alone cannot expose the server beyond loopback. Set `0.0.0.0` (or your Tailscale-assigned address) only when paired with a `MCP_HTTP_BEARER`.
+`MCP_HTTP_HOST` defaults to `127.0.0.1`, so a misconfiguration alone can't expose the server beyond loopback. Only bind to `0.0.0.0` or your Tailscale address when `MCP_HTTP_BEARER` is set.
 
 ## Security notes
 
-- The MCP holds a household login. Use a dedicated `claude-bot` user, not your personal admin account, so audit logs separate human and bot writes.
-- All runtime deps are exact-pinned (no `^`/`~`) given the recent axios npm supply-chain attack. Existing project lockfiles in `frontend/` resolve to `axios@1.13.5` (pre-1.14.x, unaffected); the new MCP package pins to `axios@1.15.2` (clean post-breach release with SLSA provenance).
-- The `preinstall` lockfile guard prevents accidentally installing a compromised axios in the future.
+- The MCP holds a household login. Use a dedicated `claude-bot` user, not your personal admin account, so audit logs keep human and bot writes apart. A `MEMBER` bot can still write everything a member can, including tasks, grocery items, events and reminders.
+- All runtime dependencies are exact-pinned (no `^` or `~`) because of the axios npm supply-chain attack. The MCP pins `axios@1.15.2`.
 - The MCP makes **no** outbound calls except to `ORGANIZER_BASE_URL`.
-- Credentials are never logged. The error-formatting helper deliberately surfaces only the backend's `{ code, message }` envelope.
+- Credentials are never logged. The error formatter only surfaces the backend's `{ code, message }` envelope.
 
 ### Compromise rotation runbook
 
-If a future advisory implicates a dep we ship:
+If a future advisory implicates a dependency we ship:
 
-1. `cd mcp; rm -rf node_modules package-lock.json` — start clean.
-2. Bump the affected dep to a confirmed-clean version in `package.json`.
-3. `npm install && npm run build` — preinstall guard + `npm audit` must both pass.
-4. In the running app: change the `claude-bot` user's password (Admin → Users → Reset password).
-5. Update `mcp/.env` with the new password and restart Claude Code.
+1. `cd mcp && rm -rf node_modules package-lock.json` to start clean.
+2. Bump the affected dependency to a confirmed-clean version in `package.json`.
+3. `npm install && npm run build`. The preinstall guard and `npm audit` must both pass.
+4. In the app, change the `claude-bot` user's password (Settings → Users → Reset password).
+5. Update `ORGANIZER_PASSWORD` wherever you set it, then restart Claude Code.
 
 ## Layout
 
 ```
 mcp/
+  smoke-test.mjs             stdio handshake + tools/list (no backend needed)
   src/
-    index.ts                 transport selector + bootstrap
+    index.ts                 transport selector + bootstrap (stdio or express/SSE)
     server.ts                builds McpServer, registers all tools
-    config/env.ts            zod-validated env loader
+    config/env.ts            zod-validated process.env loader
     client/api.ts            OrganizerApiClient — axios + cookie jar + auto-login
     client/types.ts          lean local API response types
     client/users-cache.ts    1-min TTL cache of /auth/users
@@ -118,8 +165,10 @@ mcp/
 
 ## Troubleshooting
 
-- **"family-organizer-mcp: invalid environment"** — fill out `mcp/.env` (see `.env.example`).
-- **`401 UNAUTHORIZED` on every tool call** — backend is not running, or `claude-bot` was deleted, or the password no longer matches. Verify in a browser: `POST /api/v1/auth/login` with the same creds.
-- **`429 RATE_LIMITED`** — backend's 200/min limit; back off and retry. `get_today_summary` makes 5 parallel GETs, so a tight loop of summaries can approach the cap.
-- **"Multiple linked calendars exist; pass linkedCalendarId."** — call `list_calendars` first and pass the chosen id explicitly to `create_calendar_event`.
-- **HTTP mode shows `WARNING — running HTTP transport without MCP_HTTP_BEARER`** — set `MCP_HTTP_BEARER` and restart. Do not deploy without it.
+- **Claude Code says the server failed to connect:** `mcp/dist/index.js` probably doesn't exist yet. Run `npm run build` in `mcp/`. If it does exist, run `node mcp/dist/index.js` by hand with the env vars set to see the startup error.
+- **"family-organizer-mcp: invalid environment":** `ORGANIZER_USERNAME` or `ORGANIZER_PASSWORD` is missing from the process environment. Remember that `mcp/.env` is not read.
+- **`ECONNREFUSED` on every call:** `ORGANIZER_BASE_URL` is pointing at `localhost:3000` while the app runs in Docker. Use the nginx URL (see above).
+- **`401 UNAUTHORIZED` on every tool call:** `claude-bot` was deleted, or the password no longer matches. Check by logging in with the same credentials in a browser.
+- **`429 RATE_LIMITED`:** you've hit the backend's 200 requests/min limit; back off and retry. `get_today_summary` makes 5 parallel GETs, so a tight loop of summaries can approach the cap.
+- **"Multiple linked calendars exist; pass linkedCalendarId.":** call `list_calendars` first, then pass the chosen id to `create_calendar_event`.
+- **HTTP mode shows `WARNING — running HTTP transport without MCP_HTTP_BEARER`:** set `MCP_HTTP_BEARER` and restart. Don't expose the server without it.

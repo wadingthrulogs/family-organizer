@@ -4,21 +4,25 @@
 - Base URL: `/api/v1`
 - JSON payloads with camelCase keys.
 - Standard envelope for errors: `{ "error": { "code": "TASK_NOT_FOUND", "message": "...", "details": {} } }`
-- Authentication: session cookie (`express-session` + `connect-sqlite3` store). All state-changing requests require an active session.
-- Pagination via `?cursor=<opaque>` or `?page/limit` depending on endpoint; filtering with query params.
-- No WebSocket or JWT support — clients use React Query polling for live updates.
+- Authentication: session cookie (`express-session` + `connect-sqlite3` store, 7-day lifetime). Every endpoint requires an active session **except**: `POST /auth/login`, `POST /auth/register`, `POST /auth/logout`, `GET /notifications/vapid-public-key`, `GET /weather`, `GET /health` (and root `GET /healthz`), and — in non-production only — the `/integrations/google/*` router, which falls back to the first user (or seeds `household-admin`) when no session exists.
+- Roles: endpoints marked _(ADMIN)_ require `role = ADMIN` (403 otherwise). No endpoint distinguishes `MEMBER` from `VIEWER`; both can read and write.
+- Pagination: cursor-based on `GET /tasks`; most other lists return everything as `{ items, total }`.
+- Rate limits: 200 req/min per IP globally; 15 requests per 15 min on `/auth/login` and `/auth/register` (`429 RATE_LIMITED`).
+- **Boolean query flags gotcha:** most boolean query params use `z.coerce.boolean()`, so any non-empty string — including `"false"` — is `true`. Omit the parameter to mean false. Affected: `/chores?active&includeAssignments`, `/grocery/lists?includeItems&active`, `/reminders?enabled`, `/calendar/events?includeDeleted`. (`/inventory?lowStock` correctly checks for `"true"`.)
+- No WebSocket or JWT support — clients use React Query refetching for live updates.
 
 ## Auth & Users (`/auth`)
 
 ### POST /auth/register
 - Body: `{ username, email?, password, role? }`
+- `username`: 2–40 chars, letters/numbers/spaces/`-`/`_`. `password`: 8–128 chars with upper, lower, digit, and symbol (same rule everywhere a password is set).
 - Response: User (201)
 - **Bootstrap-only:** allowed only when no active user exists. Once any non-disabled user is in the database, this endpoint returns `403 REGISTRATION_DISABLED`. Subsequent users must be created by an admin via `POST /auth/users`.
 - The first registered user is automatically promoted to `ADMIN` regardless of the `role` field.
 
 ### POST /auth/login
 - Body: `{ username, password }`
-- Response: User + sets HttpOnly session cookie.
+- Response: User + sets HttpOnly session cookie. Wrong credentials → `401 INVALID_CREDENTIALS`.
 
 ### POST /auth/logout
 - Clears session.
@@ -30,13 +34,13 @@
 - Body: `{ email?, timezone?, colorHex? }`
 
 ### POST /auth/me/password
-- Body: `{ currentPassword, newPassword }`
+- Body: `{ currentPassword, newPassword }` — `400 WRONG_PASSWORD` if the current password is wrong.
 
 ### GET /auth/users _(ADMIN)_
 - List all users.
 
 ### POST /auth/users _(ADMIN)_
-- Create a new user.
+- Body: `{ username, email?, password, role? }` — `409 USERNAME_TAKEN` / `409 EMAIL_TAKEN`.
 
 ### PATCH /auth/users/:userId/role _(ADMIN)_
 - Body: `{ role }`
@@ -46,68 +50,75 @@
 - Body: `{ newPassword }`
 
 ### DELETE /auth/users/:userId _(ADMIN)_
-- Soft-deletes user (sets `deletedAt`, disables password login).
+- Soft-deletes user (sets `deletedAt`; soft-deleted users cannot log in). Response: 200 `{ message }`.
 - Returns `400 SELF_DELETE` if you target your own user.
 
 ## Tasks (`/tasks`)
 
 ### GET /tasks
-- Query: `?status&cursor&limit=20`
+- Query: `?status&cursor&limit` (`limit` 1–100, default 20; `cursor` is the last task id seen)
 - Response: `{ items, total, nextCursor }`
 
 ### POST /tasks
 - Body: `{ title, description?, dueAt?, priority?=0, status?="OPEN", labels?, assigneeUserIds?, recurrence? }`
+- `priority` 0–5; `labels` is a free-text string (≤500 chars); `dueAt` ISO datetime.
+- `recurrence`: `{ frequency: DAILY|WEEKLY|BIWEEKLY|MONTHLY|YEARLY, interval?=1, until?, byDay?, byMonthDay?, count? }`. Only `frequency`, `interval`, and `until` affect scheduling; `byDay`, `byMonthDay`, and `count` are stored but ignored.
 
-### GET /tasks/:id
+### GET /tasks/:taskId
 - Returns task with assignments.
 
-### PATCH /tasks/:id
-- Partial update of task fields.
+### PATCH /tasks/:taskId
+- Partial update of task fields. Status changes are recorded in `TaskStatusChange`.
+- Setting `status: "DONE"` on a recurring task creates the next instance with the next due date.
 
-### DELETE /tasks/:id
+### DELETE /tasks/:taskId
 - Soft delete (204).
 
-### GET /tasks/:id/history
+### GET /tasks/:taskId/history
 - Response: `{ taskId, history: TaskStatusChange[] }`
 
 ### POST /tasks/cleanup _(ADMIN)_
 - Body: `{ dryRun? }`
-- Runs the task retention sweep: archives finished tasks older than `taskRetention.archiveDays` and hard-deletes archived tasks older than `taskRetention.hardDeleteDays`. Both thresholds come from household settings.
-- Response: `{ data: { archived, hardDeleted, ... } }`
+- Runs the task retention sweep immediately (it also runs daily at 03:00): soft-deletes `DONE` tasks older than `taskRetention.archiveDays` (default 30) and hard-deletes soft-deleted tasks older than `taskRetention.hardDeleteDays` (default 90), then prunes orphaned recurrences. "Archive" means `deletedAt` is set — the status is not changed to `ARCHIVED`. Thresholds come from household settings.
+- `dryRun: true` reports counts without changing anything.
+- Response: `{ data: { archived, hardDeleted, orphanRecurrencesDeleted, thresholds, dryRun } }`; failure → `500 RETENTION_FAILED`.
 
 ## Chores (`/chores`)
 
 ### GET /chores
-- Query: `?active&includeAssignments`
+- Query: `?active&includeAssignments` (see boolean gotcha above)
 - Response: `{ items, total }`
 
 ### POST /chores
 - Body: `{ title, description?, rotationType?, frequency, interval?=1, eligibleUserIds, weightMap?, rewardPoints?=0, active?=true }`
 
-### GET /chores/:id
+- `rotationType`: `ROUND_ROBIN | WEIGHTED | MANUAL`; `frequency`: `DAILY | WEEKLY | BIWEEKLY | MONTHLY | YEARLY`; `weightMap` is `{ [userId]: weight }` for `WEIGHTED`.
 
-### PATCH /chores/:id
+### GET /chores/:choreId
 
-### DELETE /chores/:id
+### PATCH /chores/:choreId
+
+### DELETE /chores/:choreId
 - (204)
 
-### PATCH /chores/assignments/:id
+### PATCH /chores/assignments/:assignmentId
 - Body: `{ state?, notes? }`
 - Valid states: `PENDING | IN_PROGRESS | COMPLETED | SNOOZED | SKIPPED`
 
-### POST /chores/assignments/:id/skip
-- Body: `{ reason? }`
+### POST /chores/assignments/:assignmentId/skip
+- Body: `{ reason? }` — `400 INVALID_STATE` if the assignment is already completed/skipped.
 
-### POST /chores/assignments/:id/swap
-- Body: `{ targetUserId }`
+### POST /chores/assignments/:assignmentId/swap
+- Body: `{ targetUserId }` — `400 USER_NOT_ELIGIBLE` if the target isn't in `eligibleUserIds`; `400 INVALID_STATE` if already completed/skipped.
 
-### POST /chores/:id/generate
-- Generate next assignment for this chore.
+### POST /chores/:choreId/generate
+- Generate the next assignment for this chore. `422 GENERATION_SKIPPED` if nothing was generated (manual or inactive chore, or an open assignment already exists).
 
 ### POST /chores/generate-all
-- Generate all pending assignments.
+- Generate the next assignment for every active chore. Response: `{ generated }`.
+- The next assignment is also generated automatically when a non-manual chore is created and whenever an assignment is completed or skipped; there is no time-based generation.
 
-### GET /chores/:id/streaks
+### GET /chores/:choreId/streaks
 - Response: `{ choreId, streaks: [{ userId, username, currentStreak, longestStreak, totalCompleted }] }`
 
 ## Commute (`/commute`)
@@ -139,32 +150,33 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 ### GET /commute/etas/active
 - Returns ETAs for every active route whose current time-of-day window contains "now". Failed lookups are returned with an `error` payload alongside the route metadata so the widget can render a partial result.
 - If no route is active right now, `upcoming` describes the next route to fire (today later or in N days).
-- Includes `eventCommutes`: auto-generated leave-by ETAs for the next few calendar events that have a `location`.
+- Includes `eventCommutes`: auto-generated leave-by ETAs for calendar events with a `location` starting within the next 90 minutes. Locations that fail to geocode are skipped for 24 h.
 - Response: `{ items: Array<{ ok: true, data: CommuteEta } | { ok: false, data: CommuteEtaError }>, total, upcoming, eventCommutes, mapboxToken }`
 - The `mapboxToken` is the public token (returned plaintext so the frontend Mapbox GL map can render).
 
 ## Grocery Lists (`/grocery`)
 
 ### GET /grocery/lists
-- Query: `?includeItems&active`
+- Query: `?includeItems&active` (see boolean gotcha above)
 
 ### POST /grocery/lists
-- Body: `{ name, store?, presetKey?, isActive? }`
+- Body: `{ name, store?, presetKey?, isActive?=true }`
 
-### PATCH /grocery/lists/:id
+### PATCH /grocery/lists/:listId
 
-### DELETE /grocery/lists/:id
+### DELETE /grocery/lists/:listId
 
-### GET /grocery/lists/:id/items
+### GET /grocery/lists/:listId/items
 
-### POST /grocery/lists/:id/items
-- Body: `{ name, category?, quantity?, unit?, state?, assigneeUserId?, notes? }`
+### POST /grocery/lists/:listId/items
+- Body: `{ name, category?, quantity?=1, unit?, state?="NEEDED", assigneeUserId?, claimedByUserId?, pantryItemKey?, sortOrder?, notes? }`
+- `quantity` 0.1–999; `state`: `NEEDED | CLAIMED | IN_CART | PURCHASED`.
 
-### POST /grocery/lists/:id/items/bulk
+### POST /grocery/lists/:listId/items/bulk
 - Body: `{ text }` — natural-language bulk add ("3x bananas, milk").
 
-### POST /grocery/lists/:id/items/from-low-stock
-- Adds inventory items below threshold to the list.
+### POST /grocery/lists/:listId/items/from-low-stock
+- Adds inventory items at or below their `lowStockThreshold` to the list.
 
 ### PATCH /grocery/lists/:listId/items/:itemId
 
@@ -173,45 +185,58 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 ## Inventory (`/inventory`)
 
 ### GET /inventory
-- Query: `?search&category&lowStock`
+- Query: `?search&category&lowStock=true`
 
 ### GET /inventory/export
-- Returns text file download.
+- Returns a plain-text file download of the inventory.
 
-### GET /inventory/:id
+### GET /inventory/:itemId
 - Returns a single inventory item by ID.
 
 ### POST /inventory
-- Body: `{ name, category?, quantity?, unit?, lowStockThreshold?, notes?, dateAdded? }`
+- Body: `{ name, category?, quantity?=1, unit?, pantryItemKey?, lowStockThreshold?, notes?, isPreparedMeal?, dateAdded? }`
+- `isPreparedMeal: true` also creates a linked single-ingredient Recipe (so the dish can be scheduled in meal plans).
 
 ### POST /inventory/bulk
 - Body: `{ text }` — natural-language bulk add.
 
-### PATCH /inventory/:id
+### POST /inventory/bulk-items
+- Body: `{ items: [{ name, quantity?, unit?, category? }] }` (1–200 items) — structured bulk add, used after recipe-photo extraction.
+- Response: `{ items, total }` (201)
 
-### DELETE /inventory/:id
+### POST /inventory/extract-from-image
+- Multipart form-data: `image` (JPG/PNG/WebP, max 10 MB, validated by magic bytes).
+- Hands the photo to the host-side `tools/recipe-image-watcher` via `RECIPE_EXTRACT_UPLOAD_DIR` / `RECIPE_EXTRACT_OUTPUT_DIR` and waits up to `RECIPE_EXTRACT_TIMEOUT_MS` (default 75 s) for the result. Nothing is saved to inventory — the client reviews the rows and calls `/bulk-items`.
+- Response: `{ title, items: [{ name, quantity, unit, category }] }`
+- Errors: `501 EXTRACTION_NOT_CONFIGURED` (directories not set), `415 INVALID_IMAGE` (missing or non-image file), `422 EXTRACTION_PARSE_FAILED`, `504 EXTRACTION_TIMEOUT`.
+
+### PATCH /inventory/:itemId
+- Partial update. Toggling `isPreparedMeal` creates/updates or deletes the linked Recipe.
+
+### DELETE /inventory/:itemId
 
 ### POST /inventory/from-grocery
-- Body: `{ groceryItemId, groceryListId }`
+- Body: `{ groceryItemId, groceryListId }` — moves one grocery item into inventory (upserts by `pantryItemKey`, else by name). `409 ALREADY_MOVED` if already moved.
 
 ### POST /inventory/from-grocery-list
-- Body: `{ groceryListId }`
+- Body: `{ groceryListId }` — moves all purchased items. Response: `{ moved, items }`
 
 ## Calendar (`/calendar`)
 
 ### GET /calendar/calendars
-- List linked Google calendars for the current user.
+- List all linked Google calendars in the household (every user's), not just the caller's.
 
 ### GET /calendar/events
-- Query: `?start&end&calendarId`
-- Returns events in the given date range.
+- Query: `?start&end&calendarId&includeDeleted` — `start` and `end` are required ISO datetimes.
+- Returns events overlapping the given range.
 
 ### POST /calendar/events
-- Body: `{ linkedCalendarId?, title, startAt, endAt, allDay?, timezone, colorHex?, location? }`
+- Body: `{ linkedCalendarId?, title, description?, startAt, endAt, allDay?, timezone, colorHex?, location?, visibility?, attendees?: [{ name?, email?, responseStatus? }], source?="LOCAL", sourceEventId? }`
+- Local events are stored in the app only; they are not pushed to Google (sync is read-only).
 
-### PATCH /calendar/events/:id
+### PATCH /calendar/events/:eventId
 
-### DELETE /calendar/events/:id
+### DELETE /calendar/events/:eventId
 - Soft delete (`deleted: true`).
 
 ## Settings (`/settings`)
@@ -223,12 +248,14 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
   - `googleClientSecretSet, openweatherApiKeySet, googleMapsApiKeySet, mapboxTokenSet, smtpPassSet, pushVapidPublicKeySet, pushVapidPrivateKeySet`
 
 ### PATCH /settings
-- Partial update of household settings. All callers may update household-level fields (`householdName`, `timezone`, `quietHours`, `hiddenTabs`, `theme`, `weatherLocation`, `weatherUnits`, `taskRetention`).
-- The following fields are **ADMIN-only** and configure server services. Plaintext keys are stored in the clear; encrypted keys are AES-encrypted at rest using `ENCRYPTION_KEY`:
-  - Plaintext: `googleClientId, appBaseUrl, smtpHost, smtpPort, smtpUser, smtpFrom, homeAddress`
+- Partial update of household settings. Any signed-in user may update household-level fields (`householdName`, `timezone`, `quietHours`, `hiddenTabs`, `theme`, `weatherLocation`, `weatherUnits`, `taskRetention`) and `homeAddress` (the commute origin — note it is **not** admin-restricted).
+- The following fields are **ADMIN-only** and configure server services. Plaintext keys are stored in the clear; encrypted keys are AES-256-GCM encrypted at rest using `ENCRYPTION_KEY`:
+  - Plaintext: `googleClientId, appBaseUrl, smtpHost, smtpPort, smtpUser, smtpFrom`
   - Encrypted: `googleClientSecret, openweatherApiKey, googleMapsApiKey, mapboxToken, smtpPass, pushVapidPublicKey, pushVapidPrivateKey`
 - Sending `null` or `''` for any server-config field deletes the stored value.
-- SMTP, VAPID, and OpenWeather changes are hot-reloaded into their respective services without a restart. `appBaseUrl` requires a backend restart to fully take effect (CORS, OAuth redirect URL).
+- SMTP, VAPID, and OpenWeather changes are hot-reloaded without a restart; Google client id/secret and the Mapbox token are read on every use. `appBaseUrl` is applied to CORS after a backend restart, but it does **not** change the Google OAuth redirect URL (that comes from `GOOGLE_REDIRECT_URL` / `APP_BASE_URL` in the environment).
+- `googleMapsApiKey` is stored but not used by any feature.
+- `quietHours` is stored but not applied by the notification engine (only per-reminder quiet hours are).
 - Non-admin callers attempting to set any admin field receive `403 FORBIDDEN`.
 
 ### GET /settings/me
@@ -241,16 +268,17 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 ## Reminders (`/reminders`)
 
 ### GET /reminders
-- Query: `?enabled&targetType`
+- Query: `?enabled&targetType` (see boolean gotcha above)
 
 ### POST /reminders
-- Body: `{ title, message?, targetType, targetId?, channelMask?, leadTimeMinutes?, enabled? }`
+- Body: `{ title, message?, targetType, targetId?, channelMask?=1, leadTimeMinutes?, quietHoursStart?, quietHoursEnd?, enabled?=true }`
+- `channelMask` bit flags: `1` push, `2` email, `4` webhook. `leadTimeMinutes` 0–1440. Quiet hours are `HH:mm` in the owner's timezone; triggers inside the window are deferred 30 minutes.
 
-### GET /reminders/:id
+### GET /reminders/:reminderId
 
-### PATCH /reminders/:id
+### PATCH /reminders/:reminderId
 
-### DELETE /reminders/:id
+### DELETE /reminders/:reminderId
 
 ## Notifications (`/notifications`)
 
@@ -263,24 +291,27 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 ### GET /notifications/subscriptions
 
 ### GET /notifications/log
+- Caller's delivery history. Query: `?limit` (default 50, max 200).
 
 ### GET /notifications/log/all _(ADMIN)_
+- Household-wide history. Query: `?limit` (default 100, max 500).
 
 ### POST /notifications/trigger/:reminderId
 - Manually fire a reminder for testing/diagnostics.
 
 ### POST /notifications/process _(ADMIN)_
-- Process all pending reminder triggers.
+- Generates triggers, processes due ones, and runs escalations immediately. The in-process ticker already does this every minute, so this is for diagnostics only — no cron is needed.
 
 ### POST /notifications/digest _(ADMIN)_
+- Sends the daily digest now (normally sent automatically once a day after 08:00 server time).
 
 ### GET /notifications/vapid-public-key
-- Public endpoint — returns VAPID public key for push subscription setup.
+- Public endpoint — returns `{ publicKey }` for push subscription setup.
 
 ## Meal Plans (`/meal-plans`)
 
 ### GET /meal-plans/recipes
-- List all recipes created by the current user.
+- List recipes created by the current user. (Single-recipe GET/PATCH/DELETE do not check ownership.)
 - Response: `{ items, total }`
 
 ### POST /meal-plans/recipes
@@ -296,9 +327,9 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 - Hard delete (204).
 
 ### POST /meal-plans/recipes/bulk
-- Body: `{ text }` — paste one or more recipes as plain text (first line = title, remaining lines = ingredients), or upload a JSON array.
-- Parses and creates multiple recipes in one request.
-- Response: `{ created: number, recipes: Recipe[] }`
+- Body: `{ text }` — one or more recipes as plain text, separated by blank lines (first line of each block = title, remaining lines = ingredients).
+- The server accepts text only. The UI's "Upload JSON" option parses the JSON file in the browser and converts it to this text format before sending.
+- Response: `{ items: Recipe[], total }` (201)
 
 ### GET /meal-plans/recipes/:recipeId/inventory-check
 - Query: `?servings` (default: recipe's default servings)
@@ -343,7 +374,7 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 
 ### POST /meal-plans/:planId/send-to-grocery
 - Body: `{ groceryListId }`
-- Adds all recipe ingredients from the plan to the specified grocery list (skips duplicates).
+- Adds all recipe ingredients from the plan to the specified grocery list (skips duplicates). `400 NO_INGREDIENTS` if the plan has no recipe ingredients.
 - Response: `{ added, skipped, items }`
 
 ## Attachments (`/attachments`)
@@ -355,49 +386,65 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 - Multipart form-data: `file`, `linkedEntityType?`, `linkedEntityId?`
 - Max 10 MB; validated by magic bytes.
 
+- Stored under `uploads/` (the `uploads_data` volume) with a sha256 checksum.
+
 ### GET /attachments/:id/download
 
 ### DELETE /attachments/:id
+- Owner or ADMIN only.
 
 ## Google Integration (`/integrations/google`)
 
+None of these endpoints are admin-only. Google client id/secret come from Settings → Server Configuration or `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (`400 GOOGLE_NOT_CONFIGURED` if neither). Scopes: `calendar.readonly` + `userinfo.email`. Sync endpoints return `409 SYNC_BUSY` if a sync is already running.
+
 ### GET /integrations/google
-- List connected Google accounts with their linked calendars.
+- List connected Google accounts with their linked calendars and last sync error, if any.
 
 ### GET /integrations/google/start
 - Query: `?login_hint`
 - Response: `{ url }` — OAuth authorization URL.
 
 ### GET /integrations/google/callback
-- OAuth redirect handler; exchanges code, stores encrypted refresh token.
+- OAuth redirect handler; exchanges code, stores encrypted refresh token, then redirects to `/settings?google=connected` (or `?google=error&reason=…`).
 
 ### DELETE /integrations/google/:accountId
+- Disconnects the account; its linked calendars are removed and their events marked deleted.
 
 ### POST /integrations/google/:accountId/sync
+- Incremental sync of that account's calendars.
+
+### POST /integrations/google/:accountId/full-sync
+- Clears the account's sync tokens and re-fetches everything (the "Force re-sync" button). Use when events are missing or stale.
 
 ### POST /integrations/google/sync-all
+- Incremental sync of every connected account.
 
 ## Other
 
 ### GET /health
-- Response: `{ status: 'ok', timestamp }`
+- Public. Response: `{ status: 'ok', timestamp }`. A root-level `GET /healthz` (outside `/api/v1`) returns `{ status: 'ok' }`.
 
 ### GET /weather
-- Query: `?location&units=imperial`
-- Response: current conditions + daily forecast.
+- Public (no session). Query: `?location` (required) `&units=imperial|metric` (default imperial).
+- Response: current conditions + daily forecast; cached in memory for 5 minutes per location/units.
+- `501 WEATHER_NOT_CONFIGURED` if no OpenWeather API key is set.
 
 ### GET /backup/export _(ADMIN)_
+- JSON export of 14 tables (users, settings, calendars, events, tasks + recurrences + assignments, chores + assignments, grocery lists + items, inventory, reminders + triggers). Recipes, meal plans, commute routes, Google accounts, preferences, and attachments are **not** included — use `make backup` for a full database copy.
 
 ### POST /backup/import _(ADMIN)_
+- Body: `{ data }` — the object produced by `/backup/export`.
 
-## Error Codes (Sample)
-- `AUTH_INVALID_CREDENTIALS`
-- `VALIDATION_ERROR`
-- `NOT_FOUND`
-- `FORBIDDEN`
-- `CONFLICT`
-- `CALENDAR_SYNC_FAILED`
-- `TASK_ALREADY_COMPLETED`
-- `CHORE_ASSIGNMENT_LOCKED`
-- `GROCERY_ITEM_CONFLICT`
-- `REMINDER_CHANNEL_UNAVAILABLE`
+## Error Codes
+Codes actually returned by the backend, grouped by area:
+
+| Area | Codes |
+|------|-------|
+| General | `VALIDATION_ERROR` (400, Zod details in `details`), `BAD_REQUEST`, `NO_UPDATES`, `UNAUTHORIZED` (401), `SESSION_INVALID`, `FORBIDDEN` (403), `NOT_FOUND`, `RATE_LIMITED` (429), `INTERNAL_SERVER_ERROR` / `INTERNAL_ERROR` (500) |
+| Auth & users | `INVALID_CREDENTIALS`, `REGISTRATION_DISABLED`, `USERNAME_TAKEN`, `EMAIL_TAKEN`, `WRONG_PASSWORD`, `SELF_ROLE_CHANGE`, `SELF_DELETE`, `USER_NOT_FOUND`, `LOGOUT_FAILED` |
+| Not found | `TASK_NOT_FOUND`, `CHORE_NOT_FOUND`, `ASSIGNMENT_NOT_FOUND`, `LIST_NOT_FOUND`, `ITEM_NOT_FOUND`, `GROCERY_ITEM_NOT_FOUND`, `RECIPE_NOT_FOUND`, `PLAN_NOT_FOUND`, `ENTRY_NOT_FOUND`, `EVENT_NOT_FOUND`, `REMINDER_NOT_FOUND`, `ROUTE_NOT_FOUND`, `ATTACHMENT_NOT_FOUND`, `FILE_MISSING` |
+| Tasks & chores | `RETENTION_FAILED`, `GENERATION_SKIPPED` (422), `INVALID_STATE`, `USER_NOT_ELIGIBLE` |
+| Grocery, inventory, meals | `ALREADY_MOVED` (409), `NO_ITEMS`, `NO_INGREDIENTS`, `NO_FILE`, `INVALID_IMAGE`, `INVALID_FILE_TYPE`, `INVALID_PAYLOAD`, `INVALID_PATH`, `EXTRACTION_NOT_CONFIGURED` (501), `EXTRACTION_PARSE_FAILED` (422), `EXTRACTION_TIMEOUT` (504) |
+| Calendar & Google | `GOOGLE_NOT_CONFIGURED`, `SYNC_BUSY` (409), `SYNC_FAILED`, `TOKEN_DECRYPT_FAILED`, `INVALID_QUERY` |
+| Commute | `HOME_ADDRESS_NOT_SET`, `MAPBOX_TOKEN_NOT_SET`, `INVALID_WINDOW`, `GEOCODING_FAILED`, `LOCATION_NOT_FOUND` |
+| Weather | `WEATHER_NOT_CONFIGURED` (501), `INVALID_API_KEY`, `WEATHER_API_FAILED`, `FORECAST_API_FAILED` |

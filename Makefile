@@ -9,7 +9,7 @@ BACKUP_DIR := ./backups
 # Current timestamp for backup filenames
 TIMESTAMP := $(shell date +%Y%m%d-%H%M%S)
 
-.PHONY: help setup reconfigure tailscale-setup tailscale-renew up down restart logs status backup restore update shell-backend
+.PHONY: help setup reconfigure tailscale-setup tailscale-renew tailscale-cron up down restart logs status backup restore update shell-backend
 
 ## help: Print available commands (default target)
 help:
@@ -26,7 +26,7 @@ setup:
 reconfigure:
 	@bash setup.sh --reconfigure
 
-## tailscale-setup: Set up Tailscale HTTPS (cert, nginx, env, rebuild)
+## tailscale-setup: Set up Tailscale HTTPS (cert, TLS_HOSTNAME in .env, rebuild)
 tailscale-setup:
 	@bash tailscale-setup.sh
 
@@ -34,7 +34,11 @@ tailscale-setup:
 tailscale-renew:
 	@bash tailscale-setup.sh --renew
 
-## up: Build and start all containers
+## tailscale-cron: Install the weekly cert-renewal job in root's crontab
+tailscale-cron:
+	@bash tailscale-setup.sh --cron
+
+## up: Build and start all containers (needed after nginx/Dockerfile/code changes)
 up:
 	$(COMPOSE) up -d --build
 
@@ -42,7 +46,7 @@ up:
 down:
 	$(COMPOSE) down
 
-## restart: Restart all containers without rebuilding
+## restart: Restart containers without rebuilding (does NOT apply .env changes — use make up)
 restart:
 	$(COMPOSE) restart
 

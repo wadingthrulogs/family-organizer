@@ -31,12 +31,15 @@ FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef
 # Remove default site
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy our nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# nginx site config is chosen at container start (HTTP, or HTTPS when a TLS
+# cert is mounted) by docker-entrypoint.d/40-select-tls.sh.
+COPY nginx/app-locations.conf /etc/nginx/snippets/app-locations.conf
+COPY nginx/http.conf.template nginx/https.conf.template /etc/nginx/fo-templates/
+COPY --chmod=755 docker-entrypoint.d/40-select-tls.sh /docker-entrypoint.d/40-select-tls.sh
 
 # Copy built SPA
 COPY --from=build /app/dist /usr/share/nginx/html
 
-EXPOSE 4173
+EXPOSE 80 443
 
 CMD ["nginx", "-g", "daemon off;"]

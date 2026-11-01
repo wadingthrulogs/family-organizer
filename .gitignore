@@ -31,3 +31,10 @@ qa-screenshots/
 
 # Mockups & scratch screenshots
 _mockups/
+
+# Runtime uploads (attachments may contain personal photos / EXIF data)
+backend/uploads/
+
+# Release artifacts — attach to GitHub releases, don't commit
+*.tar.gz
+tsc-output.txt

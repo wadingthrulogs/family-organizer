@@ -121,11 +121,29 @@ detect_ip() {
   fi
 }
 
+# ── Recipe-photo host dirs (shared by both modes) ─────────────────────────────
+# docker-compose bind-mounts these for the recipe-image-watcher bridge. If they
+# don't exist, Docker creates them owned by root and the watcher can't write.
+ensure_recipe_dirs() {
+  local up_dir out_dir
+  up_dir=$(grep -E '^RECIPE_UPLOADS_HOST_DIR=' .env 2>/dev/null | cut -d= -f2-) || true
+  out_dir=$(grep -E '^RECIPE_OUTPUT_HOST_DIR=' .env 2>/dev/null | cut -d= -f2-) || true
+  mkdir -p "${up_dir:-$HOME/uploads}" "${out_dir:-$HOME/recipe-output}"
+}
+
 # ── Health check poll (shared by both modes) ──────────────────────────────────
 # Globals read: APP_BASE_URL, COMPOSE_CMD, IS_FIRST_RUN (optional, defaults false)
+# Polls the root /healthz over plain HTTP — nginx serves it on port 80 in both
+# HTTP and HTTPS mode (HTTPS mode redirects everything else).
+# $1 is HTTP_PORT: either a port ("80") or "ip:port" ("127.0.0.1:8080").
 health_check_poll() {
   local port="$1"
-  local health_url="http://localhost:${port}/api/v1/health"
+  local health_url
+  if [[ "$port" == *:* ]]; then
+    health_url="http://${port}/healthz"
+  else
+    health_url="http://localhost:${port}/healthz"
+  fi
   local max_attempts=36   # 36 × 5s = 3 minutes
   local attempt=0
   local healthy=false
@@ -187,9 +205,11 @@ if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
 
   success "Docker detected (using: ${COMPOSE_CMD})"
 
-  # Read current APP_PORT, TZ, SESSION_SECURE from root .env
-  APP_PORT=$(grep -E '^APP_PORT=' .env 2>/dev/null | cut -d= -f2) || true
-  APP_PORT="${APP_PORT:-80}"
+  touch .env
+
+  # Read current HTTP_PORT, TZ, SESSION_SECURE from root .env
+  HTTP_PORT=$(grep -E '^HTTP_PORT=' .env 2>/dev/null | cut -d= -f2) || true
+  HTTP_PORT="${HTTP_PORT:-80}"
 
   APP_TZ=$(grep -E '^TZ=' .env 2>/dev/null | cut -d= -f2) || true
   APP_TZ="${APP_TZ:-UTC}"
@@ -205,22 +225,35 @@ if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
   APP_BASE_URL=$(grep -E '^APP_BASE_URL=' .env 2>/dev/null | cut -d= -f2-) || true
 
   if [[ -z "$APP_BASE_URL" ]]; then
-    APP_BASE_URL="http://localhost:${APP_PORT}"
+    if [[ "$HTTP_PORT" == "80" ]]; then
+      APP_BASE_URL="http://localhost"
+    else
+      APP_BASE_URL="http://localhost:${HTTP_PORT}"
+    fi
   fi
 
   # Keep backend/.env in sync (in-place, preserves secrets)
   set_env_var "APP_BASE_URL" "$APP_BASE_URL"
 
-  # Rewrite root .env (secrets included so docker-compose can substitute them)
-  printf 'APP_PORT=%s\nAPP_BASE_URL=%s\nTZ=%s\nSESSION_SECURE=%s\nSESSION_SECRET=%s\nENCRYPTION_KEY=%s\n' \
-    "$APP_PORT" "$APP_BASE_URL" "$APP_TZ" "$SESSION_SECURE" "$SESSION_SECRET" "$ENCRYPTION_KEY" > .env
+  # Update root .env in place (docker-compose reads it for substitution).
+  # Other keys — TLS_HOSTNAME, HTTPS_PORT, RECIPE_* overrides — are preserved.
+  set_env_var "HTTP_PORT"      "$HTTP_PORT"      ".env"
+  set_env_var "APP_BASE_URL"   "$APP_BASE_URL"   ".env"
+  set_env_var "TZ"             "$APP_TZ"         ".env"
+  set_env_var "SESSION_SECURE" "$SESSION_SECURE" ".env"
+  [[ -n "$SESSION_SECRET" ]] && set_env_var "SESSION_SECRET" "$SESSION_SECRET" ".env"
+  [[ -n "$ENCRYPTION_KEY" ]] && set_env_var "ENCRYPTION_KEY" "$ENCRYPTION_KEY" ".env"
+  # APP_PORT was replaced by HTTP_PORT / HTTPS_PORT
+  sed -i.bak '/^APP_PORT=/d' .env && rm -f .env.bak
+
+  ensure_recipe_dirs
 
   info "Restarting with APP_BASE_URL=${APP_BASE_URL}"
   printf "\n"
 
   $COMPOSE_CMD up -d
 
-  health_check_poll "$APP_PORT"
+  health_check_poll "$HTTP_PORT"
   exit 0
 fi
 
@@ -292,10 +325,10 @@ detect_ip
 # ── [3/6] Frontend port ────────────────────────────────────────────────────────
 printf "\n  ${BOLD}[3/6] Frontend port${RESET}\n"
 
-APP_PORT=80
-info "Using port ${APP_PORT}  ${DIM}(run tailscale-setup.sh to enable HTTPS on 443)${RESET}"
+HTTP_PORT=80
+info "Using port ${HTTP_PORT}  ${DIM}(run 'make tailscale-setup' to enable HTTPS on 443)${RESET}"
 
-SUGGESTED_URL="http://localhost:${APP_PORT}"
+SUGGESTED_URL="http://localhost"
 
 # ── [4/6] APP_BASE_URL ─────────────────────────────────────────────────────────
 printf "\n  ${BOLD}[4/6] APP_BASE_URL${RESET}\n"
@@ -325,10 +358,22 @@ APP_TZ="${DETECTED_TZ:-UTC}"
 set_env_var "TZ" "$APP_TZ"
 success "TZ = ${APP_TZ}"
 
-# Write root .env — docker-compose reads this for variable substitution
-printf 'APP_PORT=%s\nAPP_BASE_URL=%s\nTZ=%s\nSESSION_SECURE=false\nSESSION_SECRET=%s\nENCRYPTION_KEY=%s\n' \
-  "$APP_PORT" "$APP_BASE_URL" "$APP_TZ" "$SESSION_SECRET" "$ENCRYPTION_KEY" > .env
+# Write root .env — docker-compose reads this for variable substitution.
+# Updated in place so unrelated overrides (RECIPE_*, HTTPS_PORT) survive.
+touch .env
+set_env_var "HTTP_PORT"      "$HTTP_PORT"      ".env"
+set_env_var "APP_BASE_URL"   "$APP_BASE_URL"   ".env"
+set_env_var "TZ"             "$APP_TZ"         ".env"
+set_env_var "SESSION_SECURE" "false"           ".env"
+set_env_var "SESSION_SECRET" "$SESSION_SECRET" ".env"
+set_env_var "ENCRYPTION_KEY" "$ENCRYPTION_KEY" ".env"
+sed -i.bak '/^APP_PORT=/d' .env && rm -f .env.bak
 success "Root .env written"
+
+if grep -qE '^TLS_HOSTNAME=.+' .env || ls /etc/tailscale/certs/*.crt &>/dev/null; then
+  warn "A Tailscale TLS cert is configured — nginx will serve HTTPS, but this"
+  warn "wizard reset APP_BASE_URL to http. Re-run: make tailscale-setup"
+fi
 
 # ── [6/6] VAPID (push notifications) ──────────────────────────────────────────
 printf "\n  ${BOLD}[6/6] Push notifications (optional)${RESET}\n"
@@ -340,7 +385,7 @@ VAPID_DEFERRED=true
 printf "\n"
 printf "  ${BOLD}${GREEN}─── Configuration Summary ─────────────────────────────${RESET}\n"
 printf "  %-22s %s\n" "APP_BASE_URL"     "$APP_BASE_URL"
-printf "  %-22s %s\n" "APP_PORT"         "$APP_PORT"
+printf "  %-22s %s\n" "HTTP_PORT"        "$HTTP_PORT"
 printf "  %-22s %s\n" "TZ"               "$APP_TZ"
 printf "  %-22s %s\n" "SESSION_SECRET"   "${SESSION_SECRET:0:12}…  (auto-generated)"
 printf "  %-22s %s\n" "ENCRYPTION_KEY"   "${ENCRYPTION_KEY:0:12}…  (auto-generated)"
@@ -356,15 +401,18 @@ if [[ "$VAPID_DEFERRED" == true ]]; then
   printf "    \"const wp=require('web-push');const k=wp.generateVAPIDKeys();\\\n"
   printf "     console.log('PUSH_VAPID_PUBLIC_KEY='+k.publicKey);\\\n"
   printf "     console.log('PUSH_VAPID_PRIVATE_KEY='+k.privateKey);\"${RESET}\n"
-  printf "  ${DIM}Then add those values to backend/.env and run: make restart${RESET}\n\n"
+  printf "  ${DIM}Then add those values to backend/.env and run: make up${RESET}\n\n"
 fi
 
-printf "  ${DIM}Optional integrations (Google Calendar, SMTP, Weather):${RESET}\n"
-printf "  ${DIM}Edit backend/.env — every variable is documented inline.${RESET}\n\n"
+printf "  ${DIM}Optional integrations (Google Calendar, SMTP, Weather, Mapbox):${RESET}\n"
+printf "  ${DIM}Settings → Server Configuration in the app, or edit backend/.env${RESET}\n"
+printf "  ${DIM}(documented inline) and run: make up${RESET}\n\n"
+
+ensure_recipe_dirs
 
 printf "\n  ${BOLD}Building and starting containers…${RESET}\n"
 printf "  ${DIM}(This may take several minutes on first run)${RESET}\n\n"
 
 $COMPOSE_CMD up -d --build
 
-health_check_poll "$APP_PORT"
+health_check_poll "$HTTP_PORT"

@@ -22,7 +22,7 @@ const PASSWORD = process.env.E2E_PASSWORD ?? 'TestPass123!';
 
 async function globalSetup() {
   const browser = await chromium.launch();
-  const page = await browser.newPage();
+  const page = await browser.newPage({ ignoreHTTPSErrors: true });
 
   await page.goto(`${BASE_URL}/login`);
   await page.waitForTimeout(1000);

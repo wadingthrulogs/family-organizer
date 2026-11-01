@@ -1,0 +1,8 @@
+# Plain-HTTP mode (default). Rendered by 40-select-tls.sh when no TLS cert is
+# configured. To enable HTTPS run `make tailscale-setup`.
+server {
+    listen 80;
+    server_name _;
+
+    include /etc/nginx/snippets/app-locations.conf;
+}

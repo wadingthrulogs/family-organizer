@@ -3,9 +3,13 @@
 # Family Organizer — Tailscale HTTPS Setup Script
 # ==============================================================================
 # Usage:
-#   bash tailscale-setup.sh             # Full setup: cert + nginx + env + rebuild + cron
+#   bash tailscale-setup.sh             # Full setup: cert + .env + rebuild + cron
 #   bash tailscale-setup.sh --renew     # Re-issue cert and reload nginx only (no rebuild)
-#   bash tailscale-setup.sh --cron      # Install/update cron job only
+#   bash tailscale-setup.sh --cron      # Install/update root cron job only
+#
+# HTTPS is switched on by setting TLS_HOSTNAME in the root .env. The frontend
+# container's docker-entrypoint.d/40-select-tls.sh then renders the HTTPS nginx
+# template using the cert in /etc/tailscale/certs. No nginx file is edited.
 #   bash tailscale-setup.sh --help      # Print usage and exit
 # Supports: Linux, macOS, WSL2
 # ==============================================================================
@@ -30,16 +34,16 @@ print_usage() {
   printf "\n"
   printf "  ${BOLD}Family Organizer — Tailscale HTTPS Setup${RESET}\n\n"
   printf "  ${BOLD}Usage:${RESET}\n"
-  printf "    bash tailscale-setup.sh             # Full setup (cert + nginx + env + rebuild + cron)\n"
+  printf "    bash tailscale-setup.sh             # Full setup (cert + .env + rebuild + cron)\n"
   printf "    bash tailscale-setup.sh --renew     # Re-issue cert and reload nginx only\n"
   printf "    bash tailscale-setup.sh --cron      # Install/update cert renewal cron only\n"
   printf "    bash tailscale-setup.sh --help      # Show this help\n\n"
   printf "  ${BOLD}What this script does:${RESET}\n"
   printf "   • Issues a browser-trusted TLS certificate via Tailscale\n"
-  printf "   • Patches frontend/nginx.conf with your Tailscale hostname\n"
-  printf "   • Updates root .env and backend/.env with APP_BASE_URL and SESSION_SECURE\n"
-  printf "   • Rebuilds and starts containers\n"
-  printf "   • Optionally installs a weekly cron for automatic cert renewal\n\n"
+  printf "   • Sets TLS_HOSTNAME, APP_BASE_URL and SESSION_SECURE in the root .env\n"
+  printf "     (and APP_BASE_URL / SESSION_SECURE in backend/.env)\n"
+  printf "   • Rebuilds and starts containers — nginx switches itself to HTTPS\n"
+  printf "   • Optionally installs a weekly renewal job in root's crontab\n\n"
 }
 
 # ── Parse flags ────────────────────────────────────────────────────────────────
@@ -59,11 +63,10 @@ done
 
 ENV_FILE="backend/.env"
 ROOT_ENV=".env"
-NGINX_CONF="frontend/nginx.conf"
 
 # ── Ensure we're in the repo root ─────────────────────────────────────────────
-if [[ ! -f "$NGINX_CONF" ]]; then
-  error "frontend/nginx.conf not found. Run this script from the repo root."
+if [[ ! -f "docker-compose.yml" || ! -d "frontend/nginx" ]]; then
+  error "docker-compose.yml / frontend/nginx not found. Run this script from the repo root."
   exit 1
 fi
 
@@ -217,21 +220,31 @@ CERT_DIR="/etc/tailscale/certs"
 CERT_FILE="${CERT_DIR}/${TS_HOSTNAME}.crt"
 KEY_FILE="${CERT_DIR}/${TS_HOSTNAME}.key"
 
+# ── Cert renewal cron (root crontab — `tailscale cert` needs root) ────────────
+COMPOSE_FILE="$(pwd)/docker-compose.yml"
+CRON_LINE="0 3 * * 1  tailscale cert --cert-file ${CERT_FILE} --key-file ${KEY_FILE} ${TS_HOSTNAME} && docker exec \$(docker compose -f ${COMPOSE_FILE} ps -q frontend) nginx -s reload"
+
+cron_installed() { sudo crontab -l 2>/dev/null | grep -qF "tailscale cert"; }
+
+install_cron() {
+  # Older versions of this script put the job in the user's crontab, where
+  # `tailscale cert` fails without root. Remove that copy.
+  if crontab -l 2>/dev/null | grep -qF "tailscale cert"; then
+    crontab -l 2>/dev/null | grep -vF "tailscale cert" | crontab -
+    info "Removed old cert-renewal entry from your user crontab."
+  fi
+  if cron_installed; then
+    info "Cert renewal cron already present in root's crontab — skipping."
+  else
+    (sudo crontab -l 2>/dev/null; echo "$CRON_LINE") | sudo crontab -
+    success "Cron installed in root's crontab (runs every Monday at 3 AM)."
+  fi
+}
+
 # ── Install cron only ──────────────────────────────────────────────────────────
 if [[ "$MODE" == "cron" ]]; then
   printf "\n  ${BOLD}Installing cert renewal cron job…${RESET}\n"
-  _install_cron() {
-    local compose_file
-    compose_file="$(pwd)/docker-compose.yml"
-    local cron_line="0 3 * * 1  tailscale cert --cert-file ${CERT_FILE} --key-file ${KEY_FILE} ${TS_HOSTNAME} && docker exec \$(docker compose -f ${compose_file} ps -q frontend) nginx -s reload"
-    if crontab -l 2>/dev/null | grep -qF "tailscale cert"; then
-      info "Cert renewal cron already present — skipping."
-    else
-      (crontab -l 2>/dev/null; echo "$cron_line") | crontab -
-      success "Cron installed (runs every Monday at 3 AM)."
-    fi
-  }
-  _install_cron
+  install_cron
   printf "\n"
   exit 0
 fi
@@ -262,62 +275,15 @@ if [[ "$MODE" == "renew" ]]; then
   exit 0
 fi
 
-# ── Patch frontend/nginx.conf ──────────────────────────────────────────────────
-printf "\n  ${BOLD}Patching ${NGINX_CONF}…${RESET}\n"
-
-if grep -q 'listen 80' "$NGINX_CONF"; then
-  # HTTP mode → upgrade to HTTPS
-  info "Upgrading nginx from HTTP → HTTPS for ${TS_HOSTNAME}"
-  _tmp=$(mktemp)
-  awk -v hn="$TS_HOSTNAME" '
-    /^    listen 80;/ {
-      print "    listen 443 ssl;"
-      next
-    }
-    /^    server_name _;/ {
-      print "    server_name " hn ";"
-      print ""
-      print "    ssl_certificate     /etc/ssl/tailscale/" hn ".crt;"
-      print "    ssl_certificate_key /etc/ssl/tailscale/" hn ".key;"
-      print "    ssl_protocols       TLSv1.2 TLSv1.3;"
-      print "    ssl_prefer_server_ciphers on;"
-      next
-    }
-    { print }
-  ' "$NGINX_CONF" > "$_tmp" && mv "$_tmp" "$NGINX_CONF"
-  success "nginx.conf updated."
-else
-  # Already HTTPS — check if hostname needs updating
-  CURRENT_HOST=$(grep -m1 'server_name' "$NGINX_CONF" | sed 's/.*server_name[[:space:]]*//;s/[[:space:]]*;//')
-
-  if [[ "$CURRENT_HOST" == "$TS_HOSTNAME" ]]; then
-    info "nginx.conf already configured for ${TS_HOSTNAME} — no changes needed."
-  else
-    info "Replacing hostname ${CURRENT_HOST} → ${TS_HOSTNAME}"
-
-    # BSD sed (macOS) requires -i '' whereas GNU sed uses -i
-    if [[ "${OSTYPE:-}" == darwin* ]]; then
-      SED_I=(-i '')
-    else
-      SED_I=(-i)
-    fi
-
-    sed "${SED_I[@]}" \
-      -e "s|server_name ${CURRENT_HOST};|server_name ${TS_HOSTNAME};|g" \
-      -e "s|/etc/ssl/tailscale/${CURRENT_HOST}|/etc/ssl/tailscale/${TS_HOSTNAME}|g" \
-      "$NGINX_CONF"
-
-    success "nginx.conf updated."
-  fi
-fi
-
 # ── Update root .env ───────────────────────────────────────────────────────────
 printf "\n  ${BOLD}Updating ${ROOT_ENV}…${RESET}\n"
 
 touch "$ROOT_ENV"
-set_env_var "APP_PORT"       "443"                     "$ROOT_ENV"
+set_env_var "TLS_HOSTNAME"   "${TS_HOSTNAME}"          "$ROOT_ENV"
 set_env_var "APP_BASE_URL"   "https://${TS_HOSTNAME}"  "$ROOT_ENV"
 set_env_var "SESSION_SECURE" "true"                    "$ROOT_ENV"
+# APP_PORT was replaced by HTTP_PORT / HTTPS_PORT (defaults 80 / 443)
+sed -i.bak '/^APP_PORT=/d' "$ROOT_ENV" && rm -f "$ROOT_ENV.bak"
 
 success "Root .env updated."
 
@@ -379,20 +345,16 @@ health_check_poll
 # ── Cron setup ─────────────────────────────────────────────────────────────────
 printf "\n  ${BOLD}Cert auto-renewal${RESET}\n"
 
-COMPOSE_FILE="$(pwd)/docker-compose.yml"
-CRON_LINE="0 3 * * 1  tailscale cert --cert-file ${CERT_FILE} --key-file ${KEY_FILE} ${TS_HOSTNAME} && docker exec \$(docker compose -f ${COMPOSE_FILE} ps -q frontend) nginx -s reload"
-
-if crontab -l 2>/dev/null | grep -qF "tailscale cert"; then
-  info "Cert renewal cron already present — skipping."
+if cron_installed; then
+  info "Cert renewal cron already present in root's crontab — skipping."
 else
-  ask "Install weekly cert auto-renewal cron? [Y/n]:"
+  ask "Install weekly cert auto-renewal cron (root crontab)? [Y/n]:"
   read -r CRON_ANSWER
   CRON_ANSWER="${CRON_ANSWER:-Y}"
   if [[ ! "${CRON_ANSWER,,}" == "n" ]]; then
-    (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
-    success "Cron installed (runs every Monday at 3 AM)."
+    install_cron
   else
-    info "Skipped. To install later: bash tailscale-setup.sh --cron"
+    info "Skipped. To install later: make tailscale-cron"
   fi
 fi
 
@@ -407,7 +369,7 @@ printf "  ${BOLD}If you use Google Calendar,${RESET} add this Authorised redirec
 printf "    ${CYAN}https://${TS_HOSTNAME}/api/v1/integrations/google/callback${RESET}\n"
 printf "\n"
 printf "  ${DIM}Useful commands:${RESET}\n"
-printf "    bash tailscale-setup.sh --renew   ${DIM}# re-issue cert + reload nginx${RESET}\n"
+printf "    make tailscale-renew               ${DIM}# re-issue cert + reload nginx${RESET}\n"
 printf "    make logs                          ${DIM}# follow live container logs${RESET}\n"
 printf "    make status                        ${DIM}# check container health${RESET}\n"
 printf "\n"

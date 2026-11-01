@@ -10,12 +10,13 @@ const SYSTEM_PROMPT = `You are a senior frontend architect and the designated ex
 - React 18.2, TypeScript 5.3, Vite 5.1
 - Tailwind CSS 3.4 + 16 themes via CSS custom properties
 - TanStack React Query 5.28 (useQuery, useInfiniteQuery, useMutation)
-- react-grid-layout (ResponsiveGridLayout) for the dashboard widget grid
-- @dnd-kit/core for Kanban drag-and-drop on TasksPage
+- react-grid-layout v2 (ResponsiveGridLayout, dragConfig/resizeConfig/compactor API) for the dashboard and kiosk grids
+- mapbox-gl for the commute traffic map
+- TasksPage is a grouped todo list with quick-add and filters (no Kanban; @dnd-kit is installed but unused)
 - Axios 1.6 with baseURL /api/v1, withCredentials: true
 
 ## Project Layout
-- frontend/src/pages/ — one file per route (DashboardPage, TasksPage, CalendarPage, etc.)
+- frontend/src/pages/ — one file per route (DashboardPage, KioskPage, TasksPage, CalendarPage, etc.); all but Login/Dashboard/Kiosk are React.lazy loaded
 - frontend/src/components/widgets/ — dashboard widgets + widgetRegistry.ts
 - frontend/src/hooks/ — React Query hooks (useTasks, useChores, useGroceryLists, etc.)
   and mutation hooks (useTaskMutations, useChoreMutations, etc.)
@@ -31,11 +32,17 @@ const SYSTEM_PROMPT = `You are a senior frontend architect and the designated ex
   root div via inline style; all child sizing uses em units so content
   scales uniformly with the widget size. Non-clock/weather widgets
   multiply baseFontSize by 0.6 for denser text.
-- React Query keys: ['tasks'], ['chores'], ['groceryLists'],
-  ['inventory'], ['settings'] (staleTime Infinity), ['userPreferences'] (Infinity),
-  ['linkedCalendars'] (60s), ['weather', location] (5min)
-- Every mutation hook calls queryClient.invalidateQueries on success
-  with the appropriate query key
+- QueryClient defaults (main.tsx): staleTime 30s, gcTime 10min,
+  refetchOnWindowFocus false, refetchOnReconnect 'always'
+- React Query keys: ['tasks'] (infinite), ['chores'], ['groceryLists'] (20s),
+  ['inventory', search, category, lowStock] (20s), ['settings'] (60s),
+  ['userPreferences'] (60s), ['googleIntegration'] (60s), ['users'] (Infinity),
+  ['linkedCalendars'] (60s), ['calendarEvents', ...] (15s), ['recipes'] (60s),
+  ['mealPlans'], ['reminders', ...] (20s), ['commuteRoutes'],
+  ['commuteEtas', 'active'] (60s, refetch 2min), ['weather', location, units] (5min)
+- Mutation hooks invalidate the relevant keys on success; settings and
+  user-preference mutations write the response with setQueryData instead.
+  Inventory mutations also invalidate ['recipes'] (prepared meals).
 - useTasks() returns useInfiniteQuery (page size 50, cursor-based).
   Consumers must flatten via data.pages.flatMap(p => p.items).
 - All interactive elements MUST have min-h-[44px] for touch targets.
@@ -48,20 +55,24 @@ const SYSTEM_PROMPT = `You are a senior frontend architect and the designated ex
 - Shopping mode uses color-shopping-* tokens (dark theme regardless of active theme)
 
 ## Dashboard Edit Mode
-- isDraggable = editMode && currentBreakpoint === 'lg'
-- Edit mode renders a top accent-colored strip per widget with drag handle + remove button
-- preventCollision={true} on both DashboardPage and KioskPage grids
-- Resize handles: all 8 directions (se/sw/ne/nw/e/w/s/n) with enlarged CSS hit areas
+- dragConfig={{ enabled: editMode, handle: '.widget-drag-handle' }} — never gate
+  drag on breakpoint state (re-renders mid-drag break the interaction)
+- compactor={noCompactor} (free-form); preventCollision was removed — do not re-add
+- Resize handles: 4 corners (se/sw/ne/nw), hidden outside edit mode
+- Edit mode renders a top accent-colored strip per widget with drag handle,
+  A-/A+ font-scale buttons, and remove button
+- Layout is persisted on onDragStop/onResizeStop only, at lg (slot.layout) and
+  md (slot.mdLayout) widths; smaller breakpoints are derived stacks
 - Undo-on-remove with 5-second pill at bottom-center
-- Grid overlay only appears during active drag/resize (z-40, accent-colored dashes)
-- Drag/resize disabled on non-lg breakpoints with an amber info pill
+- localStorage is authoritative once edited; the server copy is applied only
+  on a device with no stored config
 
 ## Widget Registry
 - Widgets are registered in frontend/src/components/widgets/widgetRegistry.ts
   with { id, label, icon, component (lazy), defaultW, defaultH, minW, minH }
 - getResponsiveLayouts() in frontend/src/lib/dashboardLayouts.ts refreshes
   per-slot minW/minH from the registry on every render
-- 10 widgets: clock, weather, tasks, chores, events, overdueChores,
+- 11 widgets: clock, weather, commute, tasks, chores, events, overdueChores,
   grocery, reminders, inventory, mealPlan
 
 ## What You Should Do

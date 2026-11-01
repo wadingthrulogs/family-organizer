@@ -2,28 +2,34 @@
 
 I created this app after seeing some friends get Magic Mirror and DAKboard. I didn't want to pay a subscription, I wanted something self-hosted with all the features, and I thought it would make a fun AI coding project. This is meant to run on a Raspberry Pi or Linux host, but since it runs in containers, it can also run on a Windows host. 
 
-Requriments - 
-* [Open Weather Map API Key](https://openweathermap.org/api)
-* [Gmail Oauth app for your google calander ](https://developers.google.com/identity/protocols/oauth2)
-Optional 
-* [Tailscale account](https://tailscale.com/)
+**Requirements**
+* Docker Engine 24+ with the Compose plugin (Linux, macOS, or Windows via WSL2)
+
+**Optional** (each feature lights up when its key is configured)
+* [OpenWeatherMap API key](https://openweathermap.org/api) — weather widget
+* [Google OAuth client](https://developers.google.com/identity/protocols/oauth2) — Google Calendar sync
+* [Mapbox public token](https://account.mapbox.com/) — commute ETAs and traffic map
+* [Tailscale account](https://tailscale.com/) — free, browser-trusted HTTPS
+* [Claude Code](https://claude.com/claude-code) on the host — recipe-photo → inventory import (see [tools/recipe-image-watcher](tools/recipe-image-watcher/README.md))
 
 ---
 
 ## Features
-- **Dashboard** — Drag-and-resize widget grid, custom background photo with opacity and fit mode (fill/contain), customizable mobile bottom tab bar, kiosk display mode
+- **Dashboard** — Drag-and-resize widget grid (11 widgets) with separate landscape and portrait layouts, per-widget font size, custom background photo with opacity and fit mode (fill/contain), customizable mobile bottom tab bar
+- **Kiosk** — Full-screen wall-display mode (`/kiosk`) with its own layout, screen wake lock, auto-hiding cursor, and periodic refresh
 - **Guest mode** — a second wall-display layout with no household data: Wi-Fi QR code, what's in the drink fridge (inventory items tagged *Drink fridge*), and what everyone's reading — add a title and Claude looks up the cover, author and a spoiler-free synopsis; optional PIN to leave it
 - **Claude skills & CLI** — `fo` command-line client and Claude Code skills to add tasks, grocery and inventory items, and flip the wall display into guest mode from anywhere
 - **Themes** — 16 colour themes plus Halloween, Thanksgiving, Christmas and Dungeons & Dragons themes with their own fonts, button styles and backgrounds; optional seasonal auto-switch by date
-- **Calendar** — Google Calendar sync, day/week/month views, manual events
-- **Tasks** — Simple todo list with quick-add, open/closed status, assignees, due dates, and recurrence
-- **Chores** — Rotation scheduling (round-robin / weighted / manual), streaks, reward points
-- **Grocery Lists** — Shopping mode, bulk add, low-stock auto-populate
-- **Inventory** — Pantry tracker with low-stock thresholds and export
+- **Calendar** — Google Calendar sync (incremental, every 30 min, with a force re-sync button), day/week/month views, local events
+- **Tasks** — Todo list with quick-add, All/Active/Done/Mine filters, assignees, due dates, recurrence (completing a recurring task creates the next one), file attachments, and automatic cleanup of old completed tasks
+- **Chores** — Rotation scheduling (round-robin / weighted / manual), skip/swap, streaks, reward points
+- **Grocery Lists** — Shopping mode, natural-language bulk add, add low-stock inventory items, move purchased items into inventory
+- **Inventory** — Pantry tracker with low-stock thresholds, text export, a "prepared meal" tag that auto-creates a matching recipe, and **recipe-photo import** (snap a recipe, AI extracts the ingredients, you review and add them)
 - **Meal Plans** — Weekly planner with recipe management, ingredient inventory checking, grocery list integration, and bulk recipe import (paste text or upload JSON)
 - **Commute** — Mapbox-backed live ETAs and traffic map for configured routes, plus auto "leave-by" for upcoming calendar events with locations
-- **Reminders & Notifications** — Web push, email, and webhook notifications with configurable lead times
-- **Multi-user** — Role-based access (Admin / Member / Viewer), per-user colors
+- **Reminders & Notifications** — Web push, email, and webhook delivery with lead times, quiet hours, overdue-task escalation, and a daily digest
+- **Multi-user** — Admin / Member / Viewer roles (admin-only actions are enforced; members and viewers currently have the same access), per-user colors
+- **Integrations** — An [MCP server](mcp/README.md) so AI assistants can read and add tasks, groceries, and inventory
 
 
 ![alt text](family_organizer-1.gif)
@@ -68,12 +74,12 @@ bash setup.sh
 ```
 
 
-The wizard generates secrets, writes `backend/.env`, and builds and starts the app.
+The wizard generates secrets, writes the root `.env` and `backend/.env`, and builds and starts the app.
 
 **Windows users:** Run in WSL2.
-**Default URL:** `http://localhost:80`. The setup wizard will show the exact URL.
-**After setup:** The script will display the app URL and a direct link to `/register` — open it to create your admin account.
-**Reconfigure:** Most settings (API keys, SMTP, push notifications, weather) can be changed via **Settings → Server Configuration** in the app (admin only).
+**Default URL:** `http://localhost` (plain HTTP on port 80, or whatever `HTTP_PORT` you set). The setup wizard shows the exact URL.
+**After setup:** The script displays the app URL and a direct link to `/register`. The **first account you register becomes the admin**; after that, public registration is closed and new users are added by an admin in **Settings**.
+**Reconfigure:** Most settings (API keys, SMTP, push notifications, weather, Mapbox) can be changed via **Settings → Server Configuration** in the app (admin only).
 
 
 Full guide: [docs/deployment.md](docs/deployment.md)
@@ -89,8 +95,8 @@ bash tailscale-setup.sh
 The script will:
 1. Install Tailscale if not already present
 2. Detect your MagicDNS hostname (e.g. `mymachine.tail411eff.ts.net`)
-3. Issue a TLS certificate and configure nginx for HTTPS
-4. Update your `.env` files and rebuild the containers
+3. Issue a TLS certificate into `/etc/tailscale/certs/`
+4. Write `TLS_HOSTNAME`, `APP_BASE_URL=https://<hostname>`, and `SESSION_SECURE=true` to your `.env` files and rebuild the containers — nginx switches to HTTPS automatically when it finds the certificate
 
 Your app will be available at `https://<your-hostname>` when it finishes.
 
@@ -117,23 +123,34 @@ editing files or restarting the server. Log in as an admin and go to **Settings*
 | Web push VAPID keys | Push Notifications → VAPID Keys |
 | Google OAuth client ID & secret | Google Calendar → Credentials |
 | Mapbox public token & home address | Commute → Mapbox Token / Home Address |
-| App base URL | Server → App Base URL *(restart required)* |
+| App base URL | Server → App Base URL *(applies to CORS after `make restart`; for the Google OAuth callback set `APP_BASE_URL` in the root `.env` and `make up`)* |
 | Task retention (auto-archive / hard-delete days) | Server → Task Retention |
 
 Sensitive values (secrets, passwords, VAPID keys) are encrypted at rest in the database.
 The UI shows a "configured" badge instead of revealing stored values.
 
-### Still requires `backend/.env` + `make restart`
+### Configured in files
 
-These are foundational settings that must be present at startup:
+There are two env files. Both are written by `setup.sh`; edit them and run `make up` to apply (a plain `make restart` does **not** re-read env files).
+
+**Root `.env`** — read by Docker Compose. Values here win over `backend/.env`.
 
 | Variable | Purpose |
 |----------|---------|
 | `SESSION_SECRET` | Cookie signing key (≥16 chars) |
-| `ENCRYPTION_KEY` | Secret encryption key (≥32 chars) |
-| `DATABASE_URL` / `SQLITE_PATH` | Database file location |
-| `PORT` | Server port |
-| `NODE_ENV` | Runtime environment |
+| `ENCRYPTION_KEY` | Encrypts secrets at rest — exactly 32 bytes (`openssl rand -base64 32`) |
+| `APP_BASE_URL` | The URL people use to reach the app (CORS, OAuth callback) |
+| `SESSION_SECURE` | `true` when served over HTTPS |
+| `TZ` | Server timezone (affects digest / cleanup schedule) |
+| `HTTP_PORT` / `HTTPS_PORT` | Host ports for nginx (default `80` / `443`). Accept `ip:port`, e.g. `HTTP_PORT=127.0.0.1:8080` when something else on the host owns :80 |
+| `TLS_HOSTNAME` | Enables HTTPS using `/etc/tailscale/certs/<host>.crt` (set by `tailscale-setup.sh`) |
+| `RECIPE_UPLOADS_HOST_DIR` / `RECIPE_OUTPUT_HOST_DIR` | Host folders shared with the recipe-photo watcher (default `~/uploads`, `~/recipe-output`) |
+| `RECIPE_EXTRACT_TIMEOUT_MS` | How long a recipe-photo upload waits for the watcher (default `75000`) |
+
+**`backend/.env`** — loaded into the backend container. Use it for optional integrations if you prefer files over the Settings UI:
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SMTP_*`, `PUSH_VAPID_PUBLIC_KEY`/`PUSH_VAPID_PRIVATE_KEY`, `OPENWEATHER_API_KEY`, and `WEBHOOK_URL` (webhook delivery is env-only — it has no Settings field). Values saved in the Settings UI override these.
+
+The full list is in [docs/deployment.md](docs/deployment.md#environment-variable-reference).
 
 ---
 
@@ -143,17 +160,18 @@ These are foundational settings that must be present at startup:
 |---------|-------------|
 | `make setup` | Run setup wizard (first-time install or quick restart) |
 | `make reconfigure` | Re-run setup wizard to change configuration |
-| `make up` | Build and start all containers |
+| `make up` | Build and (re)create all containers — use after editing `.env` files or pulling code |
 | `make down` | Stop and remove containers (data is preserved) |
-| `make restart` | Restart containers without rebuilding |
+| `make restart` | Restart containers without rebuilding (does not pick up `.env` changes) |
 | `make logs` | Follow live logs |
 | `make status` | Show container health |
 | `make backup` | Save timestamped DB backup to `./backups/` |
 | `make restore FILE=path` | Restore DB from backup |
 | `make update` | Pull latest code and rebuild |
 | `make shell-backend` | Open a shell inside the running backend container |
-| `make tailscale-setup` | Set up Tailscale HTTPS (cert, nginx, env, rebuild) |
+| `make tailscale-setup` | Set up Tailscale HTTPS (cert, env, rebuild) |
 | `make tailscale-renew` | Renew Tailscale cert and reload nginx (no rebuild) |
+| `make tailscale-cron` | Install the weekly cert-renewal cron job only |
 
 ---
 
@@ -188,7 +206,7 @@ To sync Google Calendars, you need a free OAuth 2.0 client from Google Cloud.
      ```
      Replace `<APP_BASE_URL>` with your actual URL from setup.
      Examples:
-     - `http://localhost:80/api/v1/integrations/google/callback` *(initial setup)*
+     - `http://localhost/api/v1/integrations/google/callback` *(initial setup)*
      - `https://familyorganizer.tail411eff.ts.net/api/v1/integrations/google/callback` *(Tailscale HTTPS)*
 5. Click **Create** — a dialog will show your **Client ID** and **Client Secret**
 
@@ -206,27 +224,29 @@ By default, Google keeps new OAuth apps in **Testing** mode. In this mode, only 
 
 You can leave the app in Testing mode indefinitely for personal/household use — there's no need to go through Google's verification process.
 
-### 5. Add the Credentials to `backend/.env`
+### 5. Add the Credentials
 
-Open `backend/.env` and fill in these two lines:
+**Easiest:** log in as an admin → **Settings → Server Configuration → Google Calendar**, paste the Client ID and Client Secret, and save. No restart needed.
+
+**Or** put them in `backend/.env`:
 
 ```env
 GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret-here
 ```
 
-`GOOGLE_REDIRECT_URL` can be left blank — it is derived automatically from `APP_BASE_URL`.
-
-Then restart the app:
+and apply with:
 
 ```bash
-make restart
+make up
 ```
+
+`GOOGLE_REDIRECT_URL` can be left blank — it is derived from `APP_BASE_URL` at startup (`<APP_BASE_URL>/api/v1/integrations/google/callback`). If you change `APP_BASE_URL`, change it in the root `.env` and run `make up` so the redirect URL follows.
 
 ### 6. Connect Your Google Account
 
 Log in to Family Organizer → **Settings → Google Calendar** → **Connect Google Account**.
-After authorising, your calendars will appear under **Settings → Google Calendar** to enable sync.
+After authorising, your calendars will appear under **Settings → Google Calendar** to enable sync. Calendars sync incrementally every 30 minutes (plus a nightly full refresh); use **Sync** (or **Sync All**) to pull immediately, or **Force full re-sync** to re-fetch everything and drop stale events.
 
 ---
 
@@ -254,7 +274,7 @@ Chicken Stir Fry
 
 ### Upload JSON
 
-Upload a `.json` file containing an array of recipe objects. All fields except `title` are optional.
+Upload a `.json` file containing an array of recipe objects. All fields except `title` are optional. (The file is read in the browser and each recipe is created individually.)
 
 ```json
 [
@@ -287,6 +307,16 @@ Upload a `.json` file containing an array of recipe objects. All fields except `
 
 ---
 
+## Recipe Photo Import (optional, AI)
+
+On the **Inventory** page, **Upload recipe photo** lets you take or choose a photo of a recipe or ingredient list. The app hands the photo to a small watcher service on the host that runs [Claude Code](https://claude.com/claude-code) in headless mode, gets back a list of items (name, quantity, unit, category), and shows them for you to edit before they're added to inventory.
+
+- The app itself never calls an AI API or holds a key — it only drops the image into `RECIPE_UPLOADS_HOST_DIR` and waits (up to `RECIPE_EXTRACT_TIMEOUT_MS`) for a JSON result in `RECIPE_OUTPUT_HOST_DIR`.
+- Without the watcher, the button returns "extraction not configured" and nothing else is affected.
+- Setup (systemd unit, subscription-only billing guard): [tools/recipe-image-watcher/README.md](tools/recipe-image-watcher/README.md).
+
+---
+
 ## Tailscale HTTPS (Recommended)
 
 Tailscale issues free, browser-trusted TLS certificates for any machine on your tailnet — no
@@ -303,14 +333,15 @@ bash tailscale-setup.sh
 
 The script handles everything in order:
 
-1. **Installs Tailscale** on the host if not already installed (Linux/macOS/WSL2)
+1. **Installs Tailscale** on the host if not already installed (Linux/macOS/WSL2) and walks you through `tailscale up` if needed
 2. **Detects your Tailscale MagicDNS hostname** (e.g. `mymachine.tail411eff.ts.net`) from `tailscale status`
-3. **Issues a TLS certificate** via `tailscale cert` and saves it to `/etc/tailscale/certs/`
-4. **Patches `frontend/nginx.conf`** — switches `listen 80` to `listen 443 ssl`, sets `server_name` to your hostname, and adds the `ssl_certificate` directives
-5. **Updates `.env` and `backend/.env`** — sets `APP_BASE_URL=https://<hostname>`, `APP_PORT=443`, and `SESSION_SECURE=true`
-6. **Rebuilds and restarts containers** — runs `docker compose down && docker compose up -d --build`
-7. **Polls the health endpoint** until the app responds over HTTPS
-8. **Optionally installs a weekly cron** to renew the certificate and reload nginx without downtime
+3. **Issues a TLS certificate** via `tailscale cert` (asks for `sudo`) and saves it to `/etc/tailscale/certs/`
+4. **Updates `.env` and `backend/.env`** — sets `TLS_HOSTNAME=<hostname>`, `APP_BASE_URL=https://<hostname>`, and `SESSION_SECURE=true`
+5. **Rebuilds and restarts containers** (`make up`). On start, the nginx container sees the certificate and serves HTTPS on 443; port 80 redirects to HTTPS
+6. **Polls the health endpoint** until the app responds
+7. **Optionally installs a weekly cron** (in root's crontab) to renew the certificate and reload nginx without downtime
+
+Nothing in the repo is modified — HTTPS is purely driven by `.env` plus the certificate on disk.
 
 After the script finishes, open `https://<your-hostname>` — you should see the padlock.
 
@@ -331,11 +362,13 @@ After the script finishes, open `https://<your-hostname>` — you should see the
 ### Re-running and renewal
 
 ```bash
-bash tailscale-setup.sh --renew   # Re-issue cert + reload nginx (no rebuild)
-bash tailscale-setup.sh --cron    # Install/update the weekly renewal cron only
+bash tailscale-setup.sh --renew   # Re-issue cert + reload nginx (no rebuild)   — or: make tailscale-renew
+bash tailscale-setup.sh --cron    # Install/update the weekly renewal cron only — or: make tailscale-cron
 ```
 
-The setup script (`bash setup.sh`) preserves your Tailscale hostname across restarts and will not overwrite a configured `APP_BASE_URL`.
+Quick-start runs of `bash setup.sh` update the root `.env` in place, so your Tailscale settings (`TLS_HOSTNAME`, `APP_BASE_URL`, `SESSION_SECURE`) and any other overrides are preserved. `make reconfigure` re-runs the full wizard and resets `APP_BASE_URL`/`SESSION_SECURE` to plain-HTTP defaults — re-run `tailscale-setup.sh` afterwards.
+
+To go back to plain HTTP: remove `TLS_HOSTNAME` from `.env`, move the certificate pair out of `/etc/tailscale/certs/` (nginx auto-detects a single cert there), set `APP_BASE_URL=http://…` and `SESSION_SECURE=false`, then `make up`. See [Tailscale-guide.md](Tailscale-guide.md).
 
 
 ---
@@ -356,12 +389,13 @@ npm install
 npm run dev
 ```
 
-> **Note:** Port 80 is the Vite dev server used during development.
-> The Docker deployment (nginx) defaults to port **80**. Port 443 is used after Tailscale HTTPS setup.
+> **Note:** The Vite dev server listens on port **80** (`frontend/vite.config.ts`), the same port the Docker stack uses — stop the containers first (`make down`) or change the port in `vite.config.ts`.
 >
-> **Windows note:** Port 80 requires elevated privileges. If `npm run dev` fails with `EACCES` or `permission denied`, run your terminal as Administrator.
+> Port 80 is privileged: on Linux/Raspberry Pi run with `sudo` or grant Node the capability (`sudo setcap cap_net_bind_service=+ep $(which node)`); on Windows run the terminal as Administrator. Otherwise `npm run dev` fails with `EACCES`.
 
-The Vite dev server proxies `/api` to `http://localhost:3000` automatically.
+The Vite dev server proxies `/api` (and `/ws`) to `http://localhost:3000` automatically.
+
+Tests: `cd backend && npm test` (Vitest + Supertest), and end-to-end browser tests in [`e2e/`](e2e/README.md) (Playwright). See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -369,13 +403,15 @@ The Vite dev server proxies `/api` to `http://localhost:3000` automatically.
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Node 20, TypeScript, Express 4, Prisma 5, SQLite |
-| Auth | express-session, bcrypt |
+| Backend | Node 20, TypeScript, Express 4, Prisma 5, SQLite (WAL), Zod |
+| Auth | express-session (SQLite store), bcrypt |
 | Frontend | React 18, TypeScript, Vite 5, Tailwind CSS 3 |
-| Data fetching | TanStack Query v5 |
-| Drag & drop | react-grid-layout (dashboard), @dnd-kit (kanban) |
+| Data fetching | TanStack Query v5, Axios |
+| Dashboard grid | react-grid-layout v2 |
 | Maps | mapbox-gl (commute widget) |
-| Deployment | Docker Compose, Nginx |
+| Notifications | web-push, Nodemailer, webhooks |
+| Deployment | Docker Compose, nginx 1.27 (HTTP, or HTTPS with a Tailscale cert) |
+| Tooling | Vitest, Playwright, MCP server (`mcp/`), Claude Code watcher (`tools/`) |
 
 ---
 
@@ -392,6 +428,11 @@ The Vite dev server proxies `/api` to `http://localhost:3000` automatically.
 | [docs/perf-audit-2026-04.md](docs/perf-audit-2026-04.md) | Performance audit findings and fixes |
 | [docs/ui-wireframes.md](docs/ui-wireframes.md) | UI wireframes and design notes |
 | [Tailscale-guide.md](Tailscale-guide.md) | HTTPS setup via Tailscale — certs, renewal, Google OAuth fix |
+| [mcp/README.md](mcp/README.md) | MCP server — let AI assistants use the organizer |
+| [tools/recipe-image-watcher/README.md](tools/recipe-image-watcher/README.md) | Host watcher for recipe-photo import |
+| [agents/README.md](agents/README.md) | Claude Agent SDK helper agents for frontend/dashboard work |
+| [e2e/README.md](e2e/README.md) | Playwright end-to-end tests |
+| [SECURITY.md](SECURITY.md) | Security policy and hardening notes |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 

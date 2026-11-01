@@ -1,10 +1,8 @@
 // Smoke-test the MCP server over stdio without needing a running backend.
-// Sends an initialize request + tools/list and expects 14 tools.
+// Sends an initialize request + tools/list and expects 15 tools.
 //
-// Run from repo root:
-//   $env:ORGANIZER_USERNAME='claude-bot'
-//   $env:ORGANIZER_PASSWORD='dummy'
-//   node mcp/smoke-test.mjs
+// Run from mcp/ after `npm run build`:
+//   ORGANIZER_USERNAME=claude-bot ORGANIZER_PASSWORD=dummy node smoke-test.mjs
 import { spawn } from 'node:child_process';
 
 const child = spawn(

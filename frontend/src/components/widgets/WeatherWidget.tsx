@@ -24,7 +24,7 @@ function dayLabel(dateStr: string): string {
 
 export default function WeatherWidget() {
   const { data, isLoading, isError, error } = useWeather();
-  const { ref, width, height, compact, tiny, baseFontSize } = useWidgetSize();
+  const { ref, width, height, tiny, baseFontSize } = useWidgetSize();
 
   if (!data && !isLoading && !isError) {
     return (
@@ -45,7 +45,9 @@ export default function WeatherWidget() {
   }
 
   if (isError || !data) {
-    const msg = (error as any)?.response?.data?.error?.message || 'Weather unavailable';
+    const msg =
+      (error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+        ?.message || 'Weather unavailable';
     return (
       <div ref={ref} style={{ fontSize: baseFontSize }} className="rounded-2xl p-2 bg-[var(--color-card)] border border-[var(--color-border)] text-center h-full overflow-hidden flex items-center justify-center">
         <p className="text-red-400 text-[1em]">⚠️ {msg}</p>

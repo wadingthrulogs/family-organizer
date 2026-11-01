@@ -1,4 +1,4 @@
-import type { MealPlan, MealPlanEntry, MealType, Recipe } from '../../types/mealPlan';
+import type { MealPlan, MealPlanEntry, MealType } from '../../types/mealPlan';
 import { MealEntryCard } from './MealEntryCard';
 
 const MEAL_TYPES: { value: MealType; label: string; icon: string }[] = [

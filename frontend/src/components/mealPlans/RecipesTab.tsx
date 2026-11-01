@@ -387,7 +387,7 @@ export function RecipesTab({
                     {recipe.ingredients.length > 0 && (
                       <ul className="space-y-1">
                         {recipe.ingredients.map((ing, i) => {
-                          const { status, inStock, required, invItem } = getIngredientStatus(
+                          const { status, invItem } = getIngredientStatus(
                             ing, inventoryItems, servings, recipe.servings
                           );
                           return (

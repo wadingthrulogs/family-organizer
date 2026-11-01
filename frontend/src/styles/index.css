@@ -756,12 +756,18 @@ dialog::backdrop {
   --btn-shadow: 0 2px 0 rgba(90, 40, 10, 0.25);
   --btn-secondary-border: 1px solid #CDB894;
 
+  /* Harvest border illustration, anchored to the bottom edge: the widget
+     grid covers the top ~65% of the wall display, so the artwork lives in
+     the band that actually shows. Sized 100% auto rather than cover so a
+     portrait viewport scales the whole band down instead of cropping into
+     it. The flat layer beneath is the image's own top-edge cream, so the
+     two meet with no visible seam once the image runs out. */
   --theme-bg-image:
-    url(./themes/thanksgiving-leaves.svg),
-    linear-gradient(180deg, #F6EAD3 0%, #EFDDBE 100%);
-  --theme-bg-size: 480px 480px, auto;
-  --theme-bg-position: 0 0, center;
-  --theme-bg-repeat: repeat, no-repeat;
+    url(./themes/thanksgiving-harvest.webp),
+    linear-gradient(180deg, #F5E6D1 0%, #F5E6D1 100%);
+  --theme-bg-size: 100% auto, auto;
+  --theme-bg-position: center bottom, center;
+  --theme-bg-repeat: no-repeat, no-repeat;
 }
 
 /* ─── Christmas ─── */
@@ -1083,11 +1089,17 @@ input, select, textarea {
 }
 
 /* ─── Borderless widget mode ─── */
+/* Not literally borderless: widgets keep the active theme's border and a
+   translucent wash of its card colour. A theme background can then run at
+   full strength without putting body text straight onto the artwork — over
+   the Thanksgiving pumpkins this is the difference between a 2:1 and a 9:1
+   contrast ratio. The solid `background` below is the fallback for engines
+   without color-mix(); the translucent one overrides it where supported. */
 .dashboard-no-borders .react-grid-item > [class*="rounded-2xl"],
 .dashboard-no-borders .react-grid-item > .animate-pulse {
-  border: none !important;
-  border-radius: 0 !important;
-  background: transparent !important;
+  border: 1px solid var(--color-border) !important;
+  background: var(--color-card) !important;
+  background: color-mix(in srgb, var(--color-card) 75%, transparent) !important;
 }
 
 /* ─── Kiosk / Dashboard Mode ─── */

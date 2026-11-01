@@ -23,7 +23,8 @@ export type ThemeId =
   | 'halloween'
   | 'thanksgiving'
   | 'christmas'
-  | 'dnd';
+  | 'dnd'
+  | 'birthday';
 
 export type ThemeGroup = 'classic' | 'seasonal';
 
@@ -61,6 +62,7 @@ export const THEMES: ThemeMeta[] = [
   { id: 'thanksgiving', name: 'Thanksgiving', group: 'seasonal', blurb: 'Warm harvest cream and rust' },
   { id: 'christmas', name: 'Christmas', group: 'seasonal', blurb: 'Pine green, red and gold, snowfall' },
   { id: 'dnd', name: 'Dungeons & Dragons', group: 'seasonal', blurb: 'Parchment, crimson and d20s' },
+  { id: 'birthday', name: 'Birthday', group: 'seasonal', blurb: 'Confetti, raspberry and candle gold' },
 ];
 
 const THEME_IDS = new Set<string>(THEMES.map((t) => t.id));

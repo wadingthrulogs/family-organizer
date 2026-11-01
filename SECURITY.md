@@ -31,7 +31,7 @@ Family Organizer is a **single-household**, self-hosted app: every signed-in use
 - Issues requiring physical access to the host
 - Self-hosted misconfiguration (e.g. exposing the app to the public internet without TLS)
 - Denial of service against a LAN / tailnet deployment
-- Differences between `MEMBER` and `VIEWER`: only `ADMIN` is enforced today, so members and viewers intentionally have the same access
+- Differences between `MEMBER` and `VIEWER`: apart from guest-display content (`PATCH /guest/content`, `POST /guest/books/:id/lookup`) and switching the wall display (`PATCH /settings/display`), which require `ADMIN` or `MEMBER`, members and viewers intentionally have the same access
 - Findings in third-party dependencies — please report those upstream
 
 ---

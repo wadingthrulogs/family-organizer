@@ -5,7 +5,7 @@
 - JSON payloads with camelCase keys.
 - Standard envelope for errors: `{ "error": { "code": "TASK_NOT_FOUND", "message": "...", "details": {} } }`
 - Authentication: session cookie (`express-session` + `connect-sqlite3` store, 7-day lifetime). Every endpoint requires an active session **except**: `POST /auth/login`, `POST /auth/register`, `POST /auth/logout`, `GET /notifications/vapid-public-key`, `GET /weather`, `GET /health` (and root `GET /healthz`), and — in non-production only — the `/integrations/google/*` router, which falls back to the first user (or seeds `household-admin`) when no session exists.
-- Roles: endpoints marked _(ADMIN)_ require `role = ADMIN` (403 otherwise). No endpoint distinguishes `MEMBER` from `VIEWER`; both can read and write.
+- Roles: endpoints marked _(ADMIN)_ require `role = ADMIN`; those marked _(ADMIN, MEMBER)_ reject `VIEWER` (403 otherwise). Everything else is open to any signed-in user, so `VIEWER` can otherwise read and write.
 - Pagination: cursor-based on `GET /tasks`; most other lists return everything as `{ items, total }`.
 - Rate limits: 200 req/min per IP globally; 15 requests per 15 min on `/auth/login` and `/auth/register` (`429 RATE_LIMITED`).
 - **Boolean query flags gotcha:** most boolean query params use `z.coerce.boolean()`, so any non-empty string — including `"false"` — is `true`. Omit the parameter to mean false. Affected: `/chores?active&includeAssignments`, `/grocery/lists?includeItems&active`, `/reminders?enabled`, `/calendar/events?includeDeleted`. (`/inventory?lowStock` correctly checks for `"true"`.)
@@ -52,6 +52,14 @@
 ### DELETE /auth/users/:userId _(ADMIN)_
 - Soft-deletes user (sets `deletedAt`; soft-deleted users cannot log in). Response: 200 `{ message }`.
 - Returns `400 SELF_DELETE` if you target your own user.
+
+### POST /auth/me/pin
+- Body: `{ currentPassword, pin: string | null }` — set, change, or clear (`null`) your display PIN (used to leave guest mode). Returns the updated user.
+- `403 WRONG_PASSWORD` if `currentPassword` is wrong.
+
+### POST /auth/me/pin/verify
+- Body: `{ pin }` → `{ ok: true, pinSet }`. If no PIN is set, returns `{ ok: true, pinSet: false }`.
+- `403 WRONG_PIN` on mismatch.
 
 ## Tasks (`/tasks`)
 
@@ -185,7 +193,7 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 ## Inventory (`/inventory`)
 
 ### GET /inventory
-- Query: `?search&category&lowStock=true`
+- Query: `?search&category&lowStock=true&drinkFridge=true` (`drinkFridge=true` returns items tagged for the guest display's drink-fridge board)
 
 ### GET /inventory/export
 - Returns a plain-text file download of the inventory.
@@ -194,7 +202,7 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 - Returns a single inventory item by ID.
 
 ### POST /inventory
-- Body: `{ name, category?, quantity?=1, unit?, pantryItemKey?, lowStockThreshold?, notes?, isPreparedMeal?, dateAdded? }`
+- Body: `{ name, category?, quantity?=1, unit?, pantryItemKey?, lowStockThreshold?, notes?, isPreparedMeal?, isDrinkFridge?, dateAdded? }`
 - `isPreparedMeal: true` also creates a linked single-ingredient Recipe (so the dish can be scheduled in meal plans).
 
 ### POST /inventory/bulk
@@ -259,11 +267,42 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 - Non-admin callers attempting to set any admin field receive `403 FORBIDDEN`.
 
 ### GET /settings/me
-- Response: `{ theme, dashboardConfig, kioskConfig, hiddenTabs }` — user preferences.
+- Response: `{ theme, seasonalTheme, dashboardConfig, kioskConfig, guestConfig, hiddenTabs }` — user preferences.
 
 ### PATCH /settings/me
-- Body: `{ theme?, dashboardConfig?, kioskConfig?, hiddenTabs? }`
-- Update user preferences.
+- Body: `{ theme?, seasonalTheme?, dashboardConfig?, kioskConfig?, guestConfig?, hiddenTabs? }`
+- `seasonalTheme: true` auto-switches to the holiday theme by date. `guestConfig` is the guest-display layout.
+
+### GET /settings/me/layouts
+- Response: `{ items: LayoutSnapshot[] }` — your saved named layouts.
+
+### POST /settings/me/layouts
+- Body: `{ name (1–60), mode: 'dashboard'|'kiosk'|'guest', config: { slots: [...] } }` → 201 `{ items, saved }`.
+- Up to 20 per mode (`409 SNAPSHOT_LIMIT_REACHED`); config ≤ 128 KB (`413 SNAPSHOT_TOO_LARGE`).
+
+### DELETE /settings/me/layouts/:snapshotId
+- Removes a saved layout. `404 SNAPSHOT_NOT_FOUND`.
+
+### GET /settings/display
+- Response: `{ mode: 'dashboard'|'kiosk'|'guest', requestedAt }` — what the wall display should show. The display polls this.
+
+### PATCH /settings/display _(ADMIN, MEMBER)_
+- Body: `{ mode: 'dashboard'|'kiosk'|'guest' }` — switch the wall display (e.g. to guest mode when visitors arrive).
+
+## Guest Display (`/guest`)
+
+Household-wide content for the guest wall display (no household data). Stored as JSON in `HouseholdSetting` (`guest_wifi`, `guest_books`); the Wi-Fi password is encrypted at rest but returned to clients so the display can render a QR code.
+
+### GET /guest/content
+- Response: `{ wifi: { ssid, security: 'WPA'|'WEP'|'nopass', password, hidden } | null, books: Book[] }`
+
+### PATCH /guest/content _(ADMIN, MEMBER)_
+- Body (strict): `{ wifi?: {...} | null, books?: Book[] (≤ 50) }`. Book: `{ id?, title, author?, reader?, progress? (0–100), coverAttachmentId?, synopsis?, year?, finishedAt? }`.
+- New books are queued for lookup (cover, author, synopsis) by the host watcher; only the 12 most recently finished books are kept.
+
+### POST /guest/books/:bookId/lookup _(ADMIN, MEMBER)_
+- Re-run the lookup for one book. `503 LOOKUP_NOT_CONFIGURED` if the watcher dirs aren't set; `404 BOOK_NOT_FOUND`.
+- Covers are stored as Attachments with `linkedEntityType = 'guestBook'` and can be downloaded by any signed-in user.
 
 ## Reminders (`/reminders`)
 
@@ -311,11 +350,11 @@ Mapbox-backed commute ETAs. All routes require an active session. Most endpoints
 ## Meal Plans (`/meal-plans`)
 
 ### GET /meal-plans/recipes
-- List recipes created by the current user. (Single-recipe GET/PATCH/DELETE do not check ownership.)
+- List all household recipes (household-wide; `createdByUserId` is kept for attribution only). Single-recipe GET/PATCH/DELETE do not check ownership.
 - Response: `{ items, total }`
 
 ### POST /meal-plans/recipes
-- Body: `{ title, description?, servings?=1, prepMinutes?, cookMinutes?, sourceUrl?, ingredients?: [{ name, quantity?, unit?, inventoryItemId? }] }`
+- Body: `{ title, description?, instructions?, servings?=1, prepMinutes?, cookMinutes?, sourceUrl?, ingredients?: [{ name, quantity?, unit?, inventoryItemId? }] }` (`instructions` ≤ 10 000 chars)
 - Response: Recipe (201)
 
 ### GET /meal-plans/recipes/:recipeId

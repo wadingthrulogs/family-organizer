@@ -68,7 +68,7 @@ Times use the container's local time (`TZ`, default UTC). At startup the backend
 ### Backend API (Express)
 - REST endpoints (JSON) organized by feature modules in `src/routes/`, mounted under `/api/v1`.
 - Session auth via `express-session` with `connect-sqlite3` store (7-day cookie); no Passport, no JWT.
-- RBAC middleware `requireRole` — in practice only `ADMIN` is ever required. `MEMBER` and `VIEWER` have identical permissions today (both can write).
+- RBAC middleware `requireRole` — mostly `ADMIN`-only checks. The only `MEMBER`-vs-`VIEWER` distinction is guest-display content and display-mode switching (`requireRole('ADMIN','MEMBER')`); otherwise both can read and write.
 - A few routes need no session: `/auth/login`, `/auth/register`, `/notifications/vapid-public-key`, `/weather`, `/health`, `/healthz`, and `/integrations/google/*` in non-production (dev fallback session).
 - Data validation using Zod schemas; consistent error envelope `{ error: { code, message, details? } }`.
 - File uploads via multer: attachments (`file`, 10 MB) and recipe photos (`image`, 10 MB, JPG/PNG/WebP), both validated by magic bytes. JSON body limit 50 MB.

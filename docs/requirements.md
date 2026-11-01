@@ -15,13 +15,13 @@ A privacy-first, self-hosted web application that lets one household share calen
 ## Users & Personas
 1. **Parent Admin**: sets up the server, manages Google integrations, oversees chores/grocery lists, configures reminders.
 2. **Teen/Adult Member**: links personal calendars, checks assignments, marks tasks/chores complete, edits grocery items.
-3. **Child/Guest Member**: intended read-mostly access to schedule plus lightweight chore/task updates from shared devices. *Implemented as:* the `VIEWER` role, which currently has the same permissions as `MEMBER`.
+3. **Child/Guest Member**: intended read-mostly access to schedule plus lightweight chore/task updates from shared devices. *Implemented as:* the `VIEWER` role, which has the same permissions as `MEMBER` except it can't edit guest-display content or switch the wall display.
 
 ## Functional Requirements
 ### Authentication & Roles
 - Local account system with username + password (8–128 chars, mixed case, digit, symbol). The first account is created via bootstrap registration and becomes Admin; later accounts are created by an Admin.
 - PIN shortcut for shared tablets **(not implemented)** — a `pinHash` column exists but is unused.
-- Roles: Admin, Member, Viewer. Admins manage users, server configuration, backups, and admin diagnostics. *Implemented as:* only Admin is enforced; Viewer is not read-only today.
+- Roles: Admin, Member, Viewer. Admins manage users, server configuration, backups, and admin diagnostics. *Implemented as:* Admin checks are enforced; Viewer is blocked only from guest-display edits and display switching, so it is not read-only today.
 - Session handling via HttpOnly cookies (7-day lifetime, `secure` when served over HTTPS). Configurable idle timeout and device trust **(not implemented)**.
 
 ### Google Calendar Integration

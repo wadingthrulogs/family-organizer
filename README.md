@@ -28,7 +28,7 @@ I created this app after seeing some friends get Magic Mirror and DAKboard. I di
 - **Meal Plans** — Weekly planner with recipe management, ingredient inventory checking, grocery list integration, and bulk recipe import (paste text or upload JSON)
 - **Commute** — Mapbox-backed live ETAs and traffic map for configured routes, plus auto "leave-by" for upcoming calendar events with locations
 - **Reminders & Notifications** — Web push, email, and webhook delivery with lead times, quiet hours, overdue-task escalation, and a daily digest
-- **Multi-user** — Admin / Member / Viewer roles (admin-only actions are enforced; members and viewers currently have the same access), per-user colors
+- **Multi-user** — Admin / Member / Viewer roles (admin-only actions are enforced; members and admins can edit guest-display content and switch the wall display, viewers can't — otherwise members and viewers have the same access), per-user colors
 - **Integrations** — An [MCP server](mcp/README.md) so AI assistants can read and add tasks, groceries, and inventory
 
 

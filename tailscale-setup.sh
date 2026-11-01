@@ -230,13 +230,13 @@ install_cron() {
   # Older versions of this script put the job in the user's crontab, where
   # `tailscale cert` fails without root. Remove that copy.
   if crontab -l 2>/dev/null | grep -qF "tailscale cert"; then
-    crontab -l 2>/dev/null | grep -vF "tailscale cert" | crontab -
+    { crontab -l 2>/dev/null || true; } | { grep -vF "tailscale cert" || true; } | crontab -
     info "Removed old cert-renewal entry from your user crontab."
   fi
   if cron_installed; then
     info "Cert renewal cron already present in root's crontab — skipping."
   else
-    (sudo crontab -l 2>/dev/null; echo "$CRON_LINE") | sudo crontab -
+    { sudo crontab -l 2>/dev/null || true; echo "$CRON_LINE"; } | sudo crontab -
     success "Cron installed in root's crontab (runs every Monday at 3 AM)."
   fi
 }

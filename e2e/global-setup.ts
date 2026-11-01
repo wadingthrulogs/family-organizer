@@ -15,23 +15,27 @@ const DEFAULT_DASHBOARD_CONFIG = {
   ],
 };
 
+const BASE_URL = (process.env.E2E_BASE_URL ?? 'http://localhost').replace(/\/$/, '');
+const E2E_USER = process.env.E2E_USER ?? 'testuser';
+const E2E_PASS = process.env.E2E_PASS ?? 'TestPass123!';
+
 async function globalSetup() {
   const browser = await chromium.launch();
-  const page = await browser.newPage();
+  const page = await browser.newPage({ ignoreHTTPSErrors: true });
 
-  await page.goto('http://localhost/login');
+  await page.goto(`${BASE_URL}/login`);
   await page.waitForTimeout(1000);
   await page.getByLabel('Username').click();
-  await page.getByLabel('Username').type('testuser', { delay: 30 });
+  await page.getByLabel('Username').type(E2E_USER, { delay: 30 });
   await page.getByLabel('Password').click();
-  await page.getByLabel('Password').type('TestPass123!', { delay: 30 });
+  await page.getByLabel('Password').type(E2E_PASS, { delay: 30 });
   await page.click('button:has-text("Sign in")');
   await page.waitForURL((url) => !url.pathname.includes('login'), { timeout: 10000 });
 
   // Reset the test account's dashboard + kiosk configs to a known baseline
   // before any tests run. Individual tests are free to mutate state; this
   // ensures every test run starts from the same layout.
-  const resetRes = await page.request.patch('http://localhost/api/v1/settings/me', {
+  const resetRes = await page.request.patch(`${BASE_URL}/api/v1/settings/me`, {
     data: {
       dashboardConfig: DEFAULT_DASHBOARD_CONFIG,
       kioskConfig: DEFAULT_DASHBOARD_CONFIG,
@@ -48,7 +52,7 @@ async function globalSetup() {
   // dashboard-config into localStorage so hasStoredDashboardConfig() returns
   // true on test pages — otherwise the sync effect pulls server which is
   // also reset, but we want deterministic behavior.
-  await page.goto('http://localhost/');
+  await page.goto(`${BASE_URL}/`);
   await page.evaluate((cfg) => {
     localStorage.setItem('dashboard-config', JSON.stringify(cfg));
     localStorage.setItem('kiosk-config', JSON.stringify(cfg));

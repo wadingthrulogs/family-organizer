@@ -1,5 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
+// Point at the running app. Use https://<tailscale-host> when TLS is enabled.
+const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost';
+
 export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
@@ -7,7 +10,9 @@ export default defineConfig({
   workers: 1,
   globalSetup: './global-setup.ts',
   use: {
-    baseURL: 'http://localhost',
+    baseURL,
+    // Allow self-signed / not-yet-trusted certs on local HTTPS setups.
+    ignoreHTTPSErrors: true,
     screenshot: 'on',
     trace: 'retain-on-failure',
     storageState: 'auth-state.json',

@@ -1,39 +1,54 @@
 # UI Wireframes & Design Notes
 
-## Visual Direction
-- Friendly, modern aesthetic with warm neutral background and accent colors per family member.
-- Font pairing: "Cabin" for headings, "Source Sans 3" for body to stay welcoming yet clear.
-- Color tokens:
-  - `--bg`: #F5F1EA (light parchment)
-  - `--surface`: #FFFFFF with subtle shadow
-  - `--accent`: #2F80ED (actions), `--accent-alt`: #F2994A (warning)
-  - Member colors derived from profile color_hex values.
-- Components feature rounded corners (10px) and generous spacing for touch interactions.
-- Motion: subtle fade-slide for panel switches; staggered list reveals.
+> Original design notes, updated to match what is built on `main`. Items marked **(not implemented)** are ideas from the original design that have not been built.
 
-## Dashboard (Desktop)
+## Visual Direction
+- Friendly, modern aesthetic; per-member accent colors from each user's `colorHex`.
+- Font pairing: "Cabin" for headings (`font-display`), "Source Sans 3" for body (loaded in `frontend/index.html`).
+- All colors are CSS custom properties per theme (16 themes: `default, dark-plus, light-plus, monokai, dracula, solarized-dark, solarized-light, one-dark-pro, nord, midnight, paper, catppuccin-mocha, catppuccin-latte, gruvbox-dark, tokyo-night, rose-pine`), consumed by Tailwind tokens such as `bg-page`, `bg-card`, `text-heading`, `text-muted`, `border-th-border`, `bg-btn-primary`, `accent`.
+- Shopping mode uses dedicated `color-shopping-*` tokens (dark regardless of theme).
+- Rounded cards (`rounded-card`), soft shadows, generous spacing for touch.
+
+## App Shell
+```
++---------------------------------------------------------------+
+| Header: household name · user menu                            |
+| Top nav tabs (desktop)                                        |
++---------------------------------------------------------------+
+| Page content                                                  |
++---------------------------------------------------------------+
+Mobile: bottom tab bar (user picks up to 4 tabs in Settings) + "More"
+```
+- Tabs can be hidden per household (Settings → Appearance → Tab Visibility).
+- On mobile the Tasks page has a floating "+" quick-add button; the Tasks widget also supports quick task creation with an assignee.
+
+## Dashboard
 ```
 +-------------------------------------------------------------+
-| Header: Household name | date picker | user avatar drop-down |
+| (floating ⚙ button → dashboard settings: edit, add widgets) |
+| +-------+ +-------+ +---------------+                       |
+| | Clock | |Weather| | Events (8×3)  |   ← react-grid-layout |
+| +-------+ +-------+ +---------------+     12-col grid       |
+| +---------+ +-----------+ +--------+                        |
+| | Tasks   | | Chores    | |Commute |   drag handle + 4      |
+| +---------+ +-----------+ +--------+   corner resize handles|
 +-------------------------------------------------------------+
-| Left Column (65%)                                        | |
-|  - Today Card: timeline list of events/tasks              | |
-|  - Upcoming Tasks: scrollable list of open tasks, quick-close checkbox per row | |
-|  - Chore Spotlight: carousel of pending chores per member | |
-| Right Column (35%)                                       | |
-|  - Grocery Quick Add form + top 5 needed items           | |
-|  - Reminder Queue mini-table                             | |
-|  - Sync Status widget (Google, backups)                  | |
-+-------------------------------------------------------------+
-Footer: buttons for Calendar, Tasks, Chores, Grocery, Settings
 ```
-Mobile adapts to stacked cards with sticky nav bar.
+- Free-form drag-and-resize grid of widgets: clock, weather, commute, tasks, chores, events, overdue chores, grocery, reminders, inventory, meal plan.
+- Edit mode toggles dragging/resizing; removing a widget offers undo. Per-widget font size.
+- Separate layouts are saved for landscape (`lg`, 12 columns) and portrait (`md`, 8 columns) screens; smaller breakpoints stack.
+- Optional background photo with opacity and fill/contain fit.
+- Layout is stored in localStorage and synced to the server (`/settings/me`); the local copy wins once edited on a device.
+
+## Kiosk (`/kiosk`)
+- Full-screen wall display outside the app shell, with its own widget layout and settings sheet (independent of the dashboard).
+- Screen wake lock, auto-hiding cursor, and a targeted 2-minute data refresh. Has its own edit mode.
 
 ## Calendar Views
-- Top controls: view switch (Day/Week/Month), member filter chips, add event/task button.
-- Week view uses FullCalendar with side rail for all-day items and inline task badges.
-- Tasks and chores appear as pill overlays with icons (checkbox vs broom) and color-coded borders.
-- Mobile day view shows agenda list with swipe to mark done.
+- Top controls: Day / Week / Month switch, previous/next, add (Event / Task / Chore / Meal), "Sync Google Calendar" button.
+- Events from linked Google calendars and local events, color-coded by calendar; tasks, chores, and meal-plan entries overlaid as pills.
+- Custom-built views (no FullCalendar dependency).
+- Swipe-to-mark-done on mobile **(not implemented)**.
 
 ## Tasks (Todo List)
 ```
@@ -42,35 +57,50 @@ Filter tabs: All | Active | Done | Mine.
 Tasks grouped by date: Overdue (red) / Today (orange) / Upcoming / No Due Date.
 Each row: checkbox (open/done toggle), title, due date pill, assignee avatars, expand chevron.
 ```
-- Click any row to expand: shows description, inline edit form (title, due date, labels, assignees, recurrence), delete button.
+- Click any row to expand: description, inline edit form (title, due date, labels, assignees, recurrence), file attachments, delete button.
+- Completing a recurring task creates its next occurrence.
 - Mobile: same layout, stacks naturally.
 
 ## Chore Planner
-- Calendar strip showing next 14 days; below, list of assignments grouped by day.
-- "Rotation" modal to edit rules with drag-drop order and weight sliders.
-- Completion action uses large toggle + optional photo upload for proof.
+- "Upcoming assignments" list (pending / in-progress) with complete, skip, and swap actions.
+- "Completion Streaks" panel (current, longest, total per member).
+- Chore templates list with create/edit form (rotation type, frequency, interval, eligible members, weights, reward points).
+- The next assignment is generated automatically when a chore is created and when an assignment is completed or skipped.
+- Drag-drop rotation order and photo proof of completion **(not implemented)**.
 
 ## Grocery List
-- Split view: categories on left, items on right with large tap targets.
-- Shopping mode: darkened header, items enlarge with state toggles (Need → In Cart → Purchased) using swipe gestures.
-- Bulk controls pinned at bottom (Mark All Purchased, Reset Claimed).
-- Mobile layout uses bottom sheet for add-item form; voice input shortcut optional.
+- Multiple lists; each list shows items grouped by category with large tap targets.
+- Add single items, or bulk-add natural-language text ("3x bananas, milk"); add low-stock inventory items in one click.
+- Shopping mode: dark "Live cart view" with a shopping queue; items move Need → In Cart → Purchased by tapping. Purchased items can be moved into inventory.
+- Swipe gestures and voice input **(not implemented)**.
 
-## Reminder Settings
-- Table of reminders with pills for channels; clicking row opens drawer.
-- Drawer shows trigger preview timeline, quiet hours slider, escalation options.
-- Test send button and delivery history list.
+## Inventory
+- Add form and "Add multiple items" natural-language box; search, category filter, low-stock filter; text export.
+- Per-item low-stock threshold and "prepared meal" tag (creates a linked recipe for meal planning).
+- **Recipe photo upload**: pick or take a photo → the host AI watcher extracts ingredients → review/edit rows in a modal → bulk add.
+
+## Meal Plans
+- Weekly grid (Mon–Sun × Breakfast / Lunch / Dinner / Snack) with recipe or free-text entries.
+- Recipes tab: CRUD, inventory check (ok / low / missing / unlinked), add missing to grocery, bulk import (paste text or upload JSON).
+- "Send week to grocery list".
+
+## Notifications & Reminders (`/notifications`)
+- Create / edit reminder form (target, channels, lead time, quiet hours).
+- Browser push enable/disable for this device.
+- Notification history; admin controls (process now, send digest, household-wide log).
+- Trigger timeline preview and escalation editor **(not implemented)**.
 
 ## Auth & Settings
-- Login screen: household logo, username/password fields, "Enter PIN" secondary action.
-- Settings pages organized in tabs: Household, Members, Integrations, Backup & Restore, Theme.
+- Login screen: app name, username/password. "Enter PIN" login **(not implemented)**.
+- Registration page works only for the very first (bootstrap admin) account.
+- Settings is one page of sections (on mobile, a section list that drills in): General (name, timezone, quiet hours, task retention), Appearance (theme, tab visibility, mobile bottom bar), Weather, Commute / Routes, Google Calendar (connect, sync, force re-sync), Server Configuration (admin: API keys, SMTP, VAPID, OAuth, Mapbox), Backup & Export (admin), User Management (admin) / Account.
 
 ## Responsive Behavior
-- Breakpoints: 320, 600, 960, 1280.
-- At <=600px: nav becomes bottom bar; cards stack; filters collapse into drawers.
-- Offline indicator (small badge) appears when Service Worker detects offline; allows manual sync once online.
+- Tailwind breakpoints for page layout; the dashboard grid uses `lg 1280 / md 996 / sm 768 / xs 480 / xxs 0` with 12 / 8 / 4 / 2 / 1 columns.
+- On small screens the nav becomes a bottom bar and cards stack.
+- Offline indicator and offline sync **(not implemented)** — the service worker handles push notifications only.
 
 ## Accessibility
-- Minimum 4.5:1 contrast for text; focus outlines custom but high contrast.
-- Keyboard shortcuts: `g c` for calendar, `g t` for tasks, `g g` for grocery.
-- Reduced-motion mode disables panel animations.
+- Minimum 4.5:1 contrast target for text; visible focus outlines.
+- Screen-reader announcements via an `AnnouncementProvider` live region.
+- Keyboard shortcuts (`g c`, `g t`, `g g`) **(not implemented)**.

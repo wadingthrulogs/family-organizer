@@ -1,25 +1,37 @@
 # Tailscale HTTPS Guide
 
-Tailscale gives every machine on your tailnet a stable MagicDNS hostname and a free, browser-trusted TLS certificate — no port-forwarding, no Let's Encrypt, no dynamic DNS required. This guide covers the full setup, certificate renewal, and troubleshooting for Family Organizer.
+Tailscale gives every machine on your tailnet a stable MagicDNS hostname and a free, browser-trusted TLS certificate — no port-forwarding, no Let's Encrypt, no dynamic DNS. This guide covers setup, certificate renewal, and troubleshooting for Family Organizer.
+
+HTTPS matters here: browsers only allow web push on HTTPS, and `SESSION_SECURE=true` cookies need it.
+
+---
+
+## How HTTPS works in this app
+
+Nothing in the repo is edited to turn HTTPS on. The nginx container chooses its mode every time it starts (`frontend/docker-entrypoint.d/40-select-tls.sh`):
+
+1. `TLS_HOSTNAME` is set in the root `.env` **and** `/etc/tailscale/certs/<TLS_HOSTNAME>.crt` + `.key` exist → **HTTPS**
+2. otherwise, exactly one `*.crt`/`*.key` pair exists in `/etc/tailscale/certs/` → **HTTPS** with that hostname
+3. otherwise → **HTTP**
+
+In HTTPS mode nginx serves the app on 443 (`HTTPS_PORT`) and port 80 (`HTTP_PORT`) returns a `301` to HTTPS (except `/healthz`). `docker-compose.yml` mounts `/etc/tailscale/certs` into the container read-only at `/etc/ssl/tailscale`.
+
+`tailscale-setup.sh` just gets a certificate into that folder and sets the matching `.env` values.
 
 ---
 
 ## Prerequisites
 
-- A free [Tailscale account](https://tailscale.com/) (personal accounts are free for up to 3 users / 100 devices)
-- The host machine must be running **Linux, macOS, or WSL2** — Windows native is not supported
-- Docker and Docker Compose installed on the host
-- Family Organizer already bootstrapped via `bash setup.sh`
+- A free [Tailscale account](https://tailscale.com/)
+- Host running **Linux, macOS, or WSL2** (Windows native isn't supported)
+- `sudo` access (certificate issuance writes to `/etc/tailscale/certs`)
+- Family Organizer already set up via `bash setup.sh`
+- MagicDNS and HTTPS certificates enabled for your tailnet (Tailscale admin console → **DNS** → enable **MagicDNS** and **HTTPS Certificates**)
 
-The setup script will install Tailscale for you if it isn't already present. If you'd rather install it manually first:
+If Tailscale isn't installed, the script installs it with the official installer (`curl -fsSL https://tailscale.com/install.sh | sh` on Linux/WSL2, `brew install tailscale` on macOS) and runs `sudo tailscale up`. To do it yourself first:
 
 ```bash
-# Linux (Debian/Ubuntu)
 curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
-
-# macOS
-brew install tailscale
 sudo tailscale up
 ```
 
@@ -27,140 +39,139 @@ sudo tailscale up
 
 ## Setup
 
-Run from the repo root after completing the initial `setup.sh`:
+From the repo root:
 
 ```bash
-bash tailscale-setup.sh
+bash tailscale-setup.sh     # or: make tailscale-setup
 ```
 
-The script runs fully unattended and handles everything in order:
+| Step | What happens | Interaction |
+|------|-------------|-------------|
+| 1 | Installs Tailscale if missing, then `sudo tailscale up` | Open the printed login URL in a browser |
+| 2 | Checks Docker / Docker Compose | — |
+| 3 | Detects the MagicDNS hostname from `tailscale status --json` (e.g. `mymachine.tail411eff.ts.net`) | Asks for it only if auto-detect fails |
+| 4 | `sudo tailscale cert` → `/etc/tailscale/certs/<hostname>.crt` + `.key` | `sudo` password |
+| 5 | Sets `TLS_HOSTNAME=<hostname>`, `APP_BASE_URL=https://<hostname>`, `SESSION_SECURE=true` in the root `.env`, and `APP_BASE_URL`/`SESSION_SECURE` in `backend/.env` | — |
+| 6 | Rebuilds and recreates the containers (`make up`) | — |
+| 7 | Polls the health endpoint every 5 s (up to 3 min) and prints the final URL | — |
+| 8 | Offers to install a weekly renewal cron job in root's crontab | `Y/n` |
 
-| Step | What happens |
-|------|-------------|
-| 1 | Checks that `tailscale`, `docker`, and `docker compose` are available |
-| 2 | Installs Tailscale if missing (apt / yum / pacman / brew depending on platform) |
-| 3 | Detects your MagicDNS hostname via `tailscale status --json` (e.g. `mymachine.tail411eff.ts.net`) |
-| 4 | Issues a TLS certificate: `sudo tailscale cert` → `/etc/tailscale/certs/{hostname}.crt` + `.key` |
-| 5 | Patches `frontend/nginx.conf` — changes `listen 80` to `listen 443 ssl`, sets `server_name` to your hostname, and adds `ssl_certificate` directives |
-| 6 | Updates `.env` and `backend/.env` — sets `APP_PORT=443`, `APP_BASE_URL=https://{hostname}`, `SESSION_SECURE=true` |
-| 7 | Rebuilds and restarts containers: `docker compose down && docker compose up -d --build` |
-| 8 | Polls `https://{hostname}/api/v1/health` every 5 s (up to 3 min) and prints your final URL when it responds |
-| 9 | Optionally installs a weekly auto-renewal cron (you'll be prompted) |
+When it finishes, open `https://<your-hostname>` — you should see the padlock. Check the mode nginx picked with:
 
-When it finishes, open `https://<your-hostname>` — you should see the padlock.
+```bash
+docker compose logs frontend | grep -i mode
+```
 
----
+### What gets changed
 
-## Files Modified by the Script
+| Location | Change |
+|----------|--------|
+| `/etc/tailscale/certs/` | `<hostname>.crt` and `<hostname>.key` |
+| `.env` | `TLS_HOSTNAME`, `APP_BASE_URL=https://<hostname>`, `SESSION_SECURE=true` |
+| `backend/.env` | `APP_BASE_URL`, `SESSION_SECURE` |
+| root crontab | renewal job (only if you accept) |
 
-| File | What changes |
-|------|-------------|
-| `frontend/nginx.conf` | `listen 443 ssl`, `server_name <hostname>`, SSL cert + key directives |
-| `.env` | `APP_PORT=443`, `APP_BASE_URL=https://<hostname>`, `SESSION_SECURE=true` |
-| `backend/.env` | Same `APP_BASE_URL` and `SESSION_SECURE` values |
-| `/etc/tailscale/certs/` | New `<hostname>.crt` and `<hostname>.key` certificate files |
-
-The `docker-compose.yml` already mounts `/etc/tailscale/certs` into the frontend container as `/etc/ssl/tailscale` (read-only), so no compose changes are needed.
+No tracked files in the repo are modified, so `git pull` / `make update` won't conflict.
 
 ---
 
 ## Post-Setup: Google Calendar OAuth
 
-If you use Google Calendar integration, you need to add your new HTTPS redirect URI in the Google Cloud Console — the old `http://` URI won't work after switching to HTTPS.
+The `http://` redirect URI stops working after switching to HTTPS. Add the new one:
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com) → **APIs & Services → Credentials**
-2. Click your OAuth 2.0 client → **Authorised redirect URIs**
-3. Add:
+1. [console.cloud.google.com](https://console.cloud.google.com) → **APIs & Services → Credentials**
+2. Your OAuth client → **Authorised redirect URIs** → add
    ```
    https://<your-hostname>/api/v1/integrations/google/callback
    ```
-4. Click **Save**
+3. **Save**
 
-> **Tip:** Open **Settings → Server Configuration** in the app — the Google OAuth section shows the exact redirect URI pre-filled with your current `APP_BASE_URL`.
+> **Settings → Server Configuration** in the app shows the exact redirect URI the backend is using.
+
+## Post-Setup: Push notifications
+
+Push subscriptions are tied to the origin. After switching to HTTPS, each person opens the app at the new `https://` URL and enables notifications again on the **Notifications** page.
 
 ---
 
 ## Certificate Renewal
 
-Tailscale certificates are valid for approximately 90 days. The script offers two renewal options:
+Tailscale certificates last about 90 days.
 
-### Manual renewal (no downtime)
-
-```bash
-bash tailscale-setup.sh --renew
-```
-
-Re-issues the certificate and reloads nginx. Containers are **not** rebuilt.
-
-### Automatic renewal via cron
+### Manual (no downtime)
 
 ```bash
-bash tailscale-setup.sh --cron
+bash tailscale-setup.sh --renew     # or: make tailscale-renew
 ```
 
-Installs (or updates) a cron job that runs every **Monday at 3 AM**:
+Re-issues the certificate and runs `nginx -s reload` in the running frontend container. No rebuild.
+
+### Automatic (cron)
+
+```bash
+bash tailscale-setup.sh --cron      # or: make tailscale-cron
+```
+
+Installs (or keeps) a job in **root's** crontab — `tailscale cert` needs root to write `/etc/tailscale/certs` — that runs every **Monday at 03:00**:
 
 ```
-0 3 * * 1  tailscale cert ... && docker exec <frontend> nginx -s reload
+0 3 * * 1  tailscale cert --cert-file /etc/tailscale/certs/<host>.crt --key-file /etc/tailscale/certs/<host>.key <host> && docker exec <frontend> nginx -s reload
 ```
 
-This reloads nginx in-place with the new cert — zero downtime, no container restart.
-
-You can install the cron during initial setup too — the script will prompt you at the end of the full setup run.
+Check it with `sudo crontab -l`. Older versions of the script put the job in your *user* crontab, where it couldn't write the cert directory; running `--cron` (or the full setup) now removes that old entry automatically.
 
 ---
 
 ## Re-running After a Hostname Change
 
-If your Tailscale hostname changes (e.g. you renamed the machine or moved to a different tailnet), just re-run the full script:
+If the machine is renamed or moves to another tailnet, run the full script again. It issues a new certificate and updates `TLS_HOSTNAME`/`APP_BASE_URL`. Remove the old `<old-hostname>.crt`/`.key` from `/etc/tailscale/certs/` too: with `TLS_HOSTNAME` set it doesn't matter, but leftover pairs break the single-cert auto-detection.
 
-```bash
-bash tailscale-setup.sh
-```
+Remember to update the Google OAuth redirect URI.
 
-It re-detects the current hostname, re-issues the cert, re-patches nginx, updates the env files, and rebuilds.
+---
+
+## Reverting to HTTP
+
+1. In the root `.env`: delete `TLS_HOSTNAME`, set `APP_BASE_URL=http://<host-or-ip>` and `SESSION_SECURE=false` (same two in `backend/.env`)
+2. Move the certificate pair out of `/etc/tailscale/certs/` (otherwise nginx auto-detects it and stays in HTTPS mode):
+   ```bash
+   sudo mkdir -p /etc/tailscale/certs.disabled
+   sudo mv /etc/tailscale/certs/*.crt /etc/tailscale/certs/*.key /etc/tailscale/certs.disabled/
+   ```
+3. Remove the renewal job: `sudo crontab -e`
+4. `make up`
 
 ---
 
 ## Troubleshooting
 
-**`tailscale cert` fails with "not logged in" or permission error**
-- Run `tailscale status` to confirm the machine is connected to your tailnet
-- You may need to run `sudo tailscale up` first
-- The cert command requires `sudo`; make sure the user running the script has sudo access
+**`tailscale cert` fails ("not logged in", permission, or "HTTPS not enabled")**
+- `tailscale status` — is the machine connected?
+- Enable **HTTPS Certificates** in the tailnet DNS settings
+- The command runs under `sudo`; make sure your user can sudo
 
-**nginx container won't start after the script runs**
-```bash
-docker compose logs frontend
-```
-The most common cause is a cert path mismatch. Confirm:
-- `/etc/tailscale/certs/<hostname>.crt` and `.key` exist on the host
-- `nginx.conf` references `/etc/ssl/tailscale/<hostname>.crt` (the container-internal path)
+**Browser shows "connection refused" on https, or the page redirects to HTTP**
+nginx is in HTTP mode. `docker compose logs frontend | grep -i mode`, then check:
+- `ls -l /etc/tailscale/certs/` — `<TLS_HOSTNAME>.crt` and `.key` exist and the name matches `TLS_HOSTNAME` exactly
+- you ran `make up` (not `make restart`) after changing `.env`
 
-**Health check times out (script waits 3 min then exits)**
-```bash
-make logs        # or: docker compose logs -f
-```
-The backend may still be running migrations on first start. Wait a moment and open the URL manually. Also verify `APP_BASE_URL` in `backend/.env` matches the actual hostname exactly.
+**Frontend won't start: `bind: address already in use` / `port is already allocated` on :80**
+Something else on the host listens on port 80 (another nginx, a Pi-hole, a dev server). Bind the redirect listener elsewhere, e.g. `HTTP_PORT=127.0.0.1:8080` in the root `.env`, then `make up`. HTTPS on 443 is unaffected.
 
-**Push notifications stopped working after switching to HTTPS**
-Push subscriptions are origin-bound — an `http://` subscription is not valid for an `https://` origin. Each family member needs to re-subscribe:
-1. Open the app in the browser
-2. Go to **Settings → Push Notifications** and click **Enable notifications**
+**Redirected to https but it never loads**
+`HTTPS_PORT` is taken by another service or blocked by a firewall. `docker compose ps` should show `0.0.0.0:443->443/tcp`.
 
-**Google OAuth redirect mismatch error**
-You'll see this if the `http://` redirect URI is still the only one registered. Add the new `https://` URI as described in [Post-Setup: Google Calendar OAuth](#post-setup-google-calendar-oauth) above.
+**Health check times out (script gives up after 3 min)**
+The first build on a Pi can be slow and migrations run on first start. Run `make logs`, wait, then open the URL manually.
 
-**WSL2: cert issued but can't reach the URL from Windows**
-The cert is issued for the WSL2 VM's Tailscale hostname. To access the app from Windows:
-- Use the full Tailscale hostname in the browser: `https://<hostname>`
-- Make sure the Tailscale client is running on both the WSL2 VM and Windows (or just WSL2 with subnet routing)
+**`401` on every request after switching**
+`APP_BASE_URL` in the root `.env` doesn't match the URL in the browser, or you're still on `http://` with `SESSION_SECURE=true`.
 
-**Reverting to HTTP**
-If you need to go back to plain HTTP temporarily:
-1. Restore the original `frontend/nginx.conf` from git: `git checkout frontend/nginx.conf`
-2. Set `APP_PORT=80`, `APP_BASE_URL=http://localhost:80`, `SESSION_SECURE=false` in both `.env` files
-3. Run `make restart`
+**Google OAuth `redirect_uri_mismatch`**
+Add the `https://` redirect URI as described above.
+
+**WSL2: cert issued but Windows can't reach it**
+The cert is for the WSL2 VM's Tailscale name. Use `https://<hostname>` from a device on the tailnet, and make sure Tailscale is running inside WSL2.
 
 ---
 
@@ -168,10 +179,10 @@ If you need to go back to plain HTTP temporarily:
 
 | Command | What it does |
 |---------|-------------|
-| `bash tailscale-setup.sh` | Full setup: install, cert, nginx, env, rebuild |
-| `bash tailscale-setup.sh --renew` | Renew cert + reload nginx (no rebuild) |
-| `bash tailscale-setup.sh --cron` | Install/update the weekly renewal cron only |
-| `bash tailscale-setup.sh --help` | Show usage |
-| `make restart` | Restart containers after manual env changes |
-| `make logs` | Follow live container logs |
-| `tailscale status` | Show tailnet connection status and hostname |
+| `bash tailscale-setup.sh` / `make tailscale-setup` | Full setup: install, cert, env, rebuild, optional cron |
+| `bash tailscale-setup.sh --renew` / `make tailscale-renew` | Renew cert + reload nginx (no rebuild) |
+| `bash tailscale-setup.sh --cron` / `make tailscale-cron` | Install the weekly renewal cron only |
+| `bash tailscale-setup.sh --help` | Usage |
+| `make up` | Apply `.env` changes (recreates containers) |
+| `make logs` | Follow container logs |
+| `tailscale status` | Tailnet connection status and hostname |

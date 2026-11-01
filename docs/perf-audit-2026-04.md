@@ -1,5 +1,7 @@
 # Frontend Performance Audit — April 2026
 
+> **Historical document.** This is a point-in-time audit from April 2026. All three top wins have since landed: the global pointermove listener was removed (30f446b), routes are lazy-loaded (b140c0b), and kiosk invalidation was targeted with new QueryClient defaults (e4197e1). Widget counts and code references below reflect the codebase at the time (the dashboard now has 11 widgets, including Commute).
+
 Target: Raspberry Pi 5 / Chromium / 1080p wall kiosk, 24/7 uptime.
 Method: `vite build` output + static analysis. No live profiling.
 

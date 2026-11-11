@@ -167,6 +167,19 @@ function DashboardPage() {
   }, [persistConfig]);
 
   const hideWidgetBorders = config.preferences?.hideWidgetBorders ?? false;
+  const widgetOpacity = config.preferences?.widgetOpacity;
+  // Live on the root so the settings sheet can preview a drag by writing the
+  // same property; clearing it hands back to the per-mode CSS fallbacks.
+  useEffect(() => {
+    const el = document.documentElement;
+    if (typeof widgetOpacity === 'number') {
+      el.style.setProperty('--widget-bg-opacity', String(widgetOpacity));
+    } else {
+      el.style.removeProperty('--widget-bg-opacity');
+    }
+    return () => el.style.removeProperty('--widget-bg-opacity');
+  }, [widgetOpacity]);
+
   const backgroundImageUrl = config.preferences?.backgroundImageUrl;
   const backgroundFit = config.preferences?.backgroundFit ?? 'cover';
 
@@ -212,6 +225,17 @@ function DashboardPage() {
   }, [persistConfig]);
 
 
+  const handleSetWidgetOpacity = useCallback((value: number) => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: { ...prev.preferences, widgetOpacity: value },
+      };
+      persistConfig(next);
+      return next;
+    });
+  }, [persistConfig]);
+
   const handleToggleBorders = useCallback(() => {
     setConfig((prev) => {
       const next: DashboardConfig = {
@@ -247,6 +271,8 @@ function DashboardPage() {
           onRestore={handleRestore}
           hideWidgetBorders={hideWidgetBorders}
           onToggleBorders={handleToggleBorders}
+          widgetOpacity={widgetOpacity}
+          onSetWidgetOpacity={handleSetWidgetOpacity}
           backgroundImageUrl={backgroundImageUrl}
           backgroundFit={backgroundFit}
           onSetBackground={handleSetBackground}

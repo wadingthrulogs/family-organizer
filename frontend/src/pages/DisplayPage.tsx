@@ -222,6 +222,19 @@ function DisplayPage({ mode }: { mode: DisplayMode }) {
   }, []);
 
   const hideWidgetBorders = config.preferences?.hideWidgetBorders ?? false;
+  const widgetOpacity = config.preferences?.widgetOpacity;
+  // Live on the root so the settings sheet can preview a drag by writing the
+  // same property; clearing it hands back to the per-mode CSS fallbacks.
+  useEffect(() => {
+    const el = document.documentElement;
+    if (typeof widgetOpacity === 'number') {
+      el.style.setProperty('--widget-bg-opacity', String(widgetOpacity));
+    } else {
+      el.style.removeProperty('--widget-bg-opacity');
+    }
+    return () => el.style.removeProperty('--widget-bg-opacity');
+  }, [widgetOpacity]);
+
   const bgImageUrl = config.preferences?.backgroundImageUrl;
   const bgOpacity = config.preferences?.backgroundOverlay ?? 1;
   const backgroundFit = config.preferences?.backgroundFit ?? 'cover';
@@ -268,6 +281,17 @@ function DisplayPage({ mode }: { mode: DisplayMode }) {
   const handleRestore = useCallback((restored: DashboardConfig) => {
     setConfig(restored);
     persistConfig(restored);
+  }, [persistConfig]);
+
+  const handleSetWidgetOpacity = useCallback((value: number) => {
+    setConfig((prev) => {
+      const next: DashboardConfig = {
+        ...prev,
+        preferences: { ...prev.preferences, widgetOpacity: value },
+      };
+      persistConfig(next);
+      return next;
+    });
   }, [persistConfig]);
 
   const handleToggleBorders = useCallback(() => {
@@ -456,6 +480,8 @@ function DisplayPage({ mode }: { mode: DisplayMode }) {
           onRestore={handleRestore}
           hideWidgetBorders={hideWidgetBorders}
           onToggleBorders={handleToggleBorders}
+          widgetOpacity={widgetOpacity}
+          onSetWidgetOpacity={handleSetWidgetOpacity}
           backgroundImageUrl={bgImageUrl}
           backgroundFit={backgroundFit}
           onSetBackground={handleSetBackground}

@@ -1161,7 +1161,61 @@ input, select, textarea {
 .dashboard-no-borders .react-grid-item > .animate-pulse {
   border: 1px solid var(--color-border) !important;
   background: var(--color-card) !important;
-  background: color-mix(in srgb, var(--color-card) 75%, transparent) !important;
+  background: color-mix(in srgb, var(--color-card) calc(var(--widget-bg-opacity, 0.75) * 100%), transparent) !important;
+}
+
+/* Bordered mode honours the same slider, but is opaque until someone moves it.
+   Each rule carries its own fallback, so an unset --widget-bg-opacity keeps the
+   mode's historical look; once the grid sets the variable, both modes follow it.
+   Specificity beats the widgets' own `bg-[var(--color-card)]` utility, so this
+   needs no !important. */
+.dashboard-grid .react-grid-item > [class*="rounded-2xl"],
+.dashboard-grid .react-grid-item > .animate-pulse {
+  background: var(--color-card);
+  background: color-mix(in srgb, var(--color-card) calc(var(--widget-bg-opacity, 1) * 100%), transparent);
+}
+
+/* Range inputs in the settings sheet: the rest of that panel uses 56px touch
+   targets, and a stock ~16px thumb is hard to hit on a wall-mounted screen.
+   WebKitGTK (the display's engine) needs the -webkit- pseudo-element; Firefox
+   takes -moz-. */
+.touch-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  /* The element's own height is the finger target; the visible track is the
+     10px bar inside it. Without this the box collapses to the track and the
+     thumb overflows a 10px hit area. */
+  height: 44px;
+  cursor: pointer;
+}
+.touch-slider::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--color-border);
+}
+.touch-slider::-moz-range-track {
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--color-border);
+}
+.touch-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 36px;
+  margin-top: -13px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  border: 3px solid var(--color-bg-card);
+  box-shadow: 0 1px 4px var(--color-shadow);
+}
+.touch-slider::-moz-range-thumb {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--color-bg-card);
+  border-radius: 9999px;
+  background: var(--color-accent);
 }
 
 /* ─── Kiosk / Dashboard Mode ─── */

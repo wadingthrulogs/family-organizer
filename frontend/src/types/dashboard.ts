@@ -15,6 +15,8 @@ export interface DashboardPreferences {
   hideWidgetBorders?: boolean;
   backgroundImageUrl?: string;
   backgroundOverlay?: number;
+  /** Widget card opacity, 0–1. Unset lets CSS pick per mode: 1 bordered, 0.75 borderless. */
+  widgetOpacity?: number;
   backgroundFit?: 'cover' | 'contain';
   bottomTabKeys?: string[];
 }

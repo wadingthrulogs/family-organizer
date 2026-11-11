@@ -22,6 +22,9 @@ interface DashboardSettingsSheetProps {
   onRestore: (config: DashboardConfig) => void;
   hideWidgetBorders: boolean;
   onToggleBorders: () => void;
+  /** Widget card opacity, 0–1. Undefined means "use the mode's CSS default". */
+  widgetOpacity?: number;
+  onSetWidgetOpacity: (value: number) => void;
   backgroundImageUrl?: string;
   backgroundFit?: 'cover' | 'contain';
   onSetBackground: (url: string, overlay?: number) => void;
@@ -42,6 +45,8 @@ export function DashboardSettingsSheet({
   onRestore,
   hideWidgetBorders,
   onToggleBorders,
+  widgetOpacity,
+  onSetWidgetOpacity,
   backgroundImageUrl,
   backgroundFit = 'cover',
   onSetBackground,
@@ -54,6 +59,10 @@ export function DashboardSettingsSheet({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [overlayValue, setOverlayValue] = useState(config.preferences?.backgroundOverlay ?? 1);
+  // Defaults mirror the CSS fallbacks in `.dashboard-grid` / `.dashboard-no-borders`.
+  const [opacityValue, setOpacityValue] = useState(
+    widgetOpacity ?? (hideWidgetBorders ? 0.75 : 1)
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const displayName = mode === 'dashboard' ? 'dashboard' : mode === 'kiosk' ? 'kiosk display' : 'guest display';
@@ -196,6 +205,38 @@ export function DashboardSettingsSheet({
                 active={hideWidgetBorders}
                 onClick={onToggleBorders}
               />
+              <div className="rounded-xl border border-[var(--color-border)] px-4 py-3">
+                <div className="flex items-baseline justify-between mb-1">
+                  <span className="text-base font-medium text-[var(--color-text-primary)]">
+                    Widget opacity
+                  </span>
+                  <span className="text-base tabular-nums text-[var(--color-text-muted)]">
+                    {Math.round(opacityValue * 100)}%
+                  </span>
+                </div>
+                <p className="text-sm text-[var(--color-text-muted)] mb-3">
+                  How much of the background shows through the widgets
+                </p>
+                <input
+                  type="range"
+                  min={0.2}
+                  max={1}
+                  step={0.05}
+                  value={opacityValue}
+                  aria-label="Widget opacity"
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setOpacityValue(v);
+                    // Preview straight on the custom property: persisting every tick
+                    // would PATCH the server on every pixel of the drag.
+                    document.documentElement.style.setProperty('--widget-bg-opacity', String(v));
+                  }}
+                  onPointerUp={() => onSetWidgetOpacity(opacityValue)}
+                  onKeyUp={() => onSetWidgetOpacity(opacityValue)}
+                  onBlur={() => onSetWidgetOpacity(opacityValue)}
+                  className="touch-slider w-full touch-manipulation"
+                />
+              </div>
               <SettingButton
                 icon="🖼️"
                 label={backgroundImageUrl ? 'Change background' : 'Set background'}

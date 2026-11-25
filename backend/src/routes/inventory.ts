@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/require-auth.js';
 import { prisma } from '../lib/prisma.js';
 import { asyncHandler } from '../utils/async-handler.js';
+import { partialUpdate } from '../utils/partial-update.js';
 import { parseBulkLine } from '../utils/parse-bulk-line.js';
 import { upsertPreparedMealRecipe, deletePreparedMealRecipe } from '../services/prepared-meal.js';
 import {
@@ -41,7 +42,7 @@ const createItemSchema = z.object({
   dateAdded: z.coerce.date().nullable().optional(),
 });
 
-const updateItemSchema = createItemSchema.partial();
+const updateItemSchema = partialUpdate(createItemSchema);
 
 const itemIdSchema = z.object({
   itemId: z.coerce.number().int().positive(),

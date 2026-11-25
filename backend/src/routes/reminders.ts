@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/require-auth.js';
 import { prisma } from '../lib/prisma.js';
 import { asyncHandler } from '../utils/async-handler.js';
+import { partialUpdate } from '../utils/partial-update.js';
 
 export const remindersRouter = Router();
 remindersRouter.use(requireAuth);
@@ -28,7 +29,7 @@ const createReminderSchema = z.object({
   enabled: z.coerce.boolean().default(true),
 });
 
-const updateReminderSchema = createReminderSchema.partial();
+const updateReminderSchema = partialUpdate(createReminderSchema);
 
 const reminderIdSchema = z.object({
   reminderId: z.coerce.number().int().positive(),

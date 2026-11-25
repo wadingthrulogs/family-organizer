@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/require-auth.js';
 import { prisma } from '../lib/prisma.js';
 import { generateNextAssignment, generateAllPendingAssignments } from '../services/chore-rotation.js';
 import { asyncHandler } from '../utils/async-handler.js';
+import { partialUpdate } from '../utils/partial-update.js';
 
 export const choresRouter = Router();
 choresRouter.use(requireAuth);
@@ -30,7 +31,7 @@ const createChoreSchema = z.object({
   active: z.coerce.boolean().default(true),
 });
 
-const updateChoreSchema = createChoreSchema.partial();
+const updateChoreSchema = partialUpdate(createChoreSchema);
 
 const choreIdParamsSchema = z.object({
   choreId: z.coerce.number().int().positive(),

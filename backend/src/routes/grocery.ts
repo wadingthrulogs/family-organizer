@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/require-auth.js';
 import { prisma } from '../lib/prisma.js';
 import { asyncHandler } from '../utils/async-handler.js';
+import { partialUpdate } from '../utils/partial-update.js';
 import { parseBulkLine } from '../utils/parse-bulk-line.js';
 
 export const groceryRouter = Router();
@@ -24,7 +25,7 @@ const createListSchema = z.object({
   isActive: z.coerce.boolean().default(true),
 });
 
-const updateListSchema = createListSchema.partial();
+const updateListSchema = partialUpdate(createListSchema);
 
 const listIdSchema = z.object({
   listId: z.coerce.number().int().positive(),
@@ -43,7 +44,7 @@ const createItemSchema = z.object({
   notes: z.string().trim().max(500).nullable().optional(),
 });
 
-const updateItemSchema = createItemSchema.partial();
+const updateItemSchema = partialUpdate(createItemSchema);
 
 const itemParamsSchema = z.object({
   listId: z.coerce.number().int().positive(),

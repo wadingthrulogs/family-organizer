@@ -25,7 +25,7 @@ const createChoreSchema = z.object({
   frequency: z.string().trim().min(1).max(50),
   interval: z.coerce.number().int().min(1).max(30).default(1),
   eligibleUserIds: z.array(z.coerce.number().int().positive()).min(1),
-  weightMap: z.record(z.coerce.number().int().positive()).nullable().optional(),
+  weightMap: z.record(z.string(), z.coerce.number().int().positive()).nullable().optional(),
   rewardPoints: z.coerce.number().int().min(0).max(100).default(0),
   active: z.coerce.boolean().default(true),
 });

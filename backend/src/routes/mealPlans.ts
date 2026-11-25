@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/require-auth.js';
 import { prisma } from '../lib/prisma.js';
 import { asyncHandler } from '../utils/async-handler.js';
+import { partialUpdate } from '../utils/partial-update.js';
 import { parseBulkLine } from '../utils/parse-bulk-line.js';
 
 export const mealPlansRouter = Router();
@@ -40,7 +41,7 @@ const createRecipeSchema = z.object({
     .default([]),
 });
 
-const updateRecipeSchema = createRecipeSchema.partial();
+const updateRecipeSchema = partialUpdate(createRecipeSchema);
 
 const createPlanSchema = z.object({
   title: z.string().trim().max(160).nullable().optional(),
@@ -60,7 +61,7 @@ const createEntrySchema = z.object({
   notes: z.string().trim().max(500).nullable().optional(),
 });
 
-const updateEntrySchema = createEntrySchema.partial();
+const updateEntrySchema = partialUpdate(createEntrySchema);
 
 const sendToGrocerySchema = z.object({
   groceryListId: z.coerce.number().int().positive(),

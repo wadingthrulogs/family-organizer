@@ -39,6 +39,28 @@ describe('Grocery API', () => {
     expect(itemResponse.body.items[0].name).toBe('Milk');
   });
 
+  it('leaves omitted fields untouched on PATCH', async () => {
+    // Regression: Zod 4's .partial() still applies .default(), which would reset
+    // quantity/state on items and isActive on lists whenever a PATCH omits them.
+    const list = await prisma.groceryList.create({ data: { name: 'Pantry', isActive: false } });
+    const item = await prisma.groceryItem.create({
+      data: { listId: list.id, name: 'Beans', quantity: 4, state: 'IN_CART' },
+    });
+
+    await agent.patch(`/api/v1/grocery/lists/${list.id}`).send({ name: 'Pantry Renamed' }).expect(200);
+    await agent
+      .patch(`/api/v1/grocery/lists/${list.id}/items/${item.id}`)
+      .send({ name: 'Black Beans' })
+      .expect(200);
+
+    const updatedList = await prisma.groceryList.findUniqueOrThrow({ where: { id: list.id } });
+    expect(updatedList.isActive).toBe(false);
+    const updatedItem = await prisma.groceryItem.findUniqueOrThrow({ where: { id: item.id } });
+    expect(updatedItem.name).toBe('Black Beans');
+    expect(Number(updatedItem.quantity)).toBe(4);
+    expect(updatedItem.state).toBe('IN_CART');
+  });
+
   it('updates and deletes grocery resources', async () => {
     const list = await prisma.groceryList.create({ data: { name: 'Pantry' } });
     const item = await prisma.groceryItem.create({ data: { listId: list.id, name: 'Beans' } });

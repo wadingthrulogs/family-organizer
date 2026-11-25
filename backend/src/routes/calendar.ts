@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/require-auth.js';
 import { prisma } from '../lib/prisma.js';
 import { asyncHandler } from '../utils/async-handler.js';
+import { partialUpdate } from '../utils/partial-update.js';
 
 export const calendarRouter = Router();
 calendarRouter.use(requireAuth);
@@ -41,7 +42,7 @@ const createEventSchema = baseEventSchema.extend({
   sourceEventId: z.string().trim().max(120).optional(),
 });
 
-const updateEventSchema = createEventSchema.partial();
+const updateEventSchema = partialUpdate(createEventSchema);
 
 const eventIdSchema = z.object({
   eventId: z.coerce.number().int().positive(),

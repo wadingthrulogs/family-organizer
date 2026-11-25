@@ -5,12 +5,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     exclude: [...configDefaults.exclude, 'dist/**'],
+    // Test files share one SQLite database, so they must run one at a time.
+    // (Vitest 4 removed `poolOptions`; these are the equivalent settings.)
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        minThreads: 1,
-        maxThreads: 1,
-      },
-    },
+    maxWorkers: 1,
+    fileParallelism: false,
   },
 });
